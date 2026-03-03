@@ -1,7 +1,7 @@
 """Response generation pipeline: prompt building, LLM calls, refinement, and completion."""
 
-import time
 import threading
+import time
 from typing import Optional, Tuple
 
 import openai
