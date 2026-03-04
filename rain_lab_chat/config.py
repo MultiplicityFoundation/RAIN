@@ -59,8 +59,8 @@ class Config:
     api_key: str = os.environ.get("LM_STUDIO_API_KEY", "lm-studio")
     model_name: str = DEFAULT_MODEL_NAME
     max_tokens: int = int(os.environ.get("RAIN_MAX_TOKENS", "500"))
-    timeout: float = float(os.environ.get("RAIN_LM_TIMEOUT", "20"))
-    max_retries: int = 1
+    timeout: float = float(os.environ.get("RAIN_LM_TIMEOUT", "120"))
+    max_retries: int = int(os.environ.get("RAIN_MAX_RETRIES", "3"))
     recursive_intellect: bool = os.environ.get("RAIN_RECURSIVE_INTELLECT", "0") != "0"
     recursive_depth: int = int(os.environ.get("RAIN_RECURSIVE_DEPTH", "1"))
 

@@ -124,26 +124,28 @@ class VoiceEngine:
         if not text:
             return
 
-        if (not self.enabled or not self.engine) and not self._try_init_engine():
+        if pyttsx3 is None:
             self._speak_with_fallback(text, agent_name)
             return
 
+        # Re-create the engine for every call to avoid the Windows SAPI5 bug
+        # where runAndWait() silently fails on the second invocation.
         try:
+            engine = pyttsx3.init()
             target_voice = self._voice_for_agent(agent_name or "")
 
             if target_voice:
-                self.engine.setProperty("voice", target_voice)
+                engine.setProperty("voice", target_voice)
 
-            self.engine.say(text)
+            engine.say(text)
 
             # Blocks until the queue is empty so audio matches text output order
 
-            self.engine.runAndWait()
+            engine.runAndWait()
+            engine.stop()
 
         except Exception as e:
             self._safe_print(f"Voice playback failed: {e}")
-            self.enabled = False
-            self.engine = None
             self._speak_with_fallback(text, agent_name)
 
     def _speak_with_fallback(self, text: str, agent_name: Optional[str]) -> None:
