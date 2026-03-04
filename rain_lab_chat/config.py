@@ -14,6 +14,7 @@ def _parse_env_csv(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
     parsed = tuple(part.strip() for part in raw.split(",") if part.strip())
     return parsed or default
 
+
 DEFAULT_LIBRARY_PATH = str(Path(__file__).resolve().parent.parent)
 
 DEFAULT_MODEL_NAME = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-coder-7b-instruct")
@@ -46,6 +47,7 @@ DEFAULT_PAPER_TITLE_ALLOWLIST = _parse_env_csv(
         "Temporal Re-Localization via Scalar Resonance",
     ),
 )
+
 
 @dataclass
 class Config:

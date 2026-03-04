@@ -17,6 +17,7 @@ from rain_lab_chat.guardrails import (
 # Prompt construction
 # ---------------------------------------------------------------------------
 
+
 def build_style_instruction(agent: Agent, prev_speaker: str) -> str:
     """Choose a conversational style based on the agent's agreeableness."""
     if agent.agreeableness < 0.3:
@@ -43,6 +44,7 @@ def build_style_instruction(agent: Agent, prev_speaker: str) -> str:
         f"- Extend their idea in a new direction"
     )
 
+
 def build_user_message(
     agent: Agent,
     recent_chat: str,
@@ -58,7 +60,7 @@ def build_user_message(
             f"RECENT DISCUSSION:\n{recent_chat}\n\n"
             f"{style}\n\n"
             f"=== CRITICAL RULES (MUST FOLLOW) ===\n"
-            f"1. YOU ARE {agent.name.upper()} - Never speak as another person or quote what others \"would say\"\n"
+            f'1. YOU ARE {agent.name.upper()} - Never speak as another person or quote what others "would say"\n'
             f"2. DO NOT REPEAT phrases others just said - use completely different wording\n"
             f"3. ADVANCE the discussion - raise a NEW point, question, or angle not yet discussed\n"
             f"4. Focus on YOUR specialty: {agent.focus}\n"
@@ -90,9 +92,11 @@ def build_user_message(
 
     return msg
 
+
 # ---------------------------------------------------------------------------
 # LLM call with retry
 # ---------------------------------------------------------------------------
+
 
 def call_llm_with_retry(
     client: openai.OpenAI,
@@ -147,11 +151,11 @@ def call_llm_with_retry(
             if response is None:
                 raise RuntimeError("LLM call failed without response payload")
             content = response.choices[0].message.content.strip()
-            finish_reason = getattr(response.choices[0], 'finish_reason', None)
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
             return content, finish_reason
 
         except TimeoutError:
-            print(f"\n⏱️  Timeout (attempt {attempt+1}/{retries})")
+            print(f"\n⏱️  Timeout (attempt {attempt + 1}/{retries})")
             if attempt < retries - 1:
                 print("   Retrying in 2 seconds...")
                 time.sleep(2)
@@ -162,7 +166,7 @@ def call_llm_with_retry(
                 return None, None
 
         except openai.APITimeoutError:
-            print(f"\n⏱️  Timeout (attempt {attempt+1}/{retries})")
+            print(f"\n⏱️  Timeout (attempt {attempt + 1}/{retries})")
             if attempt < retries - 1:
                 print("   Retrying in 2 seconds...")
                 time.sleep(2)
@@ -173,7 +177,7 @@ def call_llm_with_retry(
                 return None, None
 
         except openai.APIConnectionError:
-            print(f"\n❌ Connection Lost (attempt {attempt+1}/{retries})")
+            print(f"\n❌ Connection Lost (attempt {attempt + 1}/{retries})")
             if attempt < retries - 1:
                 print("   Retrying in 3 seconds...")
                 time.sleep(3)
@@ -197,9 +201,11 @@ def call_llm_with_retry(
 
     return None, None
 
+
 # ---------------------------------------------------------------------------
 # Post-processing pipeline
 # ---------------------------------------------------------------------------
+
 
 def fix_repeated_intro(
     client: openai.OpenAI,
@@ -213,7 +219,8 @@ def fix_repeated_intro(
         return content
 
     corrected, _ = call_llm_with_retry(
-        client, config,
+        client,
+        config,
         system_content=f"{agent.soul}\n\n### RESEARCH DATABASE\n{context_block}",
         user_content=(
             "You are in mid-meeting, not opening the session. "
@@ -225,6 +232,7 @@ def fix_repeated_intro(
         max_retries=1,
     )
     return corrected if corrected else content
+
 
 def refine_response(
     client: openai.OpenAI,
@@ -243,7 +251,8 @@ def refine_response(
 
         # Critique pass
         critique_text, _ = call_llm_with_retry(
-            client, config,
+            client,
+            config,
             system_content=f"You are a strict research editor for {agent.name}.",
             user_content=(
                 "Review this draft and return a compact critique with exactly 3 bullets: "
@@ -260,7 +269,8 @@ def refine_response(
 
         # Revision pass
         revised, _ = call_llm_with_retry(
-            client, config,
+            client,
+            config,
             system_content=f"{agent.soul}\n\n### RESEARCH DATABASE\n{context_block}",
             user_content=(
                 f"Revise this response as {agent.name} using critique below. "
@@ -279,6 +289,7 @@ def refine_response(
 
     return content
 
+
 def handle_truncation(
     client: openai.OpenAI,
     config: Config,
@@ -288,18 +299,17 @@ def handle_truncation(
 ) -> str:
     """Attempt to complete a truncated response."""
     is_truncated = finish_reason == "length" or (
-        content
-        and not content.endswith(('.', '!', '?', '"', "'", ')'))
-        and len(content) > 50
+        content and not content.endswith((".", "!", "?", '"', "'", ")")) and len(content) > 50
     )
 
     if not is_truncated:
         return content
 
-    print("(completing...)", end=' ', flush=True)
+    print("(completing...)", end=" ", flush=True)
     try:
         cont_text, _ = call_llm_with_retry(
-            client, config,
+            client,
+            config,
             system_content=f"{agent.soul}",
             user_content=f"Complete this thought in ONE sentence. Keep it brief:\n\n{content}",
             max_retries=1,
@@ -314,9 +324,11 @@ def handle_truncation(
 
     return complete_truncated(content)
 
+
 # ---------------------------------------------------------------------------
 # Wrap-up instructions
 # ---------------------------------------------------------------------------
+
 
 def get_wrap_up_instruction(agent: Agent, topic: str) -> str:
     """Get wrap-up phase instructions for each agent to close the meeting naturally."""

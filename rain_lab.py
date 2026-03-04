@@ -435,6 +435,19 @@ def build_godot_client_command(args: argparse.Namespace, repo_root: Path) -> lis
     candidate_bins: list[str] = []
     if args.godot_client_bin:
         candidate_bins.append(args.godot_client_bin)
+
+    # Auto-discover binary downloaded by godot_setup.py
+    godot_runtime_dir = repo_root / ".godot_runtime"
+    if godot_runtime_dir.is_dir():
+        for child in sorted(godot_runtime_dir.iterdir(), reverse=True):
+            if child.name.startswith("godot_v") and child.is_file():
+                candidate_bins.append(str(child))
+                break
+        # macOS app bundle
+        macos_bin = godot_runtime_dir / "Godot.app" / "Contents" / "MacOS" / "Godot"
+        if macos_bin.exists():
+            candidate_bins.append(str(macos_bin))
+
     candidate_bins.extend(["godot4", "godot"])
 
     for candidate in candidate_bins:
@@ -762,6 +775,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{ANSI_GREEN}UI auto: Godot avatars available; launching visual mode.{ANSI_RESET}")
         else:
             print(f"{ANSI_DIM}UI auto: Godot UI unavailable; running CLI chat mode.{ANSI_RESET}")
+            print(f"{ANSI_DIM}  Tip: run 'python godot_setup.py' to download the Godot runtime for visual avatars.{ANSI_RESET}")
 
     log_path = _resolve_launcher_log_path(args, repo_root)
     _append_launcher_event(

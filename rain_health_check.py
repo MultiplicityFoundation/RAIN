@@ -241,6 +241,19 @@ def _check_lm_studio(timeout_s: float) -> tuple[CheckResult, CheckResult]:
 def _resolve_godot_executable() -> str | None:
     preferred = (os.environ.get("RAIN_GODOT_BIN") or "").strip()
     candidates = [preferred] if preferred else []
+
+    # Auto-discover binary downloaded by godot_setup.py
+    repo_root = Path(__file__).resolve().parent
+    godot_runtime_dir = repo_root / ".godot_runtime"
+    if godot_runtime_dir.is_dir():
+        for child in sorted(godot_runtime_dir.iterdir(), reverse=True):
+            if child.name.startswith("godot_v") and child.is_file():
+                candidates.append(str(child))
+                break
+        macos_bin = godot_runtime_dir / "Godot.app" / "Contents" / "MacOS" / "Godot"
+        if macos_bin.exists():
+            candidates.append(str(macos_bin))
+
     candidates.extend(["godot4", "godot"])
 
     for candidate in candidates:

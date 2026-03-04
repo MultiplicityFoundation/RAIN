@@ -62,6 +62,9 @@ secret.key
 logs/
 *.log
 
+# Godot runtime (downloaded by godot_setup.py)
+.godot_runtime/
+
 # Build artifacts (Rust)
 target/
 

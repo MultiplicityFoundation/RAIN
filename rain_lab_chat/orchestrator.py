@@ -1,4 +1,4 @@
-﻿"""Main meeting orchestrator with citation tracking and error handling."""
+"""Main meeting orchestrator with citation tracking and error handling."""
 
 import glob
 import os
@@ -24,7 +24,21 @@ try:
 except ImportError:
     MetricsTracker = None
 
-from graph_bridge import HypergraphManager
+try:
+    from graph_bridge import HypergraphManager
+except ImportError:
+
+    class HypergraphManager:
+        """No-op stub when graph_bridge is not installed."""
+
+        def __init__(self, **_kw):
+            pass
+
+        def build(self):
+            pass
+
+        def query(self, **_kw):
+            return None
 from rain_lab_chat._sanitize import RE_WEB_SEARCH_COMMAND
 from rain_lab_chat.agents import Agent, RainLabAgentFactory
 from rain_lab_chat.citations import CitationAnalyzer
@@ -49,7 +63,6 @@ from rain_lab_chat.web_search import DDG_AVAILABLE, WebSearchManager
 
 
 class RainLabOrchestrator:
-
     """Main orchestrator with enhanced citation tracking and error handling"""
 
     def __init__(self, config: Config):
@@ -88,7 +101,6 @@ class RainLabOrchestrator:
         # LLM client with extended timeout for large context processing
 
         try:
-
             import httpx
 
             # Allow configurable read timeout for slower local models / larger contexts
@@ -96,29 +108,15 @@ class RainLabOrchestrator:
             connect_timeout = min(15.0, self.config.timeout)
 
             custom_timeout = httpx.Timeout(
-
                 connect_timeout,
-
                 read=self.config.timeout,
-
                 write=connect_timeout,
-
                 connect=connect_timeout,
-
             )
 
-            self.client = openai.OpenAI(
-
-                base_url=config.base_url, 
-
-                api_key=config.api_key,
-
-                timeout=custom_timeout
-
-            )
+            self.client = openai.OpenAI(base_url=config.base_url, api_key=config.api_key, timeout=custom_timeout)
 
         except Exception as e:
-
             print(f"❌ Failed to initialize OpenAI client: {e}")
 
             sys.exit(1)
@@ -178,7 +176,6 @@ class RainLabOrchestrator:
         return {"mode": "synthetic", "duration_ms": duration_ms}
 
     def get_last_meeting_summary(self) -> str:
-
         """Load the tail of the newest archived meeting summary."""
 
         archive_pattern = os.path.join("meeting_archives", "*.md")
@@ -186,41 +183,28 @@ class RainLabOrchestrator:
         archive_files = glob.glob(archive_pattern)
 
         if not archive_files:
-
             return ""
 
         newest_file = max(archive_files, key=os.path.getmtime)
 
         try:
-
             with open(newest_file, "r", encoding="utf-8") as f:
-
                 return f.read()[-2000:]
 
         except Exception as e:
-
             print(f"⚠️  Failed to load meeting archive '{newest_file}': {e}")
 
             return ""
 
     def test_connection(self) -> bool:
-
         """Test LM Studio connection with retry"""
 
         print(f"\n🔌 Testing connection to blacksite at {self.config.base_url}...")
 
         for attempt in range(3):
-
             try:
-
                 response = self.client.chat.completions.create(
-
-                    model=self.config.model_name,
-
-                    messages=[{"role": "user", "content": "test"}],
-
-                    max_tokens=5
-
+                    model=self.config.model_name, messages=[{"role": "user", "content": "test"}], max_tokens=5
                 )
 
                 print("   ✓ Connection successful!\n")
@@ -228,19 +212,15 @@ class RainLabOrchestrator:
                 return True
 
             except openai.APITimeoutError:
-
-                print(f"   ⏱️  Timeout (attempt {attempt+1}/3)")
+                print(f"   ⏱️  Timeout (attempt {attempt + 1}/3)")
 
                 if attempt < 2:
-
                     time.sleep(2)
 
             except Exception as e:
-
                 print(f"   ✗ Connection failed: {e}")
 
                 if attempt == 2:
-
                     print("\n💡 Troubleshooting:")
 
                     print("   1. Is LM Studio running?")
@@ -254,13 +234,11 @@ class RainLabOrchestrator:
                     print("   5. Try clicking 'Reload Model' in LM Studio\n")
 
                 else:
-
                     time.sleep(2)
 
         return False
 
     def _animate_spinner(self, label: str, duration: float = 0.9, color: str = "\033[96m"):
-
         """Display short terminal feedback for an active step."""
 
         if not sys.stdout.isatty():
@@ -274,7 +252,6 @@ class RainLabOrchestrator:
         index = 0
 
         while time.time() < end_time:
-
             frame = frames[index % len(frames)]
 
             print(f"\r{color}{frame} {label}\033[0m", end="", flush=True)
@@ -286,19 +263,15 @@ class RainLabOrchestrator:
         print(f"\r{color}OK {label}\033[0m{' ' * 18}")
 
     def run_meeting(self, topic: str):
-
         """Run the research meeting"""
 
         # UTF-8 setup
 
-        if sys.stdout.encoding != 'utf-8':
-
+        if sys.stdout.encoding != "utf-8":
             try:
-
-                sys.stdout.reconfigure(encoding='utf-8')
+                sys.stdout.reconfigure(encoding="utf-8")
 
             except Exception:  # Some runtimes lack reconfigure()
-
                 pass
 
         # Header - 3D block ASCII Banner
@@ -318,7 +291,6 @@ class RainLabOrchestrator:
         # Test connection
 
         if not self.test_connection():
-
             return
 
         # Load context
@@ -326,27 +298,21 @@ class RainLabOrchestrator:
         verbose = self.config.verbose
 
         if verbose:
-
             print("🔍 Scanning for Research Papers...")
 
         else:
-
             print("🔍 Scanning research library...", end="", flush=True)
 
         context_block, paper_list = self.context_manager.get_library_context(verbose=verbose)
 
         if not verbose:
-
             if paper_list:
-
                 print(f"\r\033[K\033[92m✓\033[0m Scanned {len(paper_list)} papers")
 
             else:
-
                 print(f"\r\033[K\033[91m✗\033[0m No papers found.")
 
         if not paper_list:
-
             print("\n❌ No papers found. Cannot proceed.")
 
             return
@@ -362,17 +328,11 @@ class RainLabOrchestrator:
         self.metrics_tracker = None
 
         if MetricsTracker is not None:
-
             self.metrics_tracker = MetricsTracker(
-
                 session_id=str(uuid.uuid4())[:8],
-
                 topic=topic,
-
                 model=self.config.model_name,
-
                 recursive_depth=self.config.recursive_depth,
-
             )
 
             self.metrics_tracker.set_corpus(self.context_manager.loaded_papers)
@@ -380,19 +340,15 @@ class RainLabOrchestrator:
         # Load agent souls from external files
 
         if verbose:
-
             print("\n🧠 Loading Agent Souls...")
 
         else:
-
             print("🧠 Loading agents...", end="", flush=True)
 
         for agent in self.team:
-
             agent.load_soul(self.config.library_path, verbose=verbose)
 
         if not verbose:
-
             print(f"\r\033[K\033[92m✓\033[0m Agents ready")
 
         # Perform web search for supplementary context
@@ -400,21 +356,17 @@ class RainLabOrchestrator:
         web_context = ""
 
         if self.web_search_manager.enabled:
-
             if not verbose:
-
                 print("🌐 Searching web...", end="", flush=True)
 
             web_context, results = self.web_search_manager.search(topic, verbose=verbose)
 
             if not verbose:
-
                 count = len(results) if results else 0
 
                 print(f"\r\033[K\033[92m✓\033[0m Web search ({count} results)")
 
         elif self.config.enable_web_search and not DDG_AVAILABLE and verbose:
-
             print("\n⚠️  Web search disabled: duckduckgo-search not installed")
 
             print("   Install with: pip install duckduckgo-search\n")
@@ -424,7 +376,6 @@ class RainLabOrchestrator:
         full_context = context_block
 
         if web_context:
-
             full_context = context_block + "\n\n" + web_context
 
         # Store for use in agent responses
@@ -434,7 +385,6 @@ class RainLabOrchestrator:
         previous_meeting_summary = self.get_last_meeting_summary()
 
         if previous_meeting_summary:
-
             self.full_context += "\n### PREVIOUS MEETING CONTEXT\n" + previous_meeting_summary
 
         # Initialize log
@@ -449,7 +399,9 @@ class RainLabOrchestrator:
         turn_count = 0
         effective_max_turns = max(self.config.max_turns, len(self.team))
         if effective_max_turns != self.config.max_turns:
-            print(f"\033[90m   Note: raised max turns to {effective_max_turns} so every agent can speak at least once.\033[0m")
+            print(
+                f"\033[90m   Note: raised max turns to {effective_max_turns} so every agent can speak at least once.\033[0m"
+            )
 
         print(f"\n🚀 TEAM MEETING")
 
@@ -460,7 +412,7 @@ class RainLabOrchestrator:
         discussion_turns = max(0, effective_max_turns - self.config.wrap_up_turns)
         print(f"💡 Meeting will wrap up after {discussion_turns} discussion turns\n")
 
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         kickoff_agent = next((member for member in self.team if member.name == "James"), self.team[0])
         kickoff_message = (
@@ -482,11 +434,9 @@ class RainLabOrchestrator:
         wrap_up_start_turn = max(0, effective_max_turns - self.config.wrap_up_turns)
 
         while turn_count < effective_max_turns:
-
             external_message = self.diplomat.check_inbox()
 
             if external_message:
-
                 print(f"\n\033[93m{external_message}\033[0m")
 
                 history_log.append(external_message)
@@ -494,14 +444,13 @@ class RainLabOrchestrator:
             # Check if we should enter wrap-up phase
 
             if not in_wrap_up and turn_count >= wrap_up_start_turn:
-
                 in_wrap_up = True
 
-                print("\n" + "="*70)
+                print("\n" + "=" * 70)
 
                 print("📋 MEETING WRAP-UP PHASE")
 
-                print("="*70 + "\n")
+                print("=" * 70 + "\n")
 
             current_agent = self.team[turn_count % len(self.team)]
 
@@ -511,7 +460,7 @@ class RainLabOrchestrator:
 
             print(f"\n{current_agent.color}▶ {current_agent.name}'s turn ({current_agent.role})\033[0m")
 
-            print("\033[90m   [Press ENTER to speak, or wait...]\033[0m", end='', flush=True)
+            print("\033[90m   [Press ENTER to speak, or wait...]\033[0m", end="", flush=True)
 
             # Cross-platform: check for keypress during brief window
 
@@ -520,23 +469,18 @@ class RainLabOrchestrator:
             start_time = time.time()
 
             while time.time() - start_time < intervention_window:
-
                 if msvcrt and msvcrt.kbhit():  # Windows
-
                     key = msvcrt.getch()
 
                     user_wants_to_speak = True
 
                     break
 
-                elif sys.platform != 'win32':  # Unix/Linux/Mac
-
+                elif sys.platform != "win32":  # Unix/Linux/Mac
                     try:
-
                         r, _, _ = select.select([sys.stdin], [], [], 0)
 
                         if r:
-
                             sys.stdin.readline()
 
                             user_wants_to_speak = True
@@ -544,37 +488,30 @@ class RainLabOrchestrator:
                             break
 
                     except Exception:
-
                         pass
 
                 time.sleep(0.05)  # Small sleep to prevent CPU spinning
 
-            print("\r" + " " * 50 + "\r", end='')  # Clear the "Press ENTER" prompt
+            print("\r" + " " * 50 + "\r", end="")  # Clear the "Press ENTER" prompt
 
             # Handle user intervention
 
             if user_wants_to_speak:
-
                 print(f"\n\033[97m🎤 FOUNDER INTERVENTION (type 'done' to resume, 'quit' to end):\033[0m")
 
                 while True:
-
                     try:
-
                         user_input = input("🎤 FOUNDER: ").strip()
 
-                        if user_input.lower() in ['done', 'continue', 'resume', '']:
-
+                        if user_input.lower() in ["done", "continue", "resume", ""]:
                             print("\n\033[90m▶ Resuming automatic discussion...\033[0m\n")
 
                             break
 
-                        elif user_input.lower() in ['quit', 'exit', 'stop']:
-
+                        elif user_input.lower() in ["quit", "exit", "stop"]:
                             print("\n👋 Meeting ended by FOUNDER.")
 
                             if self.metrics_tracker is not None:
-
                                 self.metrics_tracker.finalize()
 
                             self.log_manager.finalize_log(self._generate_final_stats())
@@ -583,7 +520,6 @@ class RainLabOrchestrator:
                             return
 
                         else:
-
                             print(f"\n\033[97m💬 [FOUNDER]: {user_input}\033[0m\n")
 
                             self.log_manager.log_statement("FOUNDER", user_input)
@@ -591,7 +527,6 @@ class RainLabOrchestrator:
                             history_log.append(f"FOUNDER: {user_input}")
 
                     except (EOFError, KeyboardInterrupt):
-
                         print("\n\033[90m▶ Resuming automatic discussion...\033[0m\n")
 
                         break
@@ -599,19 +534,7 @@ class RainLabOrchestrator:
             # 2. Generate Response
 
             response, metadata = self._generate_agent_response(
-
-                current_agent, 
-
-                self.full_context, 
-
-                history_log, 
-
-                turn_count, 
-
-                topic,
-
-                is_wrap_up=in_wrap_up
-
+                current_agent, self.full_context, history_log, turn_count, topic, is_wrap_up=in_wrap_up
             )
 
             if response is None:
@@ -627,28 +550,21 @@ class RainLabOrchestrator:
             # 3. Analyze Citations
 
             if self.config.enable_citation_tracking:
-
-                citation_analysis = self.citation_analyzer.analyze_response(
-
-                    current_agent.name, 
-
-                    response
-
-                )
+                citation_analysis = self.citation_analyzer.analyze_response(current_agent.name, response)
 
                 metadata = citation_analysis
 
-                current_agent.citations_made += len(citation_analysis['verified'])
+                current_agent.citations_made += len(citation_analysis["verified"])
 
             # 4. Output - Clean up any duplicate name prefixes from the response
 
             clean_response = self._strip_agent_prefix(response, current_agent.name)
 
-            print(f"\n{current_agent.color}{'─'*70}")
+            print(f"\n{current_agent.color}{'─' * 70}")
 
             print(f"{current_agent.name}: {clean_response}")
 
-            print(f"{'─'*70}\033[0m")
+            print(f"{'─' * 70}\033[0m")
 
             spoken_text = f"{current_agent.name}: {clean_response}"
             if self.config.emit_visual_events:
@@ -668,27 +584,21 @@ class RainLabOrchestrator:
                 )
 
             self.voice_engine.speak(
-
                 spoken_text,
-
                 agent_name=current_agent.name,
-
             )
 
             search_match = RE_WEB_SEARCH_COMMAND.search(clean_response)
 
             if search_match:
-
                 query = search_match.group(1).strip()
 
                 if query:
-
                     print(f"\033[94m🌐 Active Web Search requested: {query}\033[0m")
 
                     web_note, web_results = self.web_search_manager.search(query, verbose=verbose)
 
                     if web_note:
-
                         print("\033[94m📎 Web Search Result:\033[0m")
 
                         print(web_note)
@@ -696,7 +606,6 @@ class RainLabOrchestrator:
                         history_log.append(f"SYSTEM: Web search for '{query}'\n{web_note}")
 
                     else:
-
                         no_result_note = f"No web results returned for query: {query}"
 
                         print(f"\033[94m📎 Web Search Result: {no_result_note}\033[0m")
@@ -704,18 +613,15 @@ class RainLabOrchestrator:
                         history_log.append(f"SYSTEM: {no_result_note}")
 
                     if web_results:
-
                         self.full_context += f"\n\n### LIVE WEB SEARCH\nQuery: {query}\n{web_note}"
 
             # Show citation feedback
 
-            if metadata and metadata.get('verified'):
-
+            if metadata and metadata.get("verified"):
                 print(f"\033[90m   ✓ {len(metadata['verified'])} citation(s) verified\033[0m")
 
-                for quote, source in metadata['verified'][:1]:  # Show first citation
-
-                    print(f"\033[90m      • \"{quote[:60]}...\" [from {source}]\033[0m")
+                for quote, source in metadata["verified"][:1]:  # Show first citation
+                    print(f'\033[90m      • "{quote[:60]}..." [from {source}]\033[0m')
 
             # 5. Log
 
@@ -726,22 +632,17 @@ class RainLabOrchestrator:
             # 6. Record eval metrics for this turn
 
             if self.metrics_tracker is not None:
-
-                self.metrics_tracker.record_turn(
-
-                    current_agent.name, response, metadata
-
-                )
+                self.metrics_tracker.record_turn(current_agent.name, response, metadata)
 
             turn_count += 1
 
         # Meeting officially closed
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
         print("👋 MEETING ADJOURNED")
 
-        print("="*70)
+        print("=" * 70)
 
         print("\n\033[92mJames: Alright team, great discussion today! Let's reconvene soon.\033[0m")
 
@@ -750,7 +651,6 @@ class RainLabOrchestrator:
         # Finalize
 
         if self.metrics_tracker is not None:
-
             self.metrics_tracker.finalize()
 
         stats = self._generate_final_stats()
@@ -758,11 +658,11 @@ class RainLabOrchestrator:
         self.log_manager.finalize_log(stats)
         self._end_visual_conversation()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
         print(stats)
 
-        print("="*70)
+        print("=" * 70)
 
         print(f"\n✅ Session saved to: {self.log_manager.log_path}\n")
 
@@ -776,7 +676,7 @@ class RainLabOrchestrator:
         is_wrap_up: bool = False,
     ) -> Tuple[Optional[str], Optional[Dict]]:
         """Generate agent response: build prompt, call LLM, refine, validate."""
-        recent_chat = "\n".join(history_log[-self.config.recent_history_window:]) if history_log else "[Meeting Start]"
+        recent_chat = "\n".join(history_log[-self.config.recent_history_window :]) if history_log else "[Meeting Start]"
 
         # Choose mission
         if is_wrap_up:
@@ -805,7 +705,11 @@ class RainLabOrchestrator:
         # Call LLM with retry
         for attempt in range(self.config.max_retries):
             content, finish_reason = call_llm_with_retry(
-                self.client, self.config, system_msg, user_msg, max_retries=1,
+                self.client,
+                self.config,
+                system_msg,
+                user_msg,
+                max_retries=1,
             )
             if content is None:
                 if attempt < self.config.max_retries - 1:
@@ -815,22 +719,35 @@ class RainLabOrchestrator:
             # Guardrail: fix repeated intro on later James turns
             if turn_count >= 1 and agent.name == "James":
                 content = fix_repeated_intro(
-                    self.client, self.config, agent, content, context_block,
+                    self.client,
+                    self.config,
+                    agent,
+                    content,
+                    context_block,
                 )
 
             # Recursive self-reflection
             content = refine_response(
-                self.client, self.config, agent, content, context_block,
+                self.client,
+                self.config,
+                agent,
+                content,
+                context_block,
                 metrics_tracker=self.metrics_tracker,
             )
 
             # Identity cleanup
             from rain_lab_chat.guardrails import clean_identity
+
             content = clean_identity(content, agent.name)
 
             # Handle truncation
             content = handle_truncation(
-                self.client, self.config, agent, content, finish_reason,
+                self.client,
+                self.config,
+                agent,
+                content,
+                finish_reason,
             )
 
             # Corruption check
@@ -840,6 +757,7 @@ class RainLabOrchestrator:
                 if attempt < self.config.max_retries - 1:
                     print("   Regenerating...")
                     import time as _t
+
                     _t.sleep(1)
                     continue
                 else:
@@ -890,9 +808,7 @@ class RainLabOrchestrator:
                 "If the papers cannot quantify those, we should separate what is formally supported from what is speculative."
             ),
         }
-        default_text = (
-            f"for '{topic}', let's extract one concrete, testable claim from each relevant paper before we add new assumptions."
-        )
+        default_text = f"for '{topic}', let's extract one concrete, testable claim from each relevant paper before we add new assumptions."
         body = by_agent.get(agent.name, default_text)
         return f"{handoff}{body}"
 
@@ -922,7 +838,6 @@ class RainLabOrchestrator:
         """Delegate to guardrails.strip_agent_prefix."""
         return strip_agent_prefix(response, agent_name)
 
+
 # --- CLI INTERFACE ---
 # --- CLI INTERFACE ---
-
-

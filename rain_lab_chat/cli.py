@@ -9,15 +9,11 @@ from rain_lab_chat.orchestrator import RainLabOrchestrator
 
 
 def parse_args():
-
     """Parse command line arguments"""
 
     parser = argparse.ArgumentParser(
-
         description="R.A.I.N. LAB - Research",
-
         formatter_class=argparse.RawDescriptionHelpFormatter,
-
         epilog="""
 
 Examples:
@@ -28,232 +24,113 @@ Examples:
 
   python rain_lab_v31_production.py --temp 0.3 --topic "entanglement"
 
-        """
+        """,
+    )
 
+    parser.add_argument("--library", type=str, default=DEFAULT_LIBRARY_PATH, help="Path to research library folder")
+
+    parser.add_argument("--topic", type=str, help="Research topic (if not provided, will prompt)")
+
+    parser.add_argument(
+        "--model", type=str, default=DEFAULT_MODEL_NAME, help=f"LM Studio model name (default: {DEFAULT_MODEL_NAME})"
     )
 
     parser.add_argument(
-
-        '--library',
-
+        "--base-url",
         type=str,
-
-        default=DEFAULT_LIBRARY_PATH,
-
-        help='Path to research library folder'
-
-    )
-
-    parser.add_argument(
-
-        '--topic',
-
-        type=str,
-
-        help='Research topic (if not provided, will prompt)'
-
-    )
-
-    parser.add_argument(
-
-        '--model',
-
-        type=str,
-
-        default=DEFAULT_MODEL_NAME,
-
-        help=f"LM Studio model name (default: {DEFAULT_MODEL_NAME})"
-
-    )
-
-    parser.add_argument(
-
-        '--base-url',
-
-        type=str,
-
         default=os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
-
-        help='LM Studio OpenAI-compatible base URL'
-
+        help="LM Studio OpenAI-compatible base URL",
     )
 
-    parser.add_argument(
-
-        '--temp',
-
-        type=float,
-
-        default=0.4,
-
-        help='LLM temperature (0.0-1.0, default: 0.4)'
-
-    )
+    parser.add_argument("--temp", type=float, default=0.4, help="LLM temperature (0.0-1.0, default: 0.4)")
 
     parser.add_argument(
-
-        '--recursive-depth',
-
+        "--recursive-depth",
         type=int,
-
         default=int(os.environ.get("RAIN_RECURSIVE_DEPTH", "1")),
-
-        help='Internal self-reflection passes per response (default: 1)'
-
+        help="Internal self-reflection passes per response (default: 1)",
     )
 
     parser.add_argument(
-
-        '--no-recursive-intellect',
-
-        action='store_true',
-
-        help='Disable recursive self-reflection refinement'
-
+        "--no-recursive-intellect", action="store_true", help="Disable recursive self-reflection refinement"
     )
 
     parser.add_argument(
-
-        '--recursive-library-scan',
-
-        action='store_true',
-
-        help='Recursively scan nested folders in the research library'
-
+        "--recursive-library-scan", action="store_true", help="Recursively scan nested folders in the research library"
     )
 
     parser.add_argument(
-
-        '--no-recursive-library-scan',
-
-        action='store_true',
-
-        help='Scan only top-level files in the research library (default)'
-
+        "--no-recursive-library-scan",
+        action="store_true",
+        help="Scan only top-level files in the research library (default)",
     )
 
+    parser.add_argument("--max-turns", type=int, default=25, help="Maximum conversation turns (default: 25)")
+
     parser.add_argument(
-
-        '--max-turns',
-
+        "--max-tokens",
         type=int,
-
-        default=25,
-
-        help='Maximum conversation turns (default: 25)'
-
-    )
-
-    parser.add_argument(
-
-        '--max-tokens',
-
-        type=int,
-
         default=int(os.environ.get("RAIN_MAX_TOKENS", "120")),
-
-        help='Max tokens per response (default: 120)'
-
+        help="Max tokens per response (default: 120)",
     )
 
     parser.add_argument(
-
-        '--timeout',
-
+        "--timeout",
         type=float,
-
         default=float(os.environ.get("RAIN_LM_TIMEOUT", "180")),
+        help="LLM read timeout in seconds (default: 180)",
+    )
 
-        help='LLM read timeout in seconds (default: 180)'
+    parser.add_argument("--no-web", action="store_true", help="Disable DuckDuckGo web search")
 
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed loading output (papers, souls, web search)"
     )
 
     parser.add_argument(
-
-        '--no-web',
-
-        action='store_true',
-
-        help='Disable DuckDuckGo web search'
-
+        "--emit-visual-events",
+        action="store_true",
+        help="Write neutral conversation events for Godot/WebSocket bridge clients",
     )
 
     parser.add_argument(
-
-        '--verbose', '-v',
-
-        action='store_true',
-
-        help='Show detailed loading output (papers, souls, web search)'
-
+        "--no-emit-visual-events",
+        action="store_true",
+        help="Disable neutral visual event output even if env enables it",
     )
 
     parser.add_argument(
-
-        '--emit-visual-events',
-
-        action='store_true',
-
-        help='Write neutral conversation events for Godot/WebSocket bridge clients'
-
-    )
-
-    parser.add_argument(
-
-        '--no-emit-visual-events',
-
-        action='store_true',
-
-        help='Disable neutral visual event output even if env enables it'
-
-    )
-
-    parser.add_argument(
-
-        '--visual-events-log',
-
+        "--visual-events-log",
         type=str,
-
         default=os.environ.get("RAIN_VISUAL_EVENTS_LOG", "meeting_archives/godot_events.jsonl"),
-
-        help='Path (relative to --library or absolute) for JSONL event output'
-
+        help="Path (relative to --library or absolute) for JSONL event output",
     )
 
     parser.add_argument(
-
-        '--tts-audio-dir',
-
+        "--tts-audio-dir",
         type=str,
-
         default=os.environ.get("RAIN_TTS_AUDIO_DIR", "meeting_archives/tts_audio"),
-
-        help='Directory (relative to --library or absolute) for per-turn TTS audio files'
-
+        help="Directory (relative to --library or absolute) for per-turn TTS audio files",
     )
 
     parser.add_argument(
-
-        '--no-export-tts-audio',
-
-        action='store_true',
-
-        help='Disable per-turn TTS file export (keeps spoken audio behavior unchanged)'
-
+        "--no-export-tts-audio",
+        action="store_true",
+        help="Disable per-turn TTS file export (keeps spoken audio behavior unchanged)",
     )
 
     args, unknown = parser.parse_known_args()
 
     if unknown:
-
         print(f"⚠️ Ignoring unrecognized args: {' '.join(unknown)}")
 
     return args
 
+
 # --- ENTRY POINT ---
 
-def main():
 
+def main():
     """Main entry point"""
 
     args = parse_args()
@@ -261,11 +138,9 @@ def main():
     recursive_library_scan = DEFAULT_RECURSIVE_LIBRARY_SCAN
 
     if args.recursive_library_scan:
-
         recursive_library_scan = True
 
     if args.no_recursive_library_scan:
-
         recursive_library_scan = False
 
     emit_visual_events = os.environ.get("RAIN_VISUAL_EVENTS", "0") == "1"
@@ -286,55 +161,39 @@ def main():
     # Create config from args
 
     config = Config(
-
         library_path=args.library,
-
         temperature=args.temp,
-
         max_turns=args.max_turns,
-
         max_tokens=args.max_tokens,
-
         enable_web_search=not args.no_web,
-
         verbose=args.verbose,
-
         model_name=args.model,
-
         base_url=args.base_url,
-
         timeout=max(30.0, args.timeout),
-
         recursive_depth=max(1, args.recursive_depth),
-
         recursive_intellect=not args.no_recursive_intellect,
-
         recursive_library_scan=recursive_library_scan,
         emit_visual_events=emit_visual_events,
         visual_events_log=args.visual_events_log,
         export_tts_audio=export_tts_audio,
         tts_audio_dir=args.tts_audio_dir,
-
     )
 
     # Get topic
 
     if args.topic:
-
         topic = args.topic
 
     else:
-
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
         print("R.A.I.N. LAB - RESEARCH FOCUS")
 
-        print("="*70)
+        print("=" * 70)
 
         topic = input("\n🔬 Research Topic: ").strip()
 
     if not topic:
-
         print("❌ No topic provided. Exiting.")
 
         sys.exit(1)
@@ -345,6 +204,6 @@ def main():
 
     orchestrator.run_meeting(topic)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     main()

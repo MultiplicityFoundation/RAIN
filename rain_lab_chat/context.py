@@ -38,7 +38,6 @@ TITLE_TOKEN_RE = re.compile(r"[A-Za-z]+(?:[-'][A-Za-z]+)?")
 
 
 class ContextManager:
-
     """Reads and manages research paper context - FULL PAPER MODE"""
 
     def __init__(self, config: Config):
@@ -56,7 +55,9 @@ class ContextManager:
         self.offset_keys: List[int] = []
 
         self.paper_list: List[str] = []
-        self.paper_title_allowlist = {title.strip().casefold() for title in config.paper_title_allowlist if title.strip()}
+        self.paper_title_allowlist = {
+            title.strip().casefold() for title in config.paper_title_allowlist if title.strip()
+        }
 
     def _has_obvious_paper_title(self, path: Path) -> bool:
         """Allow only human-readable title-style paper filenames."""
@@ -96,7 +97,6 @@ class ContextManager:
         return any(tag in tokens for tag in EXCLUDE_TAGS)
 
     def _discover_files(self) -> List[Path]:
-
         """Discover candidate research files, optionally including nested directories."""
 
         skip_dirs = set(self.config.library_exclude_dirs)
@@ -106,31 +106,25 @@ class ContextManager:
         candidates = []
 
         if self.config.recursive_library_scan:
-
             for root, dirs, files in os.walk(self.lab_path):
-
                 # Prune skip_dirs in-place to prevent traversing them
 
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
 
                 for file in files:
-
                     # 1. Fast suffix check (string op, no object creation)
 
                     name_lower = file.lower()
 
                     if not name_lower.endswith(allowed_suffixes):
-
                         continue
 
                     # 2. Check exclusions
 
                     if self._has_excluded_tag(Path(file)):
-
                         continue
 
                     if file in skip_dirs:
-
                         continue
 
                     candidate = Path(root) / file
@@ -138,13 +132,10 @@ class ContextManager:
                         candidates.append(candidate)
 
         else:
-
             # Non-recursive scan (top-level only)
 
             for f in self.lab_path.iterdir():
-
                 if not f.is_file():
-
                     continue
 
                 name = f.name
@@ -152,15 +143,12 @@ class ContextManager:
                 name_lower = name.lower()
 
                 if not name_lower.endswith(allowed_suffixes):
-
                     continue
 
                 if name in skip_dirs:
-
                     continue
 
                 if self._has_excluded_tag(f):
-
                     continue
 
                 if self._has_obvious_paper_title(f):
@@ -169,7 +157,6 @@ class ContextManager:
         return sorted(candidates)[: self.config.max_library_files]
 
     def get_library_context(self, verbose: bool = False) -> Tuple[str, List[str]]:
-
         """Read COMPLETE papers from local library"""
 
         # Ensure repeated calls don't keep stale/duplicated state.
@@ -185,11 +172,9 @@ class ContextManager:
         self.paper_list = []
 
         if verbose:
-
             print(f"\n📂 Accessing Research Library at: {self.lab_path}")
 
         if not self.lab_path.exists():
-
             print(f"❌ Library path does not exist: {self.lab_path}")
 
             return "Library not accessible.", []
@@ -201,19 +186,16 @@ class ContextManager:
         all_files = self._discover_files()
 
         if verbose:
-
             scope = "recursive" if self.config.recursive_library_scan else "top-level"
 
             print(f"   • Scan mode: {scope}; files discovered: {len(all_files)}")
 
         if not all_files:
-
             print("⚠️  No research papers found in library.")
 
             return "No research papers found in library.", []
 
         if verbose:
-
             print(f"   ✓ Found {len(all_files)} papers.\n")
 
         total_chars = 0
@@ -223,11 +205,8 @@ class ContextManager:
         index_parts = []
 
         for filepath in all_files:
-
             try:
-
-                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-
+                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
 
                     # Store FULL content for citation verification
@@ -253,7 +232,6 @@ class ContextManager:
                     remaining_budget = self.config.total_context_length - total_chars
 
                     if remaining_budget > 1000:
-
                         # SANITIZE CONTENT before adding to prompt
 
                         safe_content = sanitize_text(content)
@@ -267,21 +245,16 @@ class ContextManager:
                         # Show what percentage of paper was loaded
 
                         if verbose:
-
                             coverage = (to_include / len(content)) * 100 if len(content) > 0 else 100
 
                             print(f"     ✓ Loaded: {paper_ref} ({to_include:,} chars, {coverage:.0f}% coverage)")
 
                     else:
-
                         if verbose:
-
                             print(f"     ⚠ Skipped {paper_ref} (budget exhausted)")
 
             except Exception as e:
-
                 if verbose:
-
                     print(f"     ✗ Error reading {filepath.name}: {e}")
 
                 continue
@@ -295,7 +268,6 @@ class ContextManager:
         combined = "\n".join(buffer)
 
         if verbose:
-
             print(f"\n   📊 Total context loaded: {len(combined):,} characters")
 
             print(f"   📊 Papers with full coverage: {len([p for p in self.loaded_papers.keys()])}")
@@ -303,7 +275,6 @@ class ContextManager:
         return combined, self.paper_list
 
     def verify_citation(self, quote: str, fuzzy: bool = True) -> Optional[str]:
-
         """Verify if a quote exists in loaded papers using global index"""
 
         quote_clean = quote.strip().lower()
@@ -311,29 +282,22 @@ class ContextManager:
         # Skip very short quotes
 
         if len(quote_clean.split()) < 3:
-
             return None
 
         windows_to_check = []
 
         if fuzzy:
-
             quote_words = quote_clean.split()
 
             if len(quote_words) > 3:
-
                 # Check multiple word windows for better matching
 
                 # Try first 5 words, then first 8, then middle section
 
                 raw_windows = [
-
                     " ".join(quote_words[:5]),
-
                     " ".join(quote_words[:8]) if len(quote_words) >= 8 else None,
-
                     " ".join(quote_words[2:7]) if len(quote_words) >= 7 else None,
-
                 ]
 
                 # Filter out None values once
@@ -341,7 +305,6 @@ class ContextManager:
                 windows_to_check = [w for w in raw_windows if w]
 
         else:
-
             windows_to_check = [quote_clean]
 
         # Use global index search
@@ -349,21 +312,17 @@ class ContextManager:
         best_offset = -1
 
         for window in windows_to_check:
-
             # Find earliest occurrence in global index
 
             idx = self.global_context_index.find(window)
 
             if idx != -1:
-
                 # If we found a match, check if it's earlier than previous matches
 
                 if best_offset == -1 or idx < best_offset:
-
                     best_offset = idx
 
         if best_offset != -1:
-
             # Map offset to paper using binary search
 
             # bisect_right returns insertion point to maintain order
@@ -371,9 +330,9 @@ class ContextManager:
             paper_idx = bisect.bisect_right(self.offset_keys, best_offset) - 1
 
             if 0 <= paper_idx < len(self.context_offsets):
-
                 return self.context_offsets[paper_idx][1]
 
         return None
+
 
 # --- WEB SEARCH MANAGER ---

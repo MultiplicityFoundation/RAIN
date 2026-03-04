@@ -13,6 +13,7 @@ DDG_PACKAGE = None
 DDGS = None
 try:
     from ddgs import DDGS
+
     DDG_AVAILABLE = True
     DDG_PACKAGE = "ddgs"
 except ImportError:
@@ -29,12 +30,13 @@ except ImportError:
 SCRAPLING_AVAILABLE = False
 try:
     from scrapling.fetchers import StealthyFetcher
+
     SCRAPLING_AVAILABLE = True
 except ImportError:
     StealthyFetcher = None
 
-class WebSearchManager:
 
+class WebSearchManager:
     """Handles DuckDuckGo web searches for supplementary research context"""
 
     def __init__(self, config: Config):
@@ -50,13 +52,10 @@ class WebSearchManager:
         self.retry_delay = 2.0  # seconds between retries
 
     def search(self, query: str, verbose: bool = False) -> Tuple[str, List[Dict]]:
-
         """Search DuckDuckGo and return formatted results plus raw data"""
 
         if not self.enabled:
-
             if self.config.enable_web_search and verbose:
-
                 print(f"\n⚠️  Web search disabled: No DDG package installed")
 
                 print("   Install with: pip install ddgs")
@@ -66,79 +65,59 @@ class WebSearchManager:
         # Check cache
 
         if query in self.search_cache:
-
             if verbose:
-
                 print(f"\n🔄 Using cached web results for: '{query}'")
 
             return self._format_results(self.search_cache[query]), self.search_cache[query]
 
         if verbose:
-
             print(f"\n🌐 Searching web for: '{query}'...")
 
         # Retry loop with exponential backoff
 
         for attempt in range(self.max_retries):
-
             try:
-
                 results = []
 
                 # Suppress any deprecation warnings during search
 
                 with warnings.catch_warnings():
-
                     warnings.filterwarnings("ignore")
 
                     with DDGS() as ddgs:
-
                         for r in ddgs.text(query, max_results=self.config.web_search_results):
-
-                            results.append({
-
-                                'title': r.get('title', ''),
-
-                                'body': r.get('body', ''),
-
-                                'href': r.get('href', '')
-
-                            })
+                            results.append(
+                                {"title": r.get("title", ""), "body": r.get("body", ""), "href": r.get("href", "")}
+                            )
 
                 self.search_cache[query] = results
 
                 if results:
-
                     if verbose:
-
                         print(f"   ✓ Found {len(results)} web results")
 
                         for i, r in enumerate(results, 1):
-
-                            title_preview = r['title'][:60] + '...' if len(r['title']) > 60 else r['title']
+                            title_preview = r["title"][:60] + "..." if len(r["title"]) > 60 else r["title"]
 
                             print(f"      {i}. {title_preview}")
 
                     return self._format_results(results), results
 
                 else:
-
                     # No results but no error - may be rate limited or bad query
 
                     if attempt < self.max_retries - 1:
-
                         delay = self.retry_delay * (attempt + 1)
 
                         if verbose:
-
-                            print(f"   ⚠ No results (attempt {attempt + 1}/{self.max_retries}), retrying in {delay:.1f}s...")
+                            print(
+                                f"   ⚠ No results (attempt {attempt + 1}/{self.max_retries}), retrying in {delay:.1f}s..."
+                            )
 
                         time.sleep(delay)
 
                     else:
-
                         if verbose:
-
                             print(f"   ⚠ No web results found after {self.max_retries} attempts")
 
                             print("   💡 Possible causes: rate limiting, network issues, or overly specific query")
@@ -146,41 +125,32 @@ class WebSearchManager:
                         return "", []
 
             except Exception as e:
-
                 error_msg = str(e).lower()
 
                 # Identify specific error types for better messaging
 
                 if "ratelimit" in error_msg or "429" in error_msg:
-
                     reason = "Rate limited by DuckDuckGo"
 
                 elif "timeout" in error_msg:
-
                     reason = "Request timed out"
 
                 elif "connection" in error_msg or "network" in error_msg:
-
                     reason = "Network connection error"
 
                 else:
-
                     reason = str(e)
 
                 if attempt < self.max_retries - 1:
-
                     delay = self.retry_delay * (attempt + 1)
 
                     if verbose:
-
                         print(f"   ⚠ {reason} (attempt {attempt + 1}/{self.max_retries}), retrying in {delay:.1f}s...")
 
                     time.sleep(delay)
 
                 else:
-
                     if verbose:
-
                         print(f"   ⚠ Web search failed after {self.max_retries} attempts: {reason}")
 
                         print("   💡 Meeting will proceed with local papers only")
@@ -190,7 +160,6 @@ class WebSearchManager:
         return "", []
 
     def _sanitize_text(self, text: str) -> str:
-
         """Sanitize web content to prevent prompt injection and control token attacks"""
 
         return sanitize_text(text)
@@ -202,15 +171,15 @@ class WebSearchManager:
 
         formatted = ["\n### WEB SEARCH RESULTS (cite as [from web: title])"]
         for r in results:
-            safe_title = self._sanitize_text(r.get('title', ''))
-            safe_body = self._sanitize_text(r.get('body', ''))
+            safe_title = self._sanitize_text(r.get("title", ""))
+            safe_body = self._sanitize_text(r.get("body", ""))
             formatted.append(f"**{safe_title}**")
             formatted.append(f"{safe_body}")
             formatted.append(f"Source: {r.get('href', '')}\n")
 
         # Scrapling: fetch full page content from top result for richer context
         if SCRAPLING_AVAILABLE and results:
-            page_content = self._fetch_page_content(results[0].get('href', ''))
+            page_content = self._fetch_page_content(results[0].get("href", ""))
             if page_content:
                 formatted.append("### FULL PAGE CONTENT (top result)")
                 formatted.append(page_content)
@@ -245,9 +214,9 @@ class WebSearchManager:
             if len(clean_text) > max_chars:
                 # Truncate at last sentence boundary within budget
                 truncated = clean_text[:max_chars]
-                last_period = truncated.rfind('.')
+                last_period = truncated.rfind(".")
                 if last_period > max_chars * 0.5:
-                    truncated = truncated[:last_period + 1]
+                    truncated = truncated[: last_period + 1]
                 clean_text = truncated + "\n[...truncated]"
 
             return self._sanitize_text(clean_text)

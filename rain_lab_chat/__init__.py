@@ -14,12 +14,15 @@ from rain_lab_chat.web_search import WebSearchManager
 __all__ = [
     "sanitize_text",
     "Config",
-    "Agent", "RainLabAgentFactory",
+    "Agent",
+    "RainLabAgentFactory",
     "ContextManager",
     "WebSearchManager",
     "CitationAnalyzer",
     "RainLabDirector",
-    "LogManager", "VisualEventLogger", "Diplomat",
+    "LogManager",
+    "VisualEventLogger",
+    "Diplomat",
     "VoiceEngine",
     "RainLabOrchestrator",
 ]
