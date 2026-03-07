@@ -28,11 +28,12 @@ struct IncomingAttachment {
     kind: IncomingAttachmentKind,
 }
 
-/// The kind of incoming attachment (document vs photo).
+/// The kind of incoming attachment (document, photo, or audio).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IncomingAttachmentKind {
     Document,
     Photo,
+    Audio,
 }
 const TELEGRAM_BIND_COMMAND: &str = "/bind";
 
@@ -179,6 +180,9 @@ fn format_attachment_content(
     match kind {
         IncomingAttachmentKind::Photo if is_image_extension(local_path) => {
             format!("[IMAGE:{}]", local_path.display())
+        }
+        IncomingAttachmentKind::Audio => {
+            format!("[AUDIO:{}] {}", local_path.display(), local_filename)
         }
         _ => {
             format!("[Document: {}] {}", local_filename, local_path.display())
@@ -896,6 +900,27 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 file_size,
                 caption,
                 kind: IncomingAttachmentKind::Photo,
+            });
+        }
+
+        // Try audio (standalone audio file, not voice note)
+        if let Some(audio) = message.get("audio") {
+            let file_id = audio.get("file_id")?.as_str()?.to_string();
+            let file_name = audio
+                .get("file_name")
+                .and_then(serde_json::Value::as_str)
+                .map(String::from);
+            let file_size = audio.get("file_size").and_then(serde_json::Value::as_u64);
+            let caption = message
+                .get("caption")
+                .and_then(serde_json::Value::as_str)
+                .map(String::from);
+            return Some(IncomingAttachment {
+                file_id,
+                file_name,
+                file_size,
+                caption,
+                kind: IncomingAttachmentKind::Audio,
             });
         }
 
