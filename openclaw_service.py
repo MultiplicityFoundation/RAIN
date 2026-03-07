@@ -206,7 +206,8 @@ def handle_incoming_message(text: str) -> str:
             transcript = transcribe_audio_file(file_path)
             if transcript:
                 audio_transcriptions.append(transcript)
-            return ""  # strip the marker; text appended later
+                return ""  # strip the marker; text appended later
+            return match.group(0)  # preserve marker when transcription fails
 
         return match.group(0)
 
