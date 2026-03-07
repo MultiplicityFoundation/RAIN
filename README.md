@@ -11,6 +11,8 @@ This is designed for researchers, builders, and experimental
 AI developers who want a simple architecture for composing
 agents, modules, and tools without heavyweight frameworks.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/topherchris420/james_library)
+
 ## Autonomous Acoustic Physics and Resonance Research Platform
 
 <p align="center">
