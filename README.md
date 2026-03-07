@@ -1,4 +1,4 @@
-# Vers3Dynamics 🐙
+# Vers3Dynamics
 
 <p align="center">
   <img src="assets/rain_lab_logo.png" alt="R.A.I.N. Lab logo" width="900" />
@@ -246,4 +246,4 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Acknowledgement 
 
-James Library is proudly built on the foundation of ZeroClaw. Huge thanks to their team for creating such a high-performance, lightweight agent runtime that made this Vers3Dynamics project possible.
+The R.A.I.N. Lab is proudly built on the foundation of ZeroClaw. Huge thanks to their team for creating such a high-performance, lightweight agent runtime that made this Vers3Dynamics project possible.
