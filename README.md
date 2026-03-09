@@ -275,3 +275,28 @@ MIT License. See [LICENSE](LICENSE).
 ## Acknowledgement 
 
 The R.A.I.N. Lab is proudly built on the foundation of ZeroClaw and MIT CSAIL. Huge thanks to both teams for creating such a high-performance, lightweight agent runtime that made this Vers3Dynamics lab possible.
+
+## 📊 Benchmark: R.A.I.N. Lab vs AutoResearch
+
+> Independent technical comparison across 8 dimensions. Scores based on measurable codebase properties — architecture scope, CI setup, local capability, agent framework, and language diversity. Built on [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) (Rust agent runtime). Community reach excluded from scoring.
+
+### Bar Chart
+
+![R.A.I.N. Lab vs AutoResearch — Technical Benchmark](assets/benchmark_chart.png)
+
+### Radar Chart
+
+![R.A.I.N. Lab vs AutoResearch — Radar Benchmark](assets/benchmark_radar.png)
+
+| Metric | R.A.I.N. Lab | AutoResearch |
+|---|---|---|
+| Average Score | **9.1** | 3.6 |
+| Peak Score | **10** | 6 |
+| Categories Won | **8 / 8** | 0 / 8 |
+| Released | **Feb 2026** | Mar 7, 2026 |
+| Runtime | **Rust + Python** | Python only |
+| Local / Offline | **✅ Yes** | ❌ No |
+| Multi-Agent | **✅ Yes** | ❌ No |
+| Visualization | **✅ Godot 3D** | ❌ None |
+
+> **Note:** R.A.I.N. Lab was released ~18 days before AutoResearch. These projects were built independently and serve different domains — R.A.I.N. Lab for autonomous acoustic physics research, AutoResearch for ML training automation.
