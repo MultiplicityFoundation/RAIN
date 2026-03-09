@@ -73,6 +73,30 @@ def _launch_chat(repo_root: Path, topic: str) -> int:
     return subprocess.run(cmd, cwd=str(repo_root)).returncode
 
 
+def _check_embedded_zeroclaw(repo_root: Path) -> str:
+    try:
+        from rain_lab import probe_embedded_zeroclaw
+    except Exception as exc:
+        print(f"[first-run] Embedded ZeroClaw runtime check unavailable: {exc}")
+        return "missing"
+
+    probe = probe_embedded_zeroclaw(repo_root)
+    source = str(probe.get("source", "missing"))
+    resolved = probe.get("resolved")
+    if not probe.get("available"):
+        print("[first-run] Embedded ZeroClaw runtime is optional and not currently ready.")
+        print("  Install Rust or provide --zeroclaw-bin later if you want Rust-side ops like status, models, or gateway.")
+        return "missing"
+
+    if source == "cargo":
+        print("[first-run] Embedded ZeroClaw runtime available via cargo fallback.")
+        print("  The first Rust-side command may compile the runtime before it starts.")
+        return source
+
+    print(f"[first-run] Embedded ZeroClaw runtime ready ({source}: {resolved})")
+    return source
+
+
 def _check_godot(repo_root: Path) -> bool:
     """Check if Godot is available and offer to install if not."""
     try:
@@ -106,18 +130,30 @@ def _check_godot(repo_root: Path) -> bool:
         return False
 
 
-def _print_next_steps(topic: str, godot_available: bool) -> None:
+def _print_next_steps(topic: str, godot_available: bool, zeroclaw_status: str) -> None:
     if godot_available:
         step1 = f"python rain_lab.py --mode chat --ui auto --topic \"{topic}\""
         extra = ""
     else:
         step1 = f"python rain_lab.py --mode chat --topic \"{topic}\""
         extra = "  (optional: run 'python godot_setup.py' first for visual avatars)\n"
+    zeroclaw_steps = ""
+    if zeroclaw_status != "missing":
+        zeroclaw_steps = (
+            "  2. python rain_lab.py --mode status\n"
+            "  3. python rain_lab.py --mode models\n"
+        )
+        backup_step = "  4. python rain_lab.py --mode backup\n"
+        docs_step = "  5. Review docs/TROUBLESHOOTING.md if you hit runtime issues"
+    else:
+        backup_step = "  2. python rain_lab.py --mode backup\n"
+        docs_step = "  3. Review docs/TROUBLESHOOTING.md if you hit runtime issues"
     steps = (
         f"  1. {step1}\n"
         f"{extra}"
-        f"  2. python rain_lab.py --mode backup\n"
-        f"  3. Review docs/TROUBLESHOOTING.md if you hit runtime issues"
+        f"{zeroclaw_steps}"
+        f"{backup_step}"
+        f"{docs_step}"
     )
     if _RICH:
         print_panel("Next Steps", steps)
@@ -138,12 +174,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if result.returncode == 0:
         print(_green("[first-run] Preflight passed."))
+        zeroclaw_status = _check_embedded_zeroclaw(repo_root)
         godot_ok = _check_godot(repo_root)
         _mark_first_run_complete(repo_root)
         if args.launch_chat:
             print(_dim("[first-run] Launching chat..."))
             return _launch_chat(repo_root, args.topic)
-        _print_next_steps(args.topic, godot_ok)
+        _print_next_steps(args.topic, godot_ok, zeroclaw_status)
         return 0
 
     if result.returncode == 1:

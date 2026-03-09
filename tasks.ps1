@@ -29,7 +29,8 @@ function Show-Help {
     Write-Host "  build            " -NoNewline -ForegroundColor Green; Write-Host "Build Rust binary (release)"
     Write-Host "  run              " -NoNewline -ForegroundColor Green; Write-Host "Launch R.A.I.N. Lab chat mode"
     Write-Host "  preflight        " -NoNewline -ForegroundColor Green; Write-Host "Run environment preflight checks"
-    Write-Host "  health           " -NoNewline -ForegroundColor Green; Write-Host "Run local health check"
+    Write-Host "  health           " -NoNewline -ForegroundColor Green; Write-Host "Run launcher-native health snapshot"
+    Write-Host "  validate         " -NoNewline -ForegroundColor Green; Write-Host "Run full launcher-native readiness validation"
     Write-Host "  first-run        " -NoNewline -ForegroundColor Green; Write-Host "Run guided first-run onboarding"
     Write-Host "  check            " -NoNewline -ForegroundColor Green; Write-Host "Full quality gate (lint + test)"
     Write-Host "  clean            " -NoNewline -ForegroundColor Green; Write-Host "Remove build artifacts and caches"
@@ -58,7 +59,8 @@ function Invoke-Build         { & $Cargo build --release }
 
 function Invoke-Run           { & $Python rain_lab.py --mode chat }
 function Invoke-Preflight     { & $Python rain_lab.py --mode preflight }
-function Invoke-Health        { & $Python rain_health_check.py }
+function Invoke-Health        { & $Python rain_lab.py --mode health }
+function Invoke-Validate      { & $Python rain_lab.py --mode validate }
 function Invoke-FirstRun      { & $Python rain_lab.py --mode first-run }
 
 function Invoke-Check         { Invoke-Lint; Invoke-Test }
@@ -87,6 +89,7 @@ switch ($Command) {
     "run"         { Invoke-Run }
     "preflight"   { Invoke-Preflight }
     "health"      { Invoke-Health }
+    "validate"    { Invoke-Validate }
     "first-run"   { Invoke-FirstRun }
     "check"       { Invoke-Check }
     "clean"       { Invoke-Clean }

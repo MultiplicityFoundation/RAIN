@@ -7,8 +7,10 @@ import glob
 import io
 import os
 import sys
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
+from rain_lab import probe_embedded_zeroclaw
 from rain_lab_chat.doctor import diagnose_lm_studio
 
 # Force UTF-8 for Windows consoles
@@ -90,22 +92,23 @@ print_header("R.A.I.N. LAB PRE-FLIGHT CHECK")
 print(f"Target library: {LIBRARY_PATH}\n")
 
 all_checks_passed = True
+repo_root = Path(__file__).resolve().parent
 
 # =============================================================================
 # CHECK 1: LIBRARY PATH EXISTS
 # =============================================================================
-print(f"{BOLD}[1/7] Checking Library Path...{RESET}")
+print(f"{BOLD}[1/8] Checking Library Path...{RESET}")
 if os.path.exists(LIBRARY_PATH):
     print_success(f"Library path exists: {LIBRARY_PATH}")
 else:
     print_error(f"Library path NOT found: {LIBRARY_PATH}")
-    print_info("Create this directory or update LIBRARY_PATH in rain_lab_meeting.py")
+    print_info("Create this directory or set JAMES_LIBRARY_PATH before launching rain_lab.py")
     all_checks_passed = False
 
 # =============================================================================
 # CHECK 2: SOUL FILES
 # =============================================================================
-print(f"\n{BOLD}[2/7] Checking Soul Files...{RESET}")
+print(f"\n{BOLD}[2/8] Checking Soul Files...{RESET}")
 required_souls = ["JAMES_SOUL.md", "JASMINE_SOUL.md", "ELENA_SOUL.md", "LUCA_SOUL.md"]
 missing_souls = []
 
@@ -124,7 +127,7 @@ if missing_souls:
 # =============================================================================
 # CHECK 3: RESEARCH PAPERS
 # =============================================================================
-print(f"\n{BOLD}[3/7] Checking Research Papers...{RESET}")
+print(f"\n{BOLD}[3/8] Checking Research Papers...{RESET}")
 md_files = glob.glob(os.path.join(LIBRARY_PATH, "*.md"))
 txt_files = glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
 
@@ -154,7 +157,7 @@ else:
 # =============================================================================
 # CHECK 4: RLM LIBRARY
 # =============================================================================
-print(f"\n{BOLD}[4/7] Checking RLM Library...{RESET}")
+print(f"\n{BOLD}[4/8] Checking RLM Library...{RESET}")
 
 # Try multiple possible locations
 rlm_paths = [
@@ -194,7 +197,7 @@ elif not rlm_imported:
 # =============================================================================
 # CHECK 5: PYTHON DEPENDENCIES
 # =============================================================================
-print(f"\n{BOLD}[5/7] Checking Python Dependencies...{RESET}")
+print(f"\n{BOLD}[5/8] Checking Python Dependencies...{RESET}")
 
 dependency_groups = {
     "duckduckgo-search / ddgs": ["ddgs", "duckduckgo_search"],
@@ -218,9 +221,26 @@ for package_name, import_names in dependency_groups.items():
         all_checks_passed = False
 
 # =============================================================================
-# CHECK 6: LM STUDIO API
+# CHECK 6: EMBEDDED ZEROCLAW RUNTIME
 # =============================================================================
-print(f"\n{BOLD}[6/7] Checking LM Studio API...{RESET}")
+print(f"\n{BOLD}[6/8] Checking Embedded ZeroClaw Runtime...{RESET}")
+
+zeroclaw_probe = probe_embedded_zeroclaw(repo_root)
+zeroclaw_source = str(zeroclaw_probe.get("source", "missing"))
+zeroclaw_resolved = zeroclaw_probe.get("resolved")
+if zeroclaw_probe.get("available") and zeroclaw_source != "cargo":
+    print_success(f"Embedded ZeroClaw runtime ready ({zeroclaw_source}: {zeroclaw_resolved})")
+elif zeroclaw_probe.get("available") and zeroclaw_source == "cargo":
+    print_warning("Embedded ZeroClaw runtime available via cargo fallback")
+    print_info("Run 'python rain_lab.py --mode status' once to validate/build the Rust runtime")
+else:
+    print_warning("Embedded ZeroClaw runtime not currently available")
+    print_info("Python meeting flows still work; install Rust or provide --zeroclaw-bin to enable Rust-side modes")
+
+# =============================================================================
+# CHECK 7: LM STUDIO API
+# =============================================================================
+print(f"\n{BOLD}[7/8] Checking LM Studio API...{RESET}")
 
 base_url = os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
 configured_model = os.environ.get("LM_STUDIO_MODEL", "").strip()
@@ -252,9 +272,9 @@ else:
         print_info(action)
 
 # =============================================================================
-# CHECK 7: UTF-8 ENCODING TEST
+# CHECK 8: UTF-8 ENCODING TEST
 # =============================================================================
-print(f"\n{BOLD}[7/7] Testing UTF-8 Encoding...{RESET}")
+print(f"\n{BOLD}[8/8] Testing UTF-8 Encoding...{RESET}")
 
 test_chars = "ΨG π² μ η σ α β Ω"
 try:
@@ -274,6 +294,9 @@ if all_checks_passed:
     print(f"{GREEN}{BOLD}✓ ALL SYSTEMS GO{RESET}")
     print(f"\n{BLUE}Ready to launch R.A.I.N. Lab:{RESET}")
     print(f"  cd \"{LIBRARY_PATH}\"")
+    print("  python rain_lab.py --mode first-run")
+    print("  python rain_lab.py --mode status")
+    print("  python rain_lab.py --mode models")
     print("  python rain_lab.py --mode chat --topic \"your first research question\"")
     print("  python rain_lab.py --mode rlm --topic \"your first research question\"")
 else:
@@ -284,6 +307,7 @@ else:
     print(f"  • Install dependencies: pip install duckduckgo-search requests")
     print(f"  • Start LM Studio: Ensure it's running on port 1234")
     print(f"  • Copy soul files: Move JAMES_SOUL.md, etc. to {LIBRARY_PATH}")
+    print("  • Optional Rust runtime: install Rust and run python bootstrap_local.py --skip-preflight")
 
 print("\n")
 sys.exit(0 if all_checks_passed else 1)

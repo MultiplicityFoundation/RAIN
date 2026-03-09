@@ -9,6 +9,7 @@ if not exist "%VENV_PY%" (
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%REPO_ROOT%INSTALL_RAIN.ps1" -SkipPreflight
   if errorlevel 1 (
     echo [R.A.I.N. launcher] Installer failed.
+    echo [R.A.I.N. launcher] Tip: run INSTALL_RAIN.cmd again or use python rain_lab.py --mode validate after fixing Python.
     pause
     exit /b 1
   )
@@ -25,6 +26,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo.
   echo [R.A.I.N. launcher] Session ended with exit code %EXIT_CODE%.
+  echo [R.A.I.N. launcher] Tip: run R.A.I.N. Lab Validate or python rain_lab.py --mode validate.
   pause
 )
 exit /b %EXIT_CODE%

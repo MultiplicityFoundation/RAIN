@@ -38,6 +38,57 @@ def _run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=str(cwd), check=True)
 
 
+def _probe_embedded_zeroclaw(repo_root: Path) -> dict[str, object]:
+    try:
+        from rain_lab import probe_embedded_zeroclaw
+    except Exception as exc:
+        cargo_bin = shutil.which("cargo")
+        return {
+            "available": bool(cargo_bin),
+            "source": "cargo" if cargo_bin else "missing",
+            "resolved": cargo_bin,
+            "error": None if cargo_bin else str(exc),
+        }
+    return probe_embedded_zeroclaw(repo_root)
+
+
+def _ensure_embedded_zeroclaw(repo_root: Path, skip_build: bool) -> dict[str, object]:
+    probe = _probe_embedded_zeroclaw(repo_root)
+    if probe.get("available") and probe.get("source") != "cargo":
+        resolved = probe.get("resolved") or "runtime available"
+        print(f"[bootstrap] ZeroClaw runtime ready ({probe.get('source')}: {resolved})")
+        return probe
+
+    if skip_build:
+        if probe.get("available"):
+            print("[bootstrap] ZeroClaw runtime available via cargo fallback. Skipping explicit build.")
+        else:
+            print("[bootstrap] warning: ZeroClaw runtime unavailable. Rust launcher modes will require manual setup.")
+        return probe
+
+    cargo_bin = shutil.which("cargo")
+    if cargo_bin is None:
+        if not probe.get("available"):
+            print("[bootstrap] warning: cargo not found; skipping embedded ZeroClaw build.")
+        return probe
+
+    print("[bootstrap] preparing embedded ZeroClaw runtime...")
+    try:
+        _run([cargo_bin, "build", "--release", "--locked", "--bin", "zeroclaw"], cwd=repo_root)
+    except subprocess.CalledProcessError as exc:
+        print(f"[bootstrap] warning: failed to build embedded ZeroClaw runtime (exit code {exc.returncode}).")
+        print("[bootstrap] warning: Python flows are ready; Rust launcher modes may require manual build.")
+        return _probe_embedded_zeroclaw(repo_root)
+
+    probe = _probe_embedded_zeroclaw(repo_root)
+    if probe.get("available"):
+        resolved = probe.get("resolved") or "runtime available"
+        print(f"[bootstrap] ZeroClaw runtime ready ({probe.get('source')}: {resolved})")
+    else:
+        print("[bootstrap] warning: build completed but ZeroClaw runtime could not be resolved.")
+    return probe
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bootstrap a reproducible local R.A.I.N. Lab environment.")
     parser.add_argument(
@@ -64,6 +115,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--recreate-venv",
         action="store_true",
         help="Delete and recreate virtual environment if it already exists.",
+    )
+    parser.add_argument(
+        "--skip-zeroclaw-build",
+        action="store_true",
+        help="Skip preparing the embedded ZeroClaw Rust runtime during bootstrap.",
     )
     return parser.parse_args(argv)
 
@@ -94,12 +150,24 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_dev and dev_req is not None:
         _run([str(venv_python), "-m", "pip", "install", "-r", str(dev_req)], cwd=repo_root)
 
+    zeroclaw_probe = _ensure_embedded_zeroclaw(
+        repo_root,
+        skip_build=bool(args.skip_zeroclaw_build),
+    )
+
     if not args.skip_preflight:
         _run([str(venv_python), "rain_lab.py", "--mode", "preflight"], cwd=repo_root)
 
     print("\n[bootstrap] done")
     print(f"[bootstrap] activate env: {venv_dir}")
-    print("[bootstrap] run chat: python rain_lab.py --mode chat --topic \"your topic\"")
+    print("[bootstrap] validate stack: python rain_lab.py --mode validate")
+    if zeroclaw_probe.get("available"):
+        print("[bootstrap] runtime status: python rain_lab.py --mode status")
+        print("[bootstrap] model catalog: python rain_lab.py --mode models")
+    else:
+        print("[bootstrap] optional: install Rust or point --zeroclaw-bin at a prebuilt runtime to enable Rust-side modes")
+    print("[bootstrap] first-run guide: python rain_lab.py --mode first-run")
+    print("[bootstrap] run chat: python rain_lab.py --mode chat --ui auto --topic \"your topic\"")
     return 0
 
 

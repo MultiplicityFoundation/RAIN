@@ -5,28 +5,28 @@ cd /d "%REPO_ROOT%"
 
 set "VENV_PY=%REPO_ROOT%.venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
-  echo [R.A.I.N. health] Local environment missing. Running installer...
+  echo [R.A.I.N. validate] Local environment missing. Running installer...
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%REPO_ROOT%INSTALL_RAIN.ps1" -SkipPreflight
   if errorlevel 1 (
-    echo [R.A.I.N. health] Installer failed.
+    echo [R.A.I.N. validate] Installer failed.
     pause
     exit /b 1
   )
 )
 
 if not exist "%VENV_PY%" (
-  echo [R.A.I.N. health] Python runtime still missing at "%VENV_PY%".
+  echo [R.A.I.N. validate] Python runtime still missing at "%VENV_PY%".
   pause
   exit /b 1
 )
 
-"%VENV_PY%" "%REPO_ROOT%rain_lab.py" --mode health -- %*
+"%VENV_PY%" "%REPO_ROOT%rain_lab.py" --mode validate -- %*
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
 if "%EXIT_CODE%"=="0" (
-  echo [R.A.I.N. health] Completed.
+  echo [R.A.I.N. validate] Completed.
 ) else (
-  echo [R.A.I.N. health] One or more required checks failed (exit %EXIT_CODE%).
+  echo [R.A.I.N. validate] One or more readiness checks failed (exit %EXIT_CODE%).
 )
 pause
 exit /b %EXIT_CODE%

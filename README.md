@@ -82,11 +82,12 @@ graph TB
 
 ### Prerequisites
 
-- Rust 1.87+
-- Python 3.10+
+- Python 3.10+ (required)
+- LM Studio for the recommended local-first path
+- Rust 1.87+ (recommended for local ZeroClaw builds and development)
 - Optional: Miniconda for Python env management
 
-### 5-Minute LM Studio Path (Recommended)
+### Recommended Local-First Path (LM Studio)
 
 Linux/macOS:
 
@@ -100,22 +101,32 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\quickstart_lmstudio.ps1
 ```
 
-This path sets up a local virtual environment, installs dependencies, sets LM Studio defaults, and runs a health check.
+This path bootstraps `.venv`, installs Python dependencies, prepares the embedded ZeroClaw runtime when Cargo is available, and runs a launcher-native health snapshot.
 
-### Full Setup
+Canonical next steps:
+
+```bash
+python rain_lab.py --mode validate
+python rain_lab.py --mode first-run
+python rain_lab.py --mode status
+python rain_lab.py --mode models
+python rain_lab.py --mode chat --ui auto --topic "your research question"
+```
+
+If Rust or a prebuilt `zeroclaw` binary is not available yet, the Python research flows still work. Rust-side launcher modes become available after you install Rust or point `--zeroclaw-bin` at a prebuilt runtime.
+
+### Full Setup / Development
 
 ```bash
 git clone https://github.com/topherchris420/james_library.git
 cd james_library
 
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-cargo build --release
+python bootstrap_local.py
+cargo build --release --locked
+python rain_lab.py --mode first-run
 ```
 
-### Python Research Only
+### Python-First Research Flow
 
 ```bash
 python rain_lab.py --mode first-run
@@ -129,7 +140,22 @@ python rain_lab.py --mode rlm --topic "acoustic resonance phenomena"
 1) Double-click INSTALL_RAIN.cmd
 2) Wait for install to finish
 3) Double-click R.A.I.N. Lab from your Desktop or Start Menu
-4) On first launch, guided setup runs automatically and then opens chat
+4) Optional: run "R.A.I.N. Lab Validate" from the Start Menu for a full readiness check
+5) Optional: run "R.A.I.N. Lab Health Snapshot" for a quick one-screen status view
+6) On first launch, guided setup runs automatically and then opens chat
+```
+
+### Useful Launcher Modes
+
+```bash
+python rain_lab.py --mode health
+python rain_lab.py --mode validate
+python rain_lab.py --mode first-run
+python rain_lab.py --mode status
+python rain_lab.py --mode models
+python rain_lab.py --mode providers
+python rain_lab.py --mode onboard
+python rain_lab.py --mode gateway
 ```
 
 ---

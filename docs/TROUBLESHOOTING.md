@@ -2,9 +2,11 @@
 
 ## Quick triage
 
-1. Run `python rain_health_check.py` (or `RAIN_Lab_Health_Check.cmd` on Windows).
-2. Run `python rain_lab.py --mode preflight`.
-3. Confirm your Python is supported (`3.10+`).
+1. Run `python rain_lab.py --mode validate` (or `RAIN_Lab_Validate.cmd` on Windows).
+2. Run `python rain_lab.py --mode health` for the one-screen snapshot.
+3. Run `python rain_lab.py --mode preflight` if you want the detailed legacy diagnostic output.
+4. If you plan to use Rust-side operations, run `python rain_lab.py --mode status`.
+5. Confirm your Python is supported (`3.10+`).
 
 ## Common issues
 
@@ -56,7 +58,24 @@ Fix:
 - Use default output, or explicitly allow external output:
   - `RAIN_ALLOW_EXTERNAL_BACKUP_PATH=1`
 
-### 6) One-click installer or shortcut does nothing
+### 6) `status` or `models` says the embedded ZeroClaw runtime is unavailable
+
+Behavior:
+- `rain_lab.py` looks for a built `zeroclaw` binary in local `target` folders, `PATH`, and `~/.cargo/bin`.
+- If Cargo is available, the launcher can fall back to `cargo run`, which may compile the Rust runtime on first use.
+
+Fix:
+- Re-run bootstrap so it can prepare the runtime:
+  - `python bootstrap_local.py --skip-preflight`
+- Or build directly:
+  - `cargo build --release --locked --bin zeroclaw`
+- Or point the launcher at a prebuilt binary:
+  - `python rain_lab.py --mode status --zeroclaw-bin path/to/zeroclaw`
+- If you only need Python research flows, continue using:
+  - `python rain_lab.py --mode chat ...`
+  - `python rain_lab.py --mode rlm ...`
+
+### 7) One-click installer or shortcut does nothing
 
 Fix:
 - Right-click `INSTALL_RAIN.cmd` and choose "Run as administrator" once.
@@ -68,22 +87,25 @@ Fix:
   - `RAIN_Lab_Start.cmd`
   - `RAIN_Lab_Chat.cmd`
 
-### 7) Health check reports launcher log not found
+### 8) Health snapshot reports launcher log not found
 
 Behavior:
-- `rain_health_check.py` reads launcher events from `meeting_archives/launcher_events.jsonl`.
+- `python rain_lab.py --mode health` reads launcher events from `meeting_archives/launcher_events.jsonl`.
 - The file is created after you run `rain_lab.py` at least once.
 
 Fix:
 - Run one session: `python rain_lab.py --mode chat --topic "health-check seed"`
-- Then re-run health check:
-  - `RAIN_Lab_Health_Check.cmd`
-  - or `python rain_health_check.py`
+- Then re-run the health snapshot:
+  - `R.A.I.N. Lab Health Snapshot`
+  - or `python rain_lab.py --mode health`
 
 ## Verification commands
 
 - Preflight: `python rain_lab.py --mode preflight`
+- Full validation: `python rain_lab.py --mode validate`
+- One-screen health snapshot: `python rain_lab.py --mode health`
+- Embedded runtime: `python rain_lab.py --mode status`
+- Model status: `python rain_lab.py --mode models`
 - Backup: `python rain_lab.py --mode backup -- --json`
-- One-screen health check: `python rain_health_check.py`
 - Runtime healthcheck:
   - `python -c "from rain_lab_runtime import runtime_healthcheck; import json; print(json.dumps(runtime_healthcheck(), indent=2))"`

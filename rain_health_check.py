@@ -1,4 +1,4 @@
-"""One-screen local health check for R.A.I.N. Lab deployments."""
+"""One-screen local health snapshot for R.A.I.N. Lab deployments."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class CheckResult:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Local health check for R.A.I.N. Lab.")
+    parser = argparse.ArgumentParser(description="Local health snapshot for R.A.I.N. Lab.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON output.")
     parser.add_argument(
         "--timeout",
@@ -238,6 +238,51 @@ def _check_lm_studio(timeout_s: float) -> tuple[CheckResult, CheckResult]:
     return api_result, model_result
 
 
+def _check_embedded_zeroclaw(repo_root: Path) -> CheckResult:
+    try:
+        from rain_lab import probe_embedded_zeroclaw
+    except Exception as exc:
+        return CheckResult(
+            name="Embedded ZeroClaw Runtime",
+            status="warn",
+            summary="Unable to inspect embedded ZeroClaw runtime.",
+            details={"error": str(exc)},
+        )
+
+    probe = probe_embedded_zeroclaw(repo_root)
+    details = dict(probe)
+    source = str(probe.get("source", "missing"))
+    resolved = probe.get("resolved")
+
+    if not probe.get("available"):
+        return CheckResult(
+            name="Embedded ZeroClaw Runtime",
+            status="warn",
+            summary="Rust-side runtime not available; Python flows are still usable.",
+            details=details,
+        )
+
+    if source == "cargo":
+        return CheckResult(
+            name="Embedded ZeroClaw Runtime",
+            status="warn",
+            summary="Available via cargo fallback; first Rust-mode use may build the runtime.",
+            details=details,
+        )
+
+    if resolved:
+        resolved_name = Path(str(resolved)).name
+        summary = f"Runtime ready via {source} ({resolved_name})."
+    else:
+        summary = f"Runtime ready via {source}."
+    return CheckResult(
+        name="Embedded ZeroClaw Runtime",
+        status="pass",
+        summary=summary,
+        details=details,
+    )
+
+
 def _resolve_godot_executable() -> str | None:
     preferred = (os.environ.get("RAIN_GODOT_BIN") or "").strip()
     candidates = [preferred] if preferred else []
@@ -412,7 +457,7 @@ def _overall_status(results: list[CheckResult]) -> str:
 
 def _render_text(results: list[CheckResult], overall: str) -> str:
     lines = [
-        "R.A.I.N. Lab Health Check",
+        "R.A.I.N. Lab Health Snapshot",
         "=" * 70,
         f"Overall: {STATUS_LABEL.get(overall, overall.upper())}",
         "",
@@ -435,6 +480,13 @@ def _render_text(results: list[CheckResult], overall: str) -> str:
             endpoint = result.details.get("endpoint")
             if endpoint:
                 lines.append(f"  - Endpoint: {endpoint}")
+        if result.name == "Embedded ZeroClaw Runtime":
+            source = result.details.get("source")
+            resolved = result.details.get("resolved")
+            if source:
+                lines.append(f"  - Source: {source}")
+            if resolved:
+                lines.append(f"  - Resolved: {resolved}")
     return "\n".join(lines)
 
 
@@ -447,13 +499,14 @@ def run_health_check(
     log_path = _resolve_launcher_log_path(repo_root)
 
     lm_api_result, model_result = _check_lm_studio(timeout_s=timeout_s)
+    zeroclaw_result = _check_embedded_zeroclaw(repo_root)
     ui_result = _check_ui_stack(repo_root)
     launcher_result = _check_launcher_log(
         log_path=log_path,
         tail_lines=tail_lines,
         max_errors=max_errors,
     )
-    results = [lm_api_result, model_result, ui_result, launcher_result]
+    results = [lm_api_result, model_result, zeroclaw_result, ui_result, launcher_result]
     return _overall_status(results), results
 
 
@@ -470,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
             "overall_status": overall,
             "checks": [asdict(result) for result in results],
         }
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(payload, ensure_ascii=True, indent=2))
     else:
         print(_render_text(results, overall))
 

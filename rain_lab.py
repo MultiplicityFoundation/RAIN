@@ -47,6 +47,9 @@ ASCII_ART_LINES = [
 ]
 
 VALID_UI_MODES = {"auto", "on", "off"}
+ZEROCLAW_LAUNCHER_MODES = {"zeroclaw", "status", "providers", "models", "gateway", "daemon", "onboard"}
+NON_TOPIC_LAUNCHER_MODES = {"hello-os", "compile", "preflight", "health", "validate", "doctor", "backup", "first-run", "james-chat"} | ZEROCLAW_LAUNCHER_MODES
+QUIET_BANNER_MODES = {"health", "validate"}
 
 
 def _console_safe(text: str) -> str:
@@ -158,9 +161,29 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument(
         "--mode",
-        choices=["rlm", "chat", "james-chat", "godot", "hello-os", "compile", "preflight", "doctor", "backup", "first-run"],
+        choices=[
+            "rlm",
+            "chat",
+            "james-chat",
+            "godot",
+            "hello-os",
+            "compile",
+            "preflight",
+            "health",
+            "validate",
+            "doctor",
+            "backup",
+            "first-run",
+            "status",
+            "providers",
+            "models",
+            "gateway",
+            "daemon",
+            "onboard",
+            "zeroclaw",
+        ],
         default="chat",
-        help="Which engine to run: rlm (tool-exec), chat (multi-agent meeting), james-chat (1:1 with James via RLM), godot (chat + visual events), hello-os (single executable), compile (build knowledge artifacts), preflight (environment checks), doctor (LM Studio diagnostics), backup (local snapshot), or first-run (guided onboarding)",
+        help="Which engine to run: Python meeting modes, validation/health flows, or embedded ZeroClaw Rust modes such as status, providers, models, gateway, daemon, onboard, and zeroclaw passthrough.",
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
     parser.add_argument(
@@ -209,6 +232,12 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         type=str,
         default=None,
         help="Reserved for runtime integrations; ignored by meeting chat mode.",
+    )
+    parser.add_argument(
+        "--zeroclaw-bin",
+        type=str,
+        default=os.environ.get("RAIN_ZEROCLAW_BIN", ""),
+        help="Path or executable name for ZeroClaw Rust modes (defaults to RAIN_ZEROCLAW_BIN, then local target builds, then PATH).",
     )
     parser.add_argument(
         "--ui",
@@ -361,6 +390,18 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
         cmd.extend(passthrough)
         return cmd
 
+    if args.mode == "health":
+        target = repo_root / "rain_health_check.py"
+        cmd = [sys.executable, str(target)]
+        cmd.extend(passthrough)
+        return cmd
+
+    if args.mode == "validate":
+        target = repo_root / "rain_validate.py"
+        cmd = [sys.executable, str(target)]
+        cmd.extend(passthrough)
+        return cmd
+
     if args.mode == "doctor":
         target = repo_root / "rain_doctor.py"
         cmd = [sys.executable, str(target)]
@@ -376,6 +417,29 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
             cmd.extend(["--library", args.library])
         cmd.extend(passthrough)
         return cmd
+
+    if args.mode == "status":
+        return _build_zeroclaw_command(args, repo_root, ["status"], passthrough)
+
+    if args.mode == "providers":
+        return _build_zeroclaw_command(args, repo_root, ["providers"], passthrough)
+
+    if args.mode == "models":
+        model_args = passthrough if passthrough else ["status"]
+        return _build_zeroclaw_command(args, repo_root, ["models"], model_args)
+
+    if args.mode == "gateway":
+        return _build_zeroclaw_command(args, repo_root, ["gateway"], passthrough)
+
+    if args.mode == "daemon":
+        return _build_zeroclaw_command(args, repo_root, ["daemon"], passthrough)
+
+    if args.mode == "onboard":
+        return _build_zeroclaw_command(args, repo_root, ["onboard"], passthrough)
+
+    if args.mode == "zeroclaw":
+        zeroclaw_passthrough = passthrough if passthrough else ["--help"]
+        return _build_zeroclaw_command(args, repo_root, [], zeroclaw_passthrough)
 
     if args.mode == "hello-os":
         target = repo_root / "hello_os_executable.py"
@@ -467,6 +531,90 @@ def _resolve_executable(candidate: str) -> str | None:
         return None
 
     return shutil.which(text)
+
+
+def _zeroclaw_binary_name() -> str:
+    return "zeroclaw.exe" if os.name == "nt" else "zeroclaw"
+
+
+def probe_embedded_zeroclaw(repo_root: Path, zeroclaw_bin: str | None = None) -> dict[str, object]:
+    binary_name = _zeroclaw_binary_name()
+    candidate_bins = [
+        ((zeroclaw_bin or "").strip(), "override"),
+        (str(repo_root / "target" / "release" / binary_name), "release"),
+        (str(repo_root / "target" / "release-fast" / binary_name), "release-fast"),
+        (str(repo_root / "target" / "debug" / binary_name), "debug"),
+        (binary_name, "path"),
+        (str(Path.home() / ".cargo" / "bin" / binary_name), "cargo-home"),
+    ]
+    seen: set[str] = set()
+    for candidate, source in candidate_bins:
+        key = candidate.lower() if os.name == "nt" else candidate
+        if not candidate or key in seen:
+            continue
+        seen.add(key)
+        resolved = _resolve_executable(candidate)
+        if resolved:
+            return {
+                "available": True,
+                "source": source,
+                "resolved": resolved,
+                "command": [resolved],
+                "error": None,
+            }
+
+    cargo_bin = _resolve_executable("cargo")
+    if cargo_bin:
+        return {
+            "available": True,
+            "source": "cargo",
+            "resolved": cargo_bin,
+            "command": [
+                cargo_bin,
+                "run",
+                "--release",
+                "--manifest-path",
+                str(repo_root / "Cargo.toml"),
+                "--",
+            ],
+            "error": None,
+        }
+
+    return {
+        "available": False,
+        "source": "missing",
+        "resolved": None,
+        "command": [],
+        "error": (
+            "ZeroClaw binary not found, and cargo is unavailable for an automatic fallback build. "
+            "Build it with 'cargo build --release', install it with 'cargo install --path . --locked', "
+            "or point rain_lab.py to it with --zeroclaw-bin."
+        ),
+    }
+
+
+def resolve_embedded_zeroclaw_command(repo_root: Path, zeroclaw_bin: str | None = None) -> list[str]:
+    probe = probe_embedded_zeroclaw(repo_root, zeroclaw_bin=zeroclaw_bin)
+    if probe.get("available"):
+        return list(probe.get("command", []))
+    raise FileNotFoundError(str(probe.get("error") or "ZeroClaw runtime unavailable."))
+
+
+def _resolve_zeroclaw_command(args: argparse.Namespace, repo_root: Path) -> list[str]:
+    return resolve_embedded_zeroclaw_command(repo_root, zeroclaw_bin=(args.zeroclaw_bin or "").strip())
+
+
+def _build_zeroclaw_command(
+    args: argparse.Namespace,
+    repo_root: Path,
+    zeroclaw_args: list[str],
+    passthrough: list[str] | None = None,
+) -> list[str]:
+    cmd = _resolve_zeroclaw_command(args, repo_root)
+    cmd.extend(zeroclaw_args)
+    if passthrough:
+        cmd.extend(passthrough)
+    return cmd
 
 
 def build_godot_client_command(args: argparse.Namespace, repo_root: Path) -> list[str] | None:
@@ -817,20 +965,29 @@ def main(argv: list[str] | None = None) -> int:
     args, passthrough = parse_args(argv)
     repo_root = Path(__file__).resolve().parent
 
-    _print_banner()
+    if args.mode not in QUIET_BANNER_MODES:
+        _print_banner()
 
     # Show quick mode overview on first interaction
-    if not args.topic and "-h" not in passthrough and "--help" not in passthrough:
+    if args.mode not in NON_TOPIC_LAUNCHER_MODES and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
         print(f"{ANSI_DIM}  Modes:  --mode chat        Multi-agent research meeting (default){ANSI_RESET}")
         print(f"{ANSI_DIM}          --mode james-chat   1:1 conversation with James via RLM{ANSI_RESET}")
         print(f"{ANSI_DIM}          --mode godot        Chat + Godot visual avatars{ANSI_RESET}")
         print(f"{ANSI_DIM}          --mode preflight    Environment health checks{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode health       One-screen system snapshot{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode validate     Full readiness validation{ANSI_RESET}")
         print(f"{ANSI_DIM}          --mode doctor       LM Studio diagnostics and repair hints{ANSI_RESET}")
         print(f"{ANSI_DIM}          --mode first-run    Guided onboarding{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode status       ZeroClaw runtime status{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode providers    ZeroClaw provider catalog{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode models       ZeroClaw model catalog/status{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode gateway      ZeroClaw web gateway{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode onboard      ZeroClaw setup wizard{ANSI_RESET}")
+        print(f"{ANSI_DIM}          --mode zeroclaw     Direct passthrough to embedded Rust CLI{ANSI_RESET}")
         print(f"{ANSI_DIM}          Run with --help for all options{ANSI_RESET}")
 
     # Interactive prompt if topic is missing (and not asking for help)
-    if args.mode not in {"hello-os", "compile", "preflight", "doctor", "backup", "first-run", "james-chat"} and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
+    if args.mode not in NON_TOPIC_LAUNCHER_MODES and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
         print(f"\n{ANSI_YELLOW}Research Topic needed.{ANSI_RESET}")
         print(f"{ANSI_DIM}Example: 'Guarino paper', 'Quantum Resonance', 'The nature of time'{ANSI_RESET}")
         try:
@@ -911,8 +1068,9 @@ def main(argv: list[str] | None = None) -> int:
             _append_launcher_event(log_path, "launcher_failed", phase="sidecar_launch", error=str(exc))
             raise
 
-    _spinner("Booting VERS3DYNAMICS R.A.I.N. Lab launcher")
-    print(f"{ANSI_CYAN}Launching mode={effective_args.mode}...{ANSI_RESET}", flush=True)
+    if effective_args.mode not in QUIET_BANNER_MODES:
+        _spinner("Booting VERS3DYNAMICS R.A.I.N. Lab launcher")
+        print(f"{ANSI_CYAN}Launching mode={effective_args.mode}...{ANSI_RESET}", flush=True)
     _append_launcher_event(
         log_path,
         "session_launch",
