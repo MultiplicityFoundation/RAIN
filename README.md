@@ -1,8 +1,17 @@
-# Vers3Dynamics 🐙
+# Vers3Dynamics
 
 <p align="center">
   <img src="assets/rain_lab_logo.png" alt="R.A.I.N. Lab logo" width="900" />
 </p>
+
+A lightweight framework for building modular AI systems,
+experimental agent architectures, and research prototypes.
+
+This is designed for researchers, builders, and experimental
+AI developers who want a simple architecture for composing
+agents, modules, and tools without heavyweight frameworks.
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/topherchris420/james_library)
 
 ## Autonomous Acoustic Physics and Resonance Research Platform
 
@@ -262,3 +271,7 @@ python rain_lab.py --mode chat --ui on --topic "your topic"
 ## License
 
 MIT License. See [LICENSE](LICENSE).
+
+## Acknowledgement 
+
+The R.A.I.N. Lab is proudly built on the foundation of ZeroClaw. Huge thanks to their team for creating such a high-performance, lightweight agent runtime that made this Vers3Dynamics project possible.

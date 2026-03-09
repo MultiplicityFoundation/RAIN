@@ -6,7 +6,7 @@ networkx>=3.0
 rich>=13.0.0
 websockets>=12.0
 PyYAML>=6.0
-
+SpeechRecognition>=3.10.0
 # Optional features — install individually or use: pip install -e ".[all]"
 # Search:    pip install -e ".[search]"    → duckduckgo-search
 # Scraping:  pip install -e ".[scraping]"  → scrapling

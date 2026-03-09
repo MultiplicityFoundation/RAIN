@@ -1,5 +1,6 @@
 use super::traits::{Channel, ChannelMessage, SendMessage};
 use async_trait::async_trait;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 /// `WhatsApp` channel — uses `WhatsApp` Business Cloud API
@@ -15,6 +16,24 @@ fn ensure_https(url: &str) -> anyhow::Result<()> {
         );
     }
     Ok(())
+}
+
+/// Map a MIME type to a file extension for locally saved media.
+fn mime_to_extension(mime: &str) -> &str {
+    match mime {
+        "image/jpeg" => "jpg",
+        "image/png" => "png",
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        "audio/ogg" | "audio/ogg; codecs=opus" => "ogg",
+        "audio/mpeg" => "mp3",
+        "audio/mp4" | "audio/aac" => "m4a",
+        "audio/amr" => "amr",
+        _ => {
+            // Fall back to subtype (e.g. "image/bmp" → "bmp")
+            mime.split('/').nth(1).and_then(|s| s.split(';').next()).unwrap_or("bin")
+        }
+    }
 }
 
 ///
@@ -56,6 +75,257 @@ impl WhatsAppChannel {
     /// Get the verify token for webhook verification
     pub fn verify_token(&self) -> &str {
         &self.verify_token
+    }
+
+    /// Retrieve the download URL for a WhatsApp media object by its ID.
+    ///
+    /// Calls `GET https://graph.facebook.com/v18.0/{media_id}` and returns the
+    /// `url` field from the response.
+    async fn get_media_url(&self, media_id: &str) -> anyhow::Result<String> {
+        let api_url = format!("https://graph.facebook.com/v18.0/{media_id}");
+        ensure_https(&api_url)?;
+
+        let resp = self
+            .http_client()
+            .get(&api_url)
+            .bearer_auth(&self.access_token)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("WhatsApp get_media_url failed ({status}): {body}");
+        }
+
+        let json: serde_json::Value = resp.json().await?;
+        json.get("url")
+            .and_then(|u| u.as_str())
+            .map(String::from)
+            .ok_or_else(|| anyhow::anyhow!("WhatsApp media response missing 'url' field"))
+    }
+
+    /// Download media bytes from a WhatsApp media URL.
+    ///
+    /// The URL is obtained from [`get_media_url`] and requires the access token
+    /// as a bearer header.
+    async fn download_media_bytes(&self, media_url: &str) -> anyhow::Result<Vec<u8>> {
+        ensure_https(media_url)?;
+
+        let resp = self
+            .http_client()
+            .get(media_url)
+            .bearer_auth(&self.access_token)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            anyhow::bail!("WhatsApp media download failed: {status}");
+        }
+
+        Ok(resp.bytes().await?.to_vec())
+    }
+
+    /// Download a WhatsApp media attachment and save it to `save_dir`.
+    ///
+    /// Returns the full local path of the saved file.
+    async fn download_and_save_media(
+        &self,
+        media_id: &str,
+        save_dir: &Path,
+        filename: &str,
+    ) -> anyhow::Result<PathBuf> {
+        let media_url = self.get_media_url(media_id).await?;
+        let bytes = self.download_media_bytes(&media_url).await?;
+
+        tokio::fs::create_dir_all(save_dir).await?;
+        let local_path = save_dir.join(filename);
+        tokio::fs::write(&local_path, &bytes).await?;
+
+        Ok(local_path)
+    }
+
+    /// Parse an incoming webhook payload and handle rich-media attachments.
+    ///
+    /// Unlike [`parse_webhook_payload`] (which is synchronous and text-only),
+    /// this method downloads image and audio attachments from the WhatsApp
+    /// Cloud API, saves them to `save_dir`, and returns `ChannelMessage`s
+    /// with formatted file paths that the Python orchestrator can consume.
+    ///
+    /// Content format:
+    /// - Images: `[IMAGE:/path/to/file.jpg]`
+    /// - Audio:  `[AUDIO:/path/to/file.ogg] filename`
+    pub async fn parse_webhook_payload_with_media(
+        &self,
+        payload: &serde_json::Value,
+        save_dir: &Path,
+    ) -> Vec<ChannelMessage> {
+        let mut messages = Vec::new();
+
+        let Some(entries) = payload.get("entry").and_then(|e| e.as_array()) else {
+            return messages;
+        };
+
+        for entry in entries {
+            let Some(changes) = entry.get("changes").and_then(|c| c.as_array()) else {
+                continue;
+            };
+
+            for change in changes {
+                let Some(value) = change.get("value") else {
+                    continue;
+                };
+
+                let Some(msgs) = value.get("messages").and_then(|m| m.as_array()) else {
+                    continue;
+                };
+
+                for msg in msgs {
+                    let Some(from) = msg.get("from").and_then(|f| f.as_str()) else {
+                        continue;
+                    };
+
+                    let normalized_from = if from.starts_with('+') {
+                        from.to_string()
+                    } else {
+                        format!("+{from}")
+                    };
+
+                    if !self.is_number_allowed(&normalized_from) {
+                        tracing::warn!(
+                            "WhatsApp: ignoring message from unauthorized number: {normalized_from}."
+                        );
+                        continue;
+                    }
+
+                    let msg_type = msg
+                        .get("type")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("");
+
+                    let content = match msg_type {
+                        "text" => {
+                            msg.get("text")
+                                .and_then(|t| t.get("body"))
+                                .and_then(|b| b.as_str())
+                                .unwrap_or("")
+                                .to_string()
+                        }
+                        "image" => {
+                            let Some(image_obj) = msg.get("image") else {
+                                continue;
+                            };
+                            let Some(media_id) =
+                                image_obj.get("id").and_then(|id| id.as_str())
+                            else {
+                                continue;
+                            };
+                            let mime = image_obj
+                                .get("mime_type")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("image/jpeg");
+                            let ext = mime_to_extension(mime);
+                            let filename =
+                                format!("whatsapp_{}_{}.{}", normalized_from.trim_start_matches('+'), media_id, ext);
+
+                            match self
+                                .download_and_save_media(media_id, save_dir, &filename)
+                                .await
+                            {
+                                Ok(local_path) => {
+                                    let mut content =
+                                        format!("[IMAGE:{}]", local_path.display());
+                                    if let Some(caption) = image_obj
+                                        .get("caption")
+                                        .and_then(|c| c.as_str())
+                                        .filter(|c| !c.is_empty())
+                                    {
+                                        content.push_str(&format!("\n\n{caption}"));
+                                    }
+                                    content
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "WhatsApp: failed to download image {media_id}: {e}"
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+                        "audio" => {
+                            let Some(audio_obj) = msg.get("audio") else {
+                                continue;
+                            };
+                            let Some(media_id) =
+                                audio_obj.get("id").and_then(|id| id.as_str())
+                            else {
+                                continue;
+                            };
+                            let mime = audio_obj
+                                .get("mime_type")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("audio/ogg");
+                            let ext = mime_to_extension(mime);
+                            let filename =
+                                format!("whatsapp_{}_{}.{}", normalized_from.trim_start_matches('+'), media_id, ext);
+
+                            match self
+                                .download_and_save_media(media_id, save_dir, &filename)
+                                .await
+                            {
+                                Ok(local_path) => {
+                                    format!(
+                                        "[AUDIO:{}] {}",
+                                        local_path.display(),
+                                        filename
+                                    )
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "WhatsApp: failed to download audio {media_id}: {e}"
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+                        _ => {
+                            tracing::debug!(
+                                "WhatsApp: skipping unsupported message type '{msg_type}' from {from}"
+                            );
+                            continue;
+                        }
+                    };
+
+                    if content.is_empty() {
+                        continue;
+                    }
+
+                    let timestamp = msg
+                        .get("timestamp")
+                        .and_then(|t| t.as_str())
+                        .and_then(|t| t.parse::<u64>().ok())
+                        .unwrap_or_else(|| {
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs()
+                        });
+
+                    messages.push(ChannelMessage {
+                        id: Uuid::new_v4().to_string(),
+                        reply_target: normalized_from.clone(),
+                        sender: normalized_from,
+                        content,
+                        channel: "whatsapp".to_string(),
+                        timestamp,
+                        thread_ts: None,
+                    });
+                }
+            }
+        }
+
+        messages
     }
 
     /// Parse an incoming webhook payload from Meta and extract messages

@@ -12,9 +12,9 @@ except ImportError:
 
 def models_endpoint_from_base_url(base_url: str) -> str:
     raw = (base_url or "").strip() or "http://127.0.0.1:1234/v1"
+    if "://" not in raw:
+        raw = f"http://{raw}"
     parsed = urlparse(raw)
-    if not parsed.scheme:
-        parsed = urlparse(f"http://{raw}")
 
     scheme = parsed.scheme or "http"
     netloc = parsed.netloc
