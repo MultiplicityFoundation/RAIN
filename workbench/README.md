@@ -36,12 +36,12 @@ The two systems are complementary but disconnected. This plan bridges them.
 
 **Goal:** Establish HTTP connectivity and prove the workbench can talk to the backend.
 
-- [ ] Add `provideHttpClient()` to Angular `appConfig` providers
-- [ ] Create `ApiService` with configurable base URL (env-driven, default `http://localhost:3000`)
-- [ ] Wire `/api/status` → display live system status (provider, model, uptime, channel health) in `TopNavComponent` replacing the static "SYS.STATUS: ONLINE" indicator
-- [ ] Wire `/api/health` → show per-component health in the Lever panel's system logs section
-- [ ] Handle auth: implement token acquisition via `/pair` and attach Bearer token to requests
-- [ ] Add connection-error fallback so the UI degrades gracefully when the backend is unreachable (current mock mode as offline fallback)
+- [x] Add `provideHttpClient()` to Angular `appConfig` providers
+- [x] Create `ApiService` with configurable base URL (env-driven, default `http://localhost:3000`)
+- [x] Wire `/api/status` → display live system status (provider, model, uptime, channel health) in `TopNavComponent` replacing the static "SYS.STATUS: ONLINE" indicator
+- [x] Wire `/api/health` → show per-component health in the Lever panel's system logs section
+- [x] Handle auth: implement token acquisition via `/pair` and attach Bearer token to requests
+- [x] Add connection-error fallback so the UI degrades gracefully when the backend is unreachable (current mock mode as offline fallback)
 
 **Deliverable:** The workbench shows real system status from a running R.A.I.N. instance. The green "ONLINE" badge reflects actual backend reachability.
 
@@ -51,14 +51,14 @@ The two systems are complementary but disconnected. This plan bridges them.
 
 **Goal:** Replace simulated AI terminal output with live backend events.
 
-- [ ] Connect to `/api/events` SSE stream in `RainService`
-- [ ] Route incoming events by type:
+- [x] Connect to `/api/events` SSE stream in `RainService`
+- [x] Route incoming events by type:
   - `llm_request` / `llm_response` → AI terminal output in `TensionPanelComponent`
   - `tool_call` / `tool_result` → tool execution log entries
   - `memory_event` → memory activity indicators
   - `error` → surface in system logs
-- [ ] Feed live events into the artifact bar's rotating display
-- [ ] Add reconnection logic with exponential backoff on SSE disconnect
+- [x] Feed live events into the artifact bar's rotating display
+- [x] Add reconnection logic with exponential backoff on SSE disconnect
 
 **Deliverable:** The center panel's AI terminal shows real agent activity as it happens. Logs section fills with genuine runtime events.
 

@@ -20,7 +20,8 @@
           "builder": "@angular/build:application",
           "options": {
             "define": {
-              "GEMINI_API_KEY": "'YOUR_GEMINI_API_KEY'"
+              "GEMINI_API_KEY": "'YOUR_GEMINI_API_KEY'",
+              "RAIN_API_URL": "'http://localhost:3000'"
             },
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",

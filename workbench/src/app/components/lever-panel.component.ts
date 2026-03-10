@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { RainService } from '../services/rain.service';
+import { ApiService } from '../services/api.service';
 import { unparse } from 'papaparse';
 
 @Component({
@@ -90,10 +91,26 @@ import { unparse } from 'papaparse';
 
         <div class="h-px bg-rain-green/10 w-full"></div>
 
+        <!-- Component Health -->
+        @if (healthEntries().length > 0) {
+          <div class="space-y-1">
+            <span class="text-[10px] uppercase text-rain-muted block tracking-wider mb-1">Component Health</span>
+            @for (entry of healthEntries(); track entry.name) {
+              <div class="flex items-center justify-between text-[10px] font-mono px-1 py-0.5 hover:bg-rain-green/5 transition-colors">
+                <span class="text-rain-green/70 truncate">{{ entry.name }}</span>
+                <span [class]="entry.status === 'ok' ? 'text-rain-green' : 'text-rain-red'">
+                  {{ entry.status.toUpperCase() }}
+                </span>
+              </div>
+            }
+          </div>
+          <div class="h-px bg-rain-green/10 w-full"></div>
+        }
+
         <!-- System Logs -->
         <div class="flex-1 flex flex-col min-h-0">
           <div class="flex items-center justify-between mb-2">
-            <label class="text-[10px] uppercase text-rain-muted block tracking-wider">System Logs</label>
+            <span class="text-[10px] uppercase text-rain-muted block tracking-wider">System Logs</span>
           </div>
           <div class="flex-1 bg-black border border-rain-green/20 p-3 overflow-y-auto font-mono text-[10px] text-rain-green/80 custom-scrollbar shadow-inner min-h-[200px]">
             @for (log of rainService.logs(); track log.timestamp) {
@@ -130,16 +147,23 @@ import { unparse } from 'papaparse';
 })
 export class LeverPanelComponent {
   rainService = inject(RainService);
+  apiService = inject(ApiService);
   now = signal(Date.now());
   username = signal('');
   password = signal('');
+
+  /** Memoized health entry list derived from the health signal. */
+  readonly healthEntries = computed(() => {
+    const snap = this.apiService.health();
+    if (!snap) return [];
+    return Object.entries(snap.components).map(([name, c]) => ({ name, status: c.status }));
+  });
 
   constructor() {
     setInterval(() => this.now.set(Date.now()), 1000);
     // Reset timer on load
     this.rainService.logDestructTime.set(new Date(Date.now() + 5 * 60000));
   }
-
   exportData(format: 'json' | 'csv' | 'clipboard') {
     const data = {
       tensions: this.rainService.tensions(),

@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, inject, OnDestroy } from '@angular/core';
+import { ApiService } from './api.service';
 
 export type TemplateMode = 'Standard' | 'Rapid Triage' | 'Board Packet';
 export type Horizon = 'Days' | 'Weeks' | 'Quarters';
@@ -75,7 +76,9 @@ export interface Scenario {
 @Injectable({
   providedIn: 'root'
 })
-export class RainService {
+export class RainService implements OnDestroy {
+  readonly api = inject(ApiService);
+
   // State
   readonly inputState = signal<InputState>({
     context: '',
@@ -100,6 +103,130 @@ export class RainService {
   readonly logs = signal<{ timestamp: Date; message: string }[]>([]);
   readonly logDestructTime = signal<Date>(new Date(Date.now() + 30 * 60000));
   readonly aiOutput = signal<string[]>(['>> SYSTEM READY', '>> AWAITING INPUT...']);
+
+  // SSE reconnect state
+  private sseSource: EventSource | null = null;
+  private sseRetryDelay = 1000;
+  private sseRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private statusPollInterval: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    this.startStatusPolling();
+    this.connectSse();
+  }
+
+  ngOnDestroy() {
+    this.disconnectSse();
+    if (this.statusPollInterval !== null) {
+      clearInterval(this.statusPollInterval);
+    }
+  }
+
+  // ── Backend connectivity ───────────────────────────────────────
+
+  /** Poll /api/status every 30 s to keep the status signal fresh. */
+  private startStatusPolling() {
+    this.api.fetchStatus().subscribe();
+    this.statusPollInterval = setInterval(() => {
+      this.api.fetchStatus().subscribe();
+    }, 30_000);
+  }
+
+  /** Connect to the SSE event stream at /api/events. */
+  private connectSse() {
+    this.disconnectSse();
+
+    const token = this.api.token();
+    const url = token
+      ? `${this.api.baseUrl}/api/events?token=${encodeURIComponent(token)}`
+      : `${this.api.baseUrl}/api/events`;
+
+    const src = new EventSource(url);
+    this.sseSource = src;
+
+    src.onopen = () => {
+      this.sseRetryDelay = 1000;
+      this.addLog('SSE STREAM: CONNECTED');
+    };
+
+    src.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as Record<string, unknown>;
+        this.handleSseEvent(data);
+      } catch (err) {
+        console.warn('[RainService] Malformed SSE frame:', event.data, err);
+      }
+    };
+
+    src.onerror = () => {
+      src.close();
+      this.sseSource = null;
+      this.addLog(`SSE STREAM: DISCONNECTED — retry in ${this.sseRetryDelay / 1000}s`);
+      this.scheduleSseReconnect();
+    };
+  }
+
+  private disconnectSse() {
+    if (this.sseRetryTimer !== null) {
+      clearTimeout(this.sseRetryTimer);
+      this.sseRetryTimer = null;
+    }
+    if (this.sseSource) {
+      this.sseSource.close();
+      this.sseSource = null;
+    }
+  }
+
+  private scheduleSseReconnect() {
+    const delay = this.sseRetryDelay;
+    this.sseRetryDelay = Math.min(delay * 2, 60_000);
+    this.sseRetryTimer = setTimeout(() => {
+      this.sseRetryTimer = null;
+      this.connectSse();
+    }, delay);
+  }
+
+  /** Route an SSE event payload to the appropriate UI signals. */
+  private handleSseEvent(data: Record<string, unknown>) {
+    const type = data['type'] as string | undefined;
+
+    switch (type) {
+      case 'llm_request':
+        this.aiOutput.update(o => [...o, `>> LLM REQUEST: ${data['model'] ?? ''}`]);
+        break;
+
+      case 'llm_response': {
+        const snippet = String(data['content'] ?? '').slice(0, 120);
+        this.aiOutput.update(o => [...o, `>> LLM RESPONSE: ${snippet}`]);
+        this.artifact.set({ type: 'quote', content: String(data['content'] ?? snippet) });
+        break;
+      }
+
+      case 'tool_call':
+        this.addLog(`TOOL CALL: ${data['name']} — ${JSON.stringify(data['args'] ?? {})}`);
+        this.aiOutput.update(o => [...o, `>> TOOL CALL: ${data['name']}`]);
+        break;
+
+      case 'tool_result':
+        this.addLog(`TOOL RESULT: ${data['name']} — ${String(data['output'] ?? '').slice(0, 80)}`);
+        break;
+
+      case 'memory_event':
+        this.addLog(`MEMORY: ${data['action'] ?? 'update'} — ${data['key'] ?? ''}`);
+        break;
+
+      case 'error':
+        this.addLog(`ERROR: ${data['message'] ?? JSON.stringify(data)}`);
+        this.aiOutput.update(o => [...o, `>> ERROR: ${data['message'] ?? ''}`]);
+        break;
+
+      default:
+        if (type) {
+          this.addLog(`EVENT: ${type}`);
+        }
+        break;
+    }
+  }
 
   // Actions
   addLog(message: string) {

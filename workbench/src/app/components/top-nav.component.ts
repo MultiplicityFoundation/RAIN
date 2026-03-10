@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RainService } from '../services/rain.service';
+import { ApiService } from '../services/api.service';
 
 @Component({
   selector: 'app-top-nav',
@@ -36,9 +37,26 @@ import { RainService } from '../services/rain.service';
 
       <!-- Right Actions -->
       <div class="flex items-center gap-2 z-10">
-        <div class="text-[10px] text-rain-green/50 font-mono mr-4 animate-pulse">
-          SYS.STATUS: ONLINE
-        </div>
+        <!-- Live system status indicator -->
+        @if (apiService.connectionState() === 'online' && apiService.status(); as sys) {
+          <div class="text-[10px] font-mono mr-4 flex items-center gap-2">
+            <span class="text-rain-green animate-pulse">●</span>
+            <span class="text-rain-green/70 uppercase tracking-widest">ONLINE</span>
+            <span class="text-rain-muted/60">|</span>
+            <span class="text-rain-green/60">{{ sys.provider }}/{{ sys.model }}</span>
+            <span class="text-rain-muted/60">|</span>
+            <span class="text-rain-green/60">up {{ formatUptime(sys.uptime_seconds) }}</span>
+          </div>
+        } @else if (apiService.connectionState() === 'offline') {
+          <div class="text-[10px] text-rain-red/70 font-mono mr-4 flex items-center gap-2">
+            <span class="text-rain-red animate-pulse">●</span>
+            <span class="uppercase tracking-widest">OFFLINE</span>
+          </div>
+        } @else {
+          <div class="text-[10px] text-rain-green/50 font-mono mr-4 animate-pulse">
+            SYS.STATUS: CONNECTING...
+          </div>
+        }
         
         <button 
           class="h-8 px-3 flex items-center gap-2 text-rain-green/70 hover:text-rain-green hover:bg-rain-green/10 transition-all border border-transparent hover:border-rain-green/30 text-xs uppercase tracking-wider"
@@ -117,4 +135,11 @@ import { RainService } from '../services/rain.service';
 })
 export class TopNavComponent {
   rainService = inject(RainService);
+  apiService = inject(ApiService);
+
+  formatUptime(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`;
+  }
 }
