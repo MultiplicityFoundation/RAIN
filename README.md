@@ -300,5 +300,3 @@ The R.A.I.N. Lab is proudly built on the foundation of ZeroClaw and MIT CSAIL. H
 | Visualization | **✅ Godot 3D** | ❌ None |
 
 > **Note:** R.A.I.N. Lab was released ~18 days before AutoResearch. These projects were built independently and serve different domains — R.A.I.N. Lab for autonomous acoustic physics research, AutoResearch for ML training automation.
->
-> <iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://www.star-history.com/?repos=topherchris420%2Fjames_library&type=date&legend=top-left" frameBorder="0"></iframe>
