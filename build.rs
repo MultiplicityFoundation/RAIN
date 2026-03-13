@@ -23,7 +23,8 @@ fn main() {
     }
 
     if !index_path.exists() {
-        fs::write(&index_path, PLACEHOLDER_INDEX_HTML).expect("failed to write web/dist/index.html");
+        fs::write(&index_path, PLACEHOLDER_INDEX_HTML)
+            .expect("failed to write web/dist/index.html");
     }
 
     println!("cargo:rerun-if-changed=web/dist");

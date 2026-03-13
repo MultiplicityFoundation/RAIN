@@ -315,7 +315,9 @@ mod tests {
     fn screenshot_command_contains_output_path() {
         let cmd = ScreenshotTool::screenshot_command("/tmp/my_screenshot.png");
         if cfg!(any(target_os = "macos", target_os = "linux")) {
-            let joined = cmd.expect("supported platforms should return command").join(" ");
+            let joined = cmd
+                .expect("supported platforms should return command")
+                .join(" ");
             assert!(
                 joined.contains("/tmp/my_screenshot.png"),
                 "Command should contain the output path"
