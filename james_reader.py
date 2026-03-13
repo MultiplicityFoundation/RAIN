@@ -32,7 +32,7 @@ from typing import Literal, TypeAlias
 # =============================================================================
 
 # Supported document extensions
-SUPPORTED_EXTENSIONS: frozenset = frozenset({".pdf", ".docx", ".doc", ".pptx", ".xlsx", ".html", ".md"})
+SUPPORTED_EXTENSIONS: frozenset = frozenset({".pdf", ".docx", ".doc", ".pptx", ".xlsx", ".html", ".md", ".txt"})
 
 DEFAULT_PREVIEW_CHARS = 3000
 DEFAULT_SCAN_PREVIEW_CHARS = 1500
@@ -40,6 +40,51 @@ DEFAULT_MAX_WORKERS = 4
 
 # Document cache
 _DOCUMENT_CACHE: dict[str, str] = {}
+
+
+def _supported_extensions_text() -> str:
+    """Return a display-friendly list of supported file extensions."""
+    return ", ".join(sorted(SUPPORTED_EXTENSIONS))
+
+
+def _directory_not_found_message(directory: str) -> str:
+    """Return a user-actionable message when a directory is missing."""
+    return (
+        f"Directory not found: {directory}\n"
+        "How to fix:\n"
+        "1) Verify the folder path is correct.\n"
+        "2) Wrap the path in quotes if it contains spaces.\n"
+        "3) Create the folder first, then run the command again."
+    )
+
+
+def _missing_api_key_message() -> str:
+    """Return instructions for configuring an API key."""
+    return (
+        "Missing API key. Set one of these environment variables, then retry:\n"
+        "- ZEROCLAW_API_KEY\n"
+        "- OPENAI_API_KEY"
+    )
+
+
+def _no_supported_documents_message(directory: str) -> str:
+    """Return instructions when no supported files are available."""
+    return (
+        f"No supported documents found in: {directory}\n"
+        f"Supported extensions: {_supported_extensions_text()}\n"
+        "How to fix:\n"
+        "1) Add one or more supported files to the folder.\n"
+        "2) Or point --path to a different folder."
+    )
+
+
+def _has_supported_documents(directory: str) -> bool:
+    """Check whether a directory has at least one supported document file."""
+    for item in os.listdir(directory):
+        item_path = os.path.join(directory, item)
+        if os.path.isfile(item_path) and os.path.splitext(item)[1].lower() in SUPPORTED_EXTENSIONS:
+            return True
+    return False
 
 
 # =============================================================================
@@ -223,7 +268,7 @@ def preview_file(file_path: str, max_chars: int = DEFAULT_PREVIEW_CHARS) -> str:
 
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
-        return f"Unsupported: {ext}"
+        return f"Unsupported file type: {ext}. Supported extensions: {_supported_extensions_text()}"
 
     try:
         full_content = _get_cached_or_parse(file_path)
@@ -242,7 +287,7 @@ def parse_file(file_path: str) -> str:
 
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
-        return f"Unsupported: {ext}"
+        return f"Unsupported file type: {ext}. Supported extensions: {_supported_extensions_text()}"
 
     try:
         return _get_cached_or_parse(file_path)
@@ -264,7 +309,7 @@ def _preview_single_file(file_path: str, preview_chars: int) -> dict:
 def scan_folder(directory: str, max_workers: int = DEFAULT_MAX_WORKERS, preview_chars: int = DEFAULT_SCAN_PREVIEW_CHARS) -> str:
     """Scan all documents in a folder in parallel."""
     if not os.path.exists(directory) or not os.path.isdir(directory):
-        return f"No such directory: {directory}"
+        return _directory_not_found_message(directory)
 
     doc_files = []
     for item in os.listdir(directory):
@@ -275,7 +320,7 @@ def scan_folder(directory: str, max_workers: int = DEFAULT_MAX_WORKERS, preview_
                 doc_files.append(item_path)
 
     if not doc_files:
-        return f"No documents found in {directory}"
+        return _no_supported_documents_message(directory)
 
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -444,7 +489,11 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
     # Resolve and validate path
     root_dir = os.path.abspath(path)
     if not os.path.exists(root_dir) or not os.path.isdir(root_dir):
-        print(f"ERROR: No such directory: {root_dir}")
+        print(f"ERROR: {_directory_not_found_message(root_dir)}")
+        sys.exit(1)
+
+    if not _has_supported_documents(root_dir):
+        print(f"ERROR: {_no_supported_documents_message(root_dir)}")
         sys.exit(1)
 
     print(f"\n{'='*60}")
@@ -458,7 +507,7 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
     # Initialize agent with API key
     api_key = os.getenv("ZEROCLAW_API_KEY") or os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("ERROR: ZEROCLAW_API_KEY or OPENAI_API_KEY not found in environment")
+        print(f"ERROR: {_missing_api_key_message()}")
         sys.exit(1)
 
     agent = ResearcherAgent(api_key=api_key, model=model)
@@ -553,7 +602,7 @@ Examples:
     parser.add_argument(
         "--path", "-p",
         default="./library",
-        help="Folder containing PDFs/TXT/MD files to search (default: ./library)"
+        help="Folder containing documents to search (supported: .doc, .docx, .html, .md, .pdf, .pptx, .txt, .xlsx; default: ./library)"
     )
 
     parser.add_argument(
