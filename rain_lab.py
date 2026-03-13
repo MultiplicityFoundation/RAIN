@@ -35,6 +35,16 @@ BANNER_LINES = [
     "==============================================================",
     "                 V E R S 3 D Y N A M I C S                   ",
 ]
+ASCII_ART_LINES = [
+    "\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2557   \u2588\u2588\u2557    \u2588\u2588\u2557      \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 ",
+    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",
+    "\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2554\u2588\u2588\u2557 \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",
+    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551\u255a\u2588\u2588\u2557\u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",
+    "\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2588\u2551    \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",
+    "\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u2550\u2550\u255d    \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u255d ",
+    "\u2593" * 55,
+    ("\u2592" * 18) + " V E R S 3 D Y N A M I C S " + ("\u2592" * 12),
+]
 
 VALID_UI_MODES = {"auto", "on", "off"}
 
@@ -83,11 +93,30 @@ def _utc_now_iso() -> str:
 
 
 def _print_banner() -> None:
+    if (getattr(sys.stdout, "encoding", "") or "").lower() != "utf-8":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+    supports_overlay = bool(getattr(sys.stdout, "isatty", lambda: False)())
+
+    art_colors = [ANSI_CYAN, ANSI_BLUE, ANSI_MAGENTA, ANSI_BLUE, ANSI_CYAN, ANSI_GREEN, ANSI_BLUE, ANSI_YELLOW]
+    for line, color in zip(ASCII_ART_LINES, art_colors):
+        safe_line = _console_safe(line)
+        if supports_overlay:
+            print(f"{ANSI_DIM} {safe_line}{ANSI_RESET}\r{color}{safe_line} {ANSI_RESET}", flush=True)
+        else:
+            print(f"{color}{safe_line}{ANSI_RESET}", flush=True)
+    print("", flush=True)
+
     colors = [ANSI_CYAN, ANSI_BLUE, ANSI_MAGENTA, ANSI_YELLOW]
     for line, color in zip(BANNER_LINES, colors):
         safe_line = _console_safe(line)
-        print(f"{ANSI_DIM} {safe_line}{ANSI_RESET}", flush=True)
-        print(f"{color}{safe_line}{ANSI_RESET}", flush=True)
+        if supports_overlay:
+            print(f"{ANSI_DIM} {safe_line}{ANSI_RESET}\r{color}{safe_line} {ANSI_RESET}", flush=True)
+        else:
+            print(f"{color}{safe_line}{ANSI_RESET}", flush=True)
 
 
 def _spinner(message: str, duration_s: float = 1.25) -> None:
@@ -119,9 +148,9 @@ def _split_passthrough_args(argv: list[str]) -> tuple[list[str], list[str]]:
 
 def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     known, passthrough = _split_passthrough_args(argv)
-    default_ui_mode = os.environ.get("RAIN_UI_MODE", "auto").strip().lower()
+    default_ui_mode = os.environ.get("RAIN_UI_MODE", "off").strip().lower()
     if default_ui_mode not in VALID_UI_MODES:
-        default_ui_mode = "auto"
+        default_ui_mode = "off"
     default_restart_sidecars = _env_bool("RAIN_RESTART_SIDECARS", True)
 
     parser = argparse.ArgumentParser(
@@ -131,7 +160,7 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--mode",
         choices=["rlm", "chat", "godot", "hello-os", "compile", "preflight", "backup", "first-run"],
         default="chat",
-        help="Which engine to run: rlm (tool-exec), chat (runtime), godot (chat runtime + visual events), hello-os (single executable), compile (build knowledge artifacts), preflight (environment checks), backup (local snapshot), or first-run (guided onboarding)",
+        help="Which engine to run: rlm (tool-exec), chat (multi-agent meeting), godot (chat + visual events), hello-os (single executable), compile (build knowledge artifacts), preflight (environment checks), backup (local snapshot), or first-run (guided onboarding)",
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
     parser.add_argument(
@@ -149,8 +178,8 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=None,
-        help="Chat mode only: LM request timeout in seconds (maps to --timeout)",
+        default=float(os.environ.get("RAIN_LM_TIMEOUT", "180")),
+        help="Chat mode only: LM request timeout in seconds (default: 180; maps to --timeout)",
     )
     parser.add_argument(
         "--recursive-depth",
@@ -167,13 +196,13 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--config",
         type=str,
         default=None,
-        help="Chat mode only: path to runtime TOML config (maps to --config).",
+        help="Reserved for runtime integrations; ignored by meeting chat mode.",
     )
     parser.add_argument(
         "--ui",
         choices=sorted(VALID_UI_MODES),
         default=default_ui_mode,
-        help="Chat/Godot UI behavior: auto (default) launches avatars when available, on requires UI stack, off forces CLI-only.",
+        help="Chat/Godot UI behavior: auto launches avatars when available, on requires UI stack, off (default) forces CLI-only.",
     )
     parser.add_argument(
         "--godot-client-bin",
@@ -326,19 +355,21 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
         cmd.extend(passthrough)
         return cmd
 
-    if args.mode == "godot":
+    if args.mode in {"chat", "godot"}:
         target = repo_root / "rain_lab_meeting_chat_version.py"
         if not target.exists():
-            raise FileNotFoundError("Godot mode requires rain_lab_meeting_chat_version.py")
-        cmd = [
-            sys.executable,
-            str(target),
-            "--emit-visual-events",
-            "--visual-events-log",
-            args.godot_events_log,
-            "--tts-audio-dir",
-            args.godot_tts_audio_dir,
-        ]
+            raise FileNotFoundError("Chat/Godot mode requires rain_lab_meeting_chat_version.py")
+        cmd = [sys.executable, str(target)]
+        if args.mode == "godot":
+            cmd.extend(
+                [
+                    "--emit-visual-events",
+                    "--visual-events-log",
+                    args.godot_events_log,
+                    "--tts-audio-dir",
+                    args.godot_tts_audio_dir,
+                ]
+            )
         if args.topic:
             cmd.extend(["--topic", args.topic])
         if args.library:
@@ -347,34 +378,12 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
             cmd.extend(["--max-turns", str(args.turns)])
         if args.timeout is not None:
             cmd.extend(["--timeout", str(args.timeout)])
-        if args.no_recursive_intellect:
+        if args.no_recursive_intellect or args.recursive_depth is None:
             cmd.append("--no-recursive-intellect")
         elif args.recursive_depth is not None:
             cmd.extend(["--recursive-depth", str(args.recursive_depth)])
         cmd.extend(passthrough)
         return cmd
-
-    target = repo_root / "rain_lab_runtime.py"
-    if not target.exists():
-        raise FileNotFoundError("Chat mode requires rain_lab_runtime.py")
-    cmd = [sys.executable, str(target)]
-    if args.topic:
-        cmd.extend(["--topic", args.topic])
-    cmd.extend(["--mode", args.mode])
-    if args.library:
-        cmd.extend(["--library", args.library])
-    if args.turns is not None:
-        cmd.extend(["--max-turns", str(args.turns)])
-    if args.timeout is not None:
-        cmd.extend(["--timeout", str(args.timeout)])
-    if args.no_recursive_intellect:
-        cmd.append("--no-recursive-intellect")
-    elif args.recursive_depth is not None:
-        cmd.extend(["--recursive-depth", str(args.recursive_depth)])
-    if args.config:
-        cmd.extend(["--config", args.config])
-    cmd.extend(passthrough)
-    return cmd
 
 
 def build_godot_bridge_command(args: argparse.Namespace, repo_root: Path) -> list[str]:
@@ -814,7 +823,7 @@ def main(argv: list[str] | None = None) -> int:
             raise
 
     _spinner("Booting VERS3DYNAMICS R.A.I.N. Lab launcher")
-    print(f"{ANSI_CYAN}Launching mode={effective_args.mode}: {' '.join(cmd)}{ANSI_RESET}", flush=True)
+    print(f"{ANSI_CYAN}Launching mode={effective_args.mode}...{ANSI_RESET}", flush=True)
     _append_launcher_event(
         log_path,
         "session_launch",

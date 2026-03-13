@@ -20,7 +20,7 @@ def test_parse_defaults():
     args, _ = parse_args([])
     assert args.mode == "chat"
     assert args.topic is None
-    assert args.ui == "auto"
+    assert args.ui == "off"
     assert args.restart_sidecars is True
     assert args.max_sidecar_restarts == 2
     assert args.sidecar_restart_backoff == 0.5
@@ -37,7 +37,7 @@ def test_parse_rlm_mode():
 def test_parse_godot_mode_defaults():
     args, _ = parse_args(["--mode", "godot", "--topic", "demo"])
     assert args.mode == "godot"
-    assert args.ui == "auto"
+    assert args.ui == "off"
     assert args.godot_events_log.endswith("meeting_archives/godot_events.jsonl")
     assert args.godot_ws_host == "127.0.0.1"
     assert args.godot_ws_port == 8765
@@ -46,7 +46,7 @@ def test_parse_godot_mode_defaults():
 def test_parse_ui_env_invalid_falls_back_to_auto(monkeypatch):
     monkeypatch.setenv("RAIN_UI_MODE", "invalid")
     args, _ = parse_args(["--mode", "chat", "--topic", "demo"])
-    assert args.ui == "auto"
+    assert args.ui == "off"
 
 
 def test_parse_supervision_env(monkeypatch):
@@ -91,14 +91,14 @@ def test_parse_config_path():
 def test_build_command_chat(repo_root):
     args, pt = parse_args(["--mode", "chat", "--topic", "x"])
     cmd = build_command(args, pt, repo_root)
-    assert "rain_lab_runtime.py" in cmd[1]
+    assert "rain_lab_meeting_chat_version.py" in cmd[1]
 
 
 def test_build_command_chat_with_config(repo_root):
     args, pt = parse_args(["--mode", "chat", "--topic", "x", "--config", "runtime.toml"])
     cmd = build_command(args, pt, repo_root)
-    assert "--config" in cmd
-    assert "runtime.toml" in cmd
+    assert "--config" not in cmd
+    assert "runtime.toml" not in cmd
 
 
 def test_build_command_chat_forwards_runtime_flags(repo_root):
@@ -184,7 +184,7 @@ def test_build_godot_client_command(repo_root, monkeypatch):
 
 
 def test_resolve_launch_plan_chat_auto_prefers_godot(repo_root, monkeypatch):
-    args, _ = parse_args(["--mode", "chat", "--topic", "x"])
+    args, _ = parse_args(["--mode", "chat", "--ui", "auto", "--topic", "x"])
     expected_client_cmd = ["godot4", "--path", str(repo_root / "godot_client")]
     monkeypatch.setattr(
         rain_launcher,
@@ -258,12 +258,12 @@ def test_passthrough_split():
     assert pt == ["--extra"]
 
 
-def test_build_command_chat_requires_runtime_script(repo_root, monkeypatch):
+def test_build_command_chat_requires_meeting_script(repo_root, monkeypatch):
     args, pt = parse_args(["--mode", "chat", "--topic", "x"])
     original_exists = Path.exists
 
     def fake_exists(path_obj: Path) -> bool:
-        if path_obj.name == "rain_lab_runtime.py":
+        if path_obj.name == "rain_lab_meeting_chat_version.py":
             return False
         return original_exists(path_obj)
 
@@ -271,9 +271,9 @@ def test_build_command_chat_requires_runtime_script(repo_root, monkeypatch):
     try:
         build_command(args, pt, repo_root)
     except FileNotFoundError as exc:
-        assert "rain_lab_runtime.py" in str(exc)
+        assert "rain_lab_meeting_chat_version.py" in str(exc)
     else:
-        raise AssertionError("Expected FileNotFoundError when rain_lab_runtime.py is missing")
+        raise AssertionError("Expected FileNotFoundError when rain_lab_meeting_chat_version.py is missing")
 
 
 def test_build_command_compile(repo_root):
