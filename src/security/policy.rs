@@ -1479,7 +1479,10 @@ mod tests {
 
         let expected_home_root = std::env::var_os("HOME")
             .or_else(|| std::env::var_os("USERPROFILE"))
-            .map_or_else(|| PathBuf::from("~/Desktop"), |home| PathBuf::from(home).join("Desktop"));
+            .map_or_else(
+                || PathBuf::from("~/Desktop"),
+                |home| PathBuf::from(home).join("Desktop"),
+            );
 
         assert_eq!(policy.allowed_roots[0], expected_home_root);
         assert_eq!(policy.allowed_roots[1], workspace.join("shared-data"));

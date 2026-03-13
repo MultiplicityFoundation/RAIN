@@ -105,7 +105,10 @@ mod tests {
             #[cfg(windows)]
             let mut cmd = {
                 let mut cmd = tokio::process::Command::new("cmd");
-                cmd.arg("/d").arg("/s").arg("/c").arg(format!("echo {command}"));
+                cmd.arg("/d")
+                    .arg("/s")
+                    .arg("/c")
+                    .arg(format!("echo {command}"));
                 cmd
             };
 

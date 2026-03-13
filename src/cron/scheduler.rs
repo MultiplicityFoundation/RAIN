@@ -593,7 +593,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mut config = test_config(&tmp).await;
         config.autonomy.allowed_commands = vec![missing_path_allowed_command().into()];
-        let job = test_job(&missing_path_command("definitely_missing_file_for_scheduler_test"));
+        let job = test_job(&missing_path_command(
+            "definitely_missing_file_for_scheduler_test",
+        ));
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
         let (success, output) = run_job_command(&config, &security, &job).await;
