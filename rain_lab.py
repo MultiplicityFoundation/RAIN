@@ -1,10 +1,17 @@
 """Unified launcher for R.A.I.N. Lab meeting modes.
 
+Quick Start (for everyone):
+  python rain_lab.py           # Interactive wizard - asks what you want to do
+  python rain_lab.py --mode chat --topic "your research topic"
+  python rain_lab.py --mode validate  # Check if system is ready
+
 Usage examples:
+  python rain_lab.py           # Interactive wizard (recommended!)
   python rain_lab.py --mode first-run
+  python rain_lab.py --mode chat --topic "Guarino paper"
   python rain_lab.py --mode rlm --topic "Guarino paper"
-  python rain_lab.py --mode chat --topic "Guarino paper" -- --recursive-depth 2
-  python rain_lab.py --mode godot --topic "Guarino paper"
+  python rain_lab.py --mode validate
+  python rain_lab.py --mode models
 """
 
 from __future__ import annotations
@@ -158,9 +165,9 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument(
         "--mode",
-        choices=["rlm", "chat", "godot", "hello-os", "compile", "preflight", "backup", "first-run"],
-        default="chat",
-        help="Which engine to run: rlm (tool-exec), chat (multi-agent meeting), godot (chat + visual events), hello-os (single executable), compile (build knowledge artifacts), preflight (environment checks), backup (local snapshot), or first-run (guided onboarding)",
+        choices=["rlm", "chat", "godot", "hello-os", "compile", "preflight", "backup", "first-run", "wizard", "start", "validate", "models", "onboard", "status"],
+        default="wizard",
+        help="Which engine to run: wizard (guided help), start (same as wizard), chat (talk to AI), validate (check system), models (list AI models), status (show status), onboard (first-time setup), rlm (tool-exec), godot (chat + visual), hello-os (executable), compile (build knowledge), preflight (env checks), backup (snapshot), first-run (onboarding)",
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
     parser.add_argument(
@@ -328,6 +335,13 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
     if args.mode == "preflight":
         target = repo_root / "rain_preflight_check.py"
         cmd = [sys.executable, str(target)]
+        cmd.extend(passthrough)
+        return cmd
+
+    if args.mode == "models":
+        # Show models info - run preflight with models focus
+        target = repo_root / "rain_preflight_check.py"
+        cmd = [sys.executable, str(target), "--verbose"]
         cmd.extend(passthrough)
         return cmd
 
@@ -736,13 +750,78 @@ async def run_rain_lab(
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv) if argv is not None else sys.argv[1:]
+
+    # Handle simple/friendly mode aliases before full parsing
+    if argv and argv[0] == "--mode" and len(argv) > 1:
+        mode_arg = argv[1]
+        # Map friendly names to actual modes
+        mode_map = {
+            "start": "wizard",
+            "onboard": "first-run",
+            "validate": "preflight",
+            "models": "preflight",  # Will show models after preflight
+            "status": "preflight",  # Status is same as preflight
+        }
+        if mode_arg in mode_map:
+            argv[1] = mode_map[mode_arg]
+
     args, passthrough = parse_args(argv)
     repo_root = Path(__file__).resolve().parent
+
+    # Handle wizard mode - interactive guidance
+    if args.mode == "wizard":
+        _print_banner()
+        print(f"\n{ANSI_CYAN}Welcome to R.A.I.N. Lab!{ANSI_RESET}")
+        print(f"{ANSI_DIM}I'll help you get started.{ANSI_RESET}\n")
+
+        print("What would you like to do?")
+        print(f"  {ANSI_GREEN}1{ANSI_RESET} - Chat with AI about my research")
+        print(f"  {ANSI_GREEN}2{ANSI_RESET} - Check if my system is ready")
+        print(f"  {ANSI_GREEN}3{ANSI_RESET} - See what AI models are available")
+        print(f"  {ANSI_GREEN}4{ANSI_RESET} - First-time setup")
+        print(f"  {ANSI_GREEN}5{ANSI_RESET} - Run a research meeting")
+        print(f"  {ANSI_GREEN}6{ANSI_RESET} - Validate my environment")
+
+        try:
+            choice = input(f"\n{ANSI_YELLOW}Enter number (1-6): {ANSI_RESET}").strip()
+        except KeyboardInterrupt:
+            print(f"\n{ANSI_RED}Goodbye!{ANSI_RESET}")
+            return 0
+
+        if choice == "1":
+            print(f"\n{ANSI_GREEN}Starting chat mode...{ANSI_RESET}")
+            args.mode = "chat"
+        elif choice == "2":
+            print(f"\n{ANSI_GREEN}Running system check...{ANSI_RESET}")
+            args.mode = "preflight"
+        elif choice == "3":
+            print(f"\n{ANSI_GREEN}Checking available models...{ANSI_RESET}")
+            args.mode = "preflight"
+        elif choice == "4":
+            print(f"\n{ANSI_GREEN}Starting first-time setup...{ANSI_RESET}")
+            args.mode = "first-run"
+        elif choice == "5":
+            print(f"\n{ANSI_GREEN}Starting research meeting...{ANSI_RESET}")
+            args.mode = "rlm"
+            print(f"{ANSI_DIM}What's your research topic?{ANSI_RESET}")
+            try:
+                topic = input(f"{ANSI_GREEN}Topic: {ANSI_RESET}").strip()
+                if topic:
+                    args.topic = topic
+            except KeyboardInterrupt:
+                print(f"\n{ANSI_RED}Goodbye!{ANSI_RESET}")
+                return 0
+        elif choice == "6":
+            print(f"\n{ANSI_GREEN}Validating environment...{ANSI_RESET}")
+            args.mode = "preflight"
+        else:
+            print(f"\n{ANSI_YELLOW}Starting in chat mode (default)...{ANSI_RESET}")
+            args.mode = "chat"
 
     _print_banner()
 
     # Interactive prompt if topic is missing (and not asking for help)
-    if args.mode not in {"hello-os", "compile", "preflight", "backup", "first-run"} and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
+    if args.mode not in {"hello-os", "compile", "preflight", "backup", "first-run", "wizard"} and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
         print(f"\n{ANSI_YELLOW}Research Topic needed.{ANSI_RESET}")
         print(f"{ANSI_DIM}Example: 'Guarino paper', 'Quantum Resonance', 'The nature of time'{ANSI_RESET}")
         try:

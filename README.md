@@ -24,6 +24,16 @@ A local-first AI research workspace for running guided chat, experiments, and au
 
 Anyone can use this in minutes. Start with the **Quick Start for Everyone** section below.
 
+---
+
+## One-Minute Summary
+
+**What it does:** R.A.I.N. Lab is like having an AI research assistant that talks with you about your ideas, checks if your discoveries are actually new, and helps organize your research.
+
+**Why use it:** Regular AI can "discover" things you already know. This tool checks your internal knowledge and online sources to make sure you're exploring genuinely new territory.
+
+**Who it's for:** Researchers, students, and curious minds exploring physics, sound, resonance, or any complex topics.
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/topherchris420/james_library)
 
 ## What is this?
@@ -59,25 +69,48 @@ Anyone can use this in minutes. Start with the **Quick Start for Everyone** sect
 
 ## Quick Start for Everyone (5–10 minutes)
 
-Choose your operating system and run one command:
+### Simplest Way (Just Run This!)
 
-### Linux/macOS
+```bash
+python rain_lab.py
+```
+
+That's it! The wizard will guide you through the rest.
+
+---
+
+### Alternative: Command Line
+
+If you know what you want:
+
+```bash
+# First-time setup
+python rain_lab.py --mode first-run
+
+# Chat with AI
+python rain_lab.py --mode chat --topic "your research topic"
+
+# Check if system is ready
+python rain_lab.py --mode validate
+```
+
+---
+
+### Full Setup (Optional)
+
+If you want the complete setup:
+
+#### Linux/macOS
 
 ```bash
 bash scripts/quickstart_lmstudio.sh
 ```
 
-### Windows (PowerShell)
+#### Windows (PowerShell)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\quickstart_lmstudio.ps1
 ```
-
-Then run:
-
-```bash
-python rain_lab.py --mode first-run
-python rain_lab.py --mode chat --ui auto --topic "your question"
 ```
 
 That is enough to get a working first experience.
@@ -87,10 +120,10 @@ That is enough to get a working first experience.
 ## What to run next
 
 ```bash
+python rain_lab.py              # Interactive wizard (recommended!)
+python rain_lab.py --mode validate    # checks readiness and common issues
 python rain_lab.py --mode status      # shows environment + runtime status
 python rain_lab.py --mode models      # lists detected models/providers
-python rain_lab.py --mode validate    # checks readiness and common issues
-python rain_lab.py --mode onboard     # guided setup flow
 ```
 
 If Rust is not installed yet, core Python research flows still work.
