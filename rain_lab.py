@@ -166,7 +166,7 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--mode",
         choices=["rlm", "chat", "godot", "hello-os", "compile", "preflight", "backup", "first-run", "wizard", "start", "validate", "models", "onboard", "status"],
-        default="wizard",
+        default="chat",
         help="Which engine to run: wizard (guided help), start (same as wizard), chat (talk to AI), validate (check system), models (list AI models), status (show status), onboard (first-time setup), rlm (tool-exec), godot (chat + visual), hello-os (executable), compile (build knowledge), preflight (env checks), backup (snapshot), first-run (onboarding)",
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
