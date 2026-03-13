@@ -14,7 +14,7 @@ hero:
       icon: material/arrow-left
 ---
 
-# R.A.I.N. Lab 🐙
+# Vers3Dynamics 
 
 <p align="center">
   <img src="assets/rain_lab_logo.png" alt="R.A.I.N. Lab logo" width="900" />
@@ -28,7 +28,7 @@ Anyone can use this in minutes. Start with the **Quick Start for Everyone** sect
 
 ## One-Minute Summary
 
-**What it does:** R.A.I.N. Lab is like having an AI research assistant that talks with you about your ideas, checks if your discoveries are actually new, and helps organize your research.
+**What it does:** R.A.I.N. Lab 🐙 is like having an AI research assistant that talks with you about your ideas, checks if your discoveries are actually new, and helps organize your research.
 
 **Why use it:** Regular AI can "discover" things you already know. This tool checks your internal knowledge and online sources to make sure you're exploring genuinely new territory.
 
