@@ -22,11 +22,11 @@ hero:
 
 A local-first AI research workspace for running guided chat, experiments, and autonomous research flows without heavy setup.
 
-If you are not a developer, you can still use this project in minutes. Start with the **Quick Start for Everyone** section below.
+Anyone can use this in minutes. Start with the **Quick Start for Everyone** section below.
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/topherchris420/james_library)
 
-## What this project is (in plain language)
+## What is this?
 
 <p align="center">
   <strong>
