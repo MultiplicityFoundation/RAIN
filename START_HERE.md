@@ -6,6 +6,62 @@
 
 ---
 
+## If You Only Read One Thing
+
+Use this command:
+
+```bash
+python rain_lab.py
+```
+
+For non-technical users, this is the **only entry point you need**. The script includes a guided wizard, first-run setup, validation checks, model listing, and chat/research modes.
+
+You can safely ignore files like `rain_unique.py`, `james_reader.py`, `chat_with_james.py`, and other specialized scripts unless a maintainer tells you to use them.
+
+---
+
+## Name Guide (Plain English)
+
+- **R.A.I.N. Lab**: the product experience you use.
+- **ZeroClaw**: the Rust runtime engine under the hood.
+- **James Library**: the Python workflow collection in this repository.
+- **Vers3Dynamics**: the project/organization branding.
+
+If you're just using the tool, think of all of this as one app and start with `python rain_lab.py`.
+
+---
+
+
+## Prerequisites (Simple Checklist)
+
+Before first use, install:
+
+1. **Python 3.10+**
+2. **Ollama**
+3. At least one model (example):
+   ```bash
+   ollama pull qwen2.5-coder
+   ```
+
+If you are unsure whether setup is complete, run:
+
+```bash
+python rain_lab.py --mode validate
+```
+
+---
+
+## First-Time Onboarding Flow
+
+For a new non-technical user:
+
+1. Install Python and Ollama.
+2. Run `python rain_lab.py --mode first-run` once.
+3. Run `python rain_lab.py` and choose **Chat** or **Guided mode**.
+4. If anything fails, run `python rain_lab.py --mode validate`.
+
+---
+
 ## One Command to Start
 
 ### Any System (Recommended)

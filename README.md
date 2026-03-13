@@ -115,6 +115,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\quickstart_lmstudio.ps1
 
 That is enough to get a working first experience.
 
+### For Non-Technical Users: One Safe Entry Point
+
+Use only:
+
+```bash
+python rain_lab.py
+```
+
+You can ignore most other top-level scripts unless a maintainer asks you to run one directly.
+
 ---
 
 ## What to run next
