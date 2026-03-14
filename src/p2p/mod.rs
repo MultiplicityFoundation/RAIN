@@ -73,7 +73,7 @@ async fn init_runtime() -> Result<mpsc::Sender<String>> {
 
     let topic = IdentTopic::new(RESEARCH_TOPIC);
     let gossip_cfg = gossipsub::ConfigBuilder::default()
-        .validation_mode(gossipsub::ValidationMode::Permissive)
+        .validation_mode(gossipsub::ValidationMode::Strict)
         .build()
         .context("failed to build gossipsub config")?;
 
