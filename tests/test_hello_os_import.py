@@ -26,9 +26,7 @@ def test_hello_os_package_imports():
     """The hello_os package must import without error."""
     import hello_os
 
-    assert hasattr(hello_os, "__version__") or callable(
-        getattr(hello_os, "main", None)
-    )
+    assert hasattr(hello_os, "__version__") or callable(getattr(hello_os, "main", None))
 
 
 def test_hello_os_has_version():
@@ -116,9 +114,7 @@ def test_submodule_resonance():
 def test_all_modules_under_500_lines():
     for py_file in HELLO_OS_PKG.glob("*.py"):
         line_count = len(py_file.read_text(encoding="utf-8").splitlines())
-        assert line_count <= MAX_LINES, (
-            f"{py_file.name} has {line_count} lines (max {MAX_LINES})"
-        )
+        assert line_count <= MAX_LINES, f"{py_file.name} has {line_count} lines (max {MAX_LINES})"
 
 
 # ------------------------------------------------------------------

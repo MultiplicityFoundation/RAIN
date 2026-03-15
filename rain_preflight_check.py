@@ -9,8 +9,8 @@ import glob
 import io
 
 # Force UTF-8 for Windows consoles
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # ANSI color codes
 GREEN = "\033[92m"
@@ -20,22 +20,28 @@ BLUE = "\033[94m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
+
 def print_header(text):
-    print(f"\n{BOLD}{BLUE}{'='*70}{RESET}")
+    print(f"\n{BOLD}{BLUE}{'=' * 70}{RESET}")
     print(f"{BOLD}{BLUE}{text.center(70)}{RESET}")
-    print(f"{BOLD}{BLUE}{'='*70}{RESET}\n")
+    print(f"{BOLD}{BLUE}{'=' * 70}{RESET}\n")
+
 
 def print_success(text):
     print(f"{GREEN}✓ {text}{RESET}")
 
+
 def print_warning(text):
     print(f"{YELLOW}⚠ {text}{RESET}")
+
 
 def print_error(text):
     print(f"{RED}✗ {text}{RESET}")
 
+
 def print_info(text):
     print(f"{BLUE}ℹ {text}{RESET}")
+
 
 # Target library path — honour the env-var, then fall back to the repo root.
 LIBRARY_PATH = os.environ.get(
@@ -86,10 +92,7 @@ md_files = glob.glob(os.path.join(LIBRARY_PATH, "*.md"))
 txt_files = glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
 
 # Filter out soul files and log files
-research_papers = [
-    f for f in (md_files + txt_files)
-    if "SOUL" not in f.upper() and "LOG" not in f.upper()
-]
+research_papers = [f for f in (md_files + txt_files) if "SOUL" not in f.upper() and "LOG" not in f.upper()]
 
 if research_papers:
     print_success(f"Found {len(research_papers)} research paper(s):")
@@ -132,6 +135,7 @@ for rlm_path in rlm_paths:
         sys.path.insert(0, rlm_path)
         try:
             from rlm import RLM  # noqa: F401 — intentional import probe
+
             print_success(f"RLM module imports successfully (via: {rlm_path})")
             rlm_imported = True
             break
@@ -240,9 +244,9 @@ print_header("PRE-FLIGHT SUMMARY")
 if all_checks_passed:
     print(f"{GREEN}{BOLD}✓ ALL SYSTEMS GO{RESET}")
     print(f"\n{BLUE}Ready to launch R.A.I.N. Lab:{RESET}")
-    print(f"  cd \"{LIBRARY_PATH}\"")
-    print("  python rain_lab.py --mode chat --topic \"your first research question\"")
-    print("  python rain_lab.py --mode rlm --topic \"your first research question\"")
+    print(f'  cd "{LIBRARY_PATH}"')
+    print('  python rain_lab.py --mode chat --topic "your first research question"')
+    print('  python rain_lab.py --mode rlm --topic "your first research question"')
 else:
     print(f"{RED}{BOLD}✗ PRE-FLIGHT FAILED{RESET}")
     print(f"\n{YELLOW}Fix the issues above before running the meeting.{RESET}")

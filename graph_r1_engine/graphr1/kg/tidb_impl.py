@@ -54,9 +54,7 @@ class TiDB(object):
                     logger.error(f"Failed to create table {k} in TiDB database")
                     logger.error(f"TiDB database error: {e}")
 
-    async def query(
-        self, sql: str, params: dict = None, multirows: bool = False
-    ) -> Union[dict, None]:
+    async def query(self, sql: str, params: dict = None, multirows: bool = False) -> Union[dict, None]:
         if params is None:
             params = {"workspace": self.workspace}
         else:
@@ -123,9 +121,7 @@ class TiDBKVStorage(BaseKVStorage):
     # Query by id
     async def get_by_ids(self, ids: list[str], fields=None) -> Union[list[dict], None]:
         """根据 id 获取 doc_chunks 数据"""
-        SQL = SQL_TEMPLATES["get_by_ids_" + self.namespace].format(
-            ids=",".join([f"'{id}'" for id in ids])
-        )
+        SQL = SQL_TEMPLATES["get_by_ids_" + self.namespace].format(ids=",".join([f"'{id}'" for id in ids]))
         # print("get_by_ids:"+SQL)
         res = await self.db.query(SQL, multirows=True)
         if res:
@@ -169,13 +165,8 @@ class TiDBKVStorage(BaseKVStorage):
                 for k, v in data.items()
             ]
             contents = [v["content"] for v in data.values()]
-            batches = [
-                contents[i : i + self._max_batch_size]
-                for i in range(0, len(contents), self._max_batch_size)
-            ]
-            embeddings_list = await asyncio.gather(
-                *[self.embedding_func(batch) for batch in batches]
-            )
+            batches = [contents[i : i + self._max_batch_size] for i in range(0, len(contents), self._max_batch_size)]
+            embeddings_list = await asyncio.gather(*[self.embedding_func(batch) for batch in batches])
             embeddings = np.concatenate(embeddings_list)
             for i, d in enumerate(list_data):
                 d["__vector__"] = embeddings[i]
@@ -220,9 +211,7 @@ class TiDBVectorDBStorage(BaseVectorStorage):
     cosine_better_than_threshold: float = 0.2
 
     def __post_init__(self):
-        self._client_file_name = os.path.join(
-            self.global_config["working_dir"], f"vdb_{self.namespace}.json"
-        )
+        self._client_file_name = os.path.join(self.global_config["working_dir"], f"vdb_{self.namespace}.json")
         self._max_batch_size = self.global_config["embedding_batch_num"]
         self.cosine_better_than_threshold = self.global_config.get(
             "cosine_better_than_threshold", self.cosine_better_than_threshold
@@ -242,9 +231,7 @@ class TiDBVectorDBStorage(BaseVectorStorage):
             "better_than_threshold": self.cosine_better_than_threshold,
         }
 
-        results = await self.db.query(
-            SQL_TEMPLATES[self.namespace], params=params, multirows=True
-        )
+        results = await self.db.query(SQL_TEMPLATES[self.namespace], params=params, multirows=True)
         print("vector search result:", results)
         if not results:
             return []
@@ -268,10 +255,7 @@ class TiDBVectorDBStorage(BaseVectorStorage):
             for k, v in data.items()
         ]
         contents = [v["content"] for v in data.values()]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
+        batches = [contents[i : i + self._max_batch_size] for i in range(0, len(contents), self._max_batch_size)]
         embedding_tasks = [self.embedding_func(batch) for batch in batches]
         embeddings_list = []
         for f in tqdm(
@@ -413,10 +397,10 @@ TABLES = {
 
 SQL_TEMPLATES = {
     # SQL for KVStorage
-    "get_by_id_full_docs": "SELECT doc_id as id, IFNULL(content, '') AS content FROM HYPERGRAPHRAG_DOC_FULL WHERE doc_id = :id AND workspace = :workspace",
-    "get_by_id_text_chunks": "SELECT chunk_id as id, tokens, IFNULL(content, '') AS content, chunk_order_index, full_doc_id FROM HYPERGRAPHRAG_DOC_CHUNKS WHERE chunk_id = :id AND workspace = :workspace",
-    "get_by_ids_full_docs": "SELECT doc_id as id, IFNULL(content, '') AS content FROM HYPERGRAPHRAG_DOC_FULL WHERE doc_id IN ({ids}) AND workspace = :workspace",
-    "get_by_ids_text_chunks": "SELECT chunk_id as id, tokens, IFNULL(content, '') AS content, chunk_order_index, full_doc_id FROM HYPERGRAPHRAG_DOC_CHUNKS WHERE chunk_id IN ({ids}) AND workspace = :workspace",
+    "get_by_id_full_docs": "SELECT doc_id as id, IFNULL(content, '') AS content FROM HYPERGRAPHRAG_DOC_FULL WHERE doc_id = :id AND workspace = :workspace",  # noqa: E501
+    "get_by_id_text_chunks": "SELECT chunk_id as id, tokens, IFNULL(content, '') AS content, chunk_order_index, full_doc_id FROM HYPERGRAPHRAG_DOC_CHUNKS WHERE chunk_id = :id AND workspace = :workspace",  # noqa: E501
+    "get_by_ids_full_docs": "SELECT doc_id as id, IFNULL(content, '') AS content FROM HYPERGRAPHRAG_DOC_FULL WHERE doc_id IN ({ids}) AND workspace = :workspace",  # noqa: E501
+    "get_by_ids_text_chunks": "SELECT chunk_id as id, tokens, IFNULL(content, '') AS content, chunk_order_index, full_doc_id FROM HYPERGRAPHRAG_DOC_CHUNKS WHERE chunk_id IN ({ids}) AND workspace = :workspace",  # noqa: E501
     "filter_keys": "SELECT {id_field} AS id FROM {table_name} WHERE {id_field} IN ({ids}) AND workspace = :workspace",
     # SQL for Merge operations (TiDB version with INSERT ... ON DUPLICATE KEY UPDATE)
     "upsert_doc_full": """
@@ -425,11 +409,13 @@ SQL_TEMPLATES = {
         ON DUPLICATE KEY UPDATE content = VALUES(content), workspace = VALUES(workspace), updatetime = CURRENT_TIMESTAMP
         """,
     "upsert_chunk": """
-        INSERT INTO HYPERGRAPHRAG_DOC_CHUNKS(chunk_id, content, tokens, chunk_order_index, full_doc_id, content_vector, workspace)
+        INSERT INTO HYPERGRAPHRAG_DOC_CHUNKS(chunk_id, content, tokens,
+            chunk_order_index, full_doc_id, content_vector, workspace)
         VALUES (:id, :content, :tokens, :chunk_order_index, :full_doc_id, :content_vector, :workspace)
         ON DUPLICATE KEY UPDATE
         content = VALUES(content), tokens = VALUES(tokens), chunk_order_index = VALUES(chunk_order_index),
-        full_doc_id = VALUES(full_doc_id), content_vector = VALUES(content_vector), workspace = VALUES(workspace), updatetime = CURRENT_TIMESTAMP
+        full_doc_id = VALUES(full_doc_id), content_vector = VALUES(content_vector),
+        workspace = VALUES(workspace), updatetime = CURRENT_TIMESTAMP
         """,
     # SQL for VectorStorage
     "entities": """SELECT n.name as entity_name FROM

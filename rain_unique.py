@@ -10,6 +10,7 @@ import os
 # If not available, the script will use a simulated search
 try:
     from duckduckgo_search import DDGS
+
     HAS_SEARCH = True
 except ImportError:
     HAS_SEARCH = False
@@ -27,8 +28,8 @@ SHIFT_INTERVAL = 15
 # --- CONNECT TO OLLAMA ---
 try:
     client = anthropic.Anthropic(
-        base_url='http://localhost:11434/v1',
-        api_key='ollama',
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
     )
 except Exception as e:
     print(f"❌ Error connecting to Ollama: {e}")
@@ -36,12 +37,14 @@ except Exception as e:
     print(f"And model is pulled: ollama pull {MODEL}")
     sys.exit(1)
 
+
 # --- LOAD YOUR OWN WORK ---
 def load_knowledge_base():
     if os.path.exists(KNOWLEDGE_BASE_FILE):
         with open(KNOWLEDGE_BASE_FILE, "r", encoding="utf-8") as f:
             return f.read()
     return "No internal knowledge base found. Assume all findings are potentially new."
+
 
 # --- TOOLS ---
 def file_internal_memo(subject, body, novelty_score):
@@ -69,6 +72,7 @@ NOVELTY: {novelty_score}/10
     print(f"📄 Memo filed: '{subject}' (Novelty: {novelty_score})")
     return "Memo filed."
 
+
 def search_online_database(query):
     """Checks the web for conflicts."""
     print(f"🌍 Checking global research for: '{query}'...")
@@ -89,7 +93,7 @@ def search_online_database(query):
             "432": "Found in multiple sources about alternative tuning",
             "440": "Standard concert pitch (A4), widely documented",
             "528": "Solfeggio frequency, extensively documented",
-            "256": "Scientific pitch standard, well-known"
+            "256": "Scientific pitch standard, well-known",
         }
 
         for freq, description in common_frequencies.items():
@@ -97,6 +101,7 @@ def search_online_database(query):
                 return f"EXTERNAL MATCHES:\n- {description}"
 
         return "No matching external research found (Possibility of Unique Art)."
+
 
 # --- MAIN LOOP ---
 def start_shift():
@@ -110,17 +115,17 @@ def start_shift():
     while True:
         try:
             shift_cycle += 1
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"--- Cycle #{shift_cycle} ---")
-            print('='*70)
+            print("=" * 70)
 
             # Simulate Data (Drifting Frequency + Harmonics)
             hz = round(432 + random.uniform(-10, 10), 2)
-            harmonic = round(hz * 1.5, 2) # Perfect Fifth
+            harmonic = round(hz * 1.5, 2)  # Perfect Fifth
             signal = {
                 "primary_frequency": hz,
                 "secondary_harmonic": harmonic,
-                "coherence_stability": round(random.uniform(0.80, 0.99), 2)
+                "coherence_stability": round(random.uniform(0.80, 0.99), 2),
             }
 
             print(f"📊 Sensor Data: {json.dumps(signal, indent=2)}")
@@ -160,10 +165,10 @@ PROTOCOL:
                         "properties": {
                             "subject": {"type": "string"},
                             "body": {"type": "string"},
-                            "novelty_score": {"type": "integer", "description": "1-10 rating of uniqueness"}
+                            "novelty_score": {"type": "integer", "description": "1-10 rating of uniqueness"},
                         },
-                        "required": ["subject", "body", "novelty_score"]
-                    }
+                        "required": ["subject", "body", "novelty_score"],
+                    },
                 },
                 {
                     "name": "search_online_database",
@@ -171,36 +176,38 @@ PROTOCOL:
                     "input_schema": {
                         "type": "object",
                         "properties": {"query": {"type": "string"}},
-                        "required": ["query"]
-                    }
-                }
+                        "required": ["query"],
+                    },
+                },
             ]
 
             # Reasoning Loop
             tool_executed = False
             for turn in range(3):
-                response = client.messages.create(
-                    model=MODEL, max_tokens=1000, tools=tools, messages=messages
-                )
+                response = client.messages.create(model=MODEL, max_tokens=1000, tools=tools, messages=messages)
 
                 messages.append({"role": "assistant", "content": response.content})
 
                 if response.content:
                     for block in response.content:
-                        if block.type == 'text':
+                        if block.type == "text":
                             print(f"🤖 Thought: {block.text[:150]}...")
-                        elif block.type == 'tool_use':
+                        elif block.type == "tool_use":
                             if block.name == "search_online_database":
-                                res = search_online_database(block.input['query'])
+                                res = search_online_database(block.input["query"])
                             elif block.name == "file_internal_memo":
-                                res = file_internal_memo(block.input['subject'], block.input['body'], block.input['novelty_score'])
+                                res = file_internal_memo(
+                                    block.input["subject"], block.input["body"], block.input["novelty_score"]
+                                )
                                 recent_memos.append(f"Filed: {block.input['subject']}")
                                 tool_executed = True
 
-                            messages.append({
-                                "role": "user",
-                                "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(res)}]
-                            })
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(res)}],
+                                }
+                            )
 
                 if tool_executed:
                     break
@@ -220,9 +227,10 @@ PROTOCOL:
             print("Continuing to next cycle...")
             time.sleep(SHIFT_INTERVAL)
 
+
 if __name__ == "__main__":
-    print("\n" + "🌧️"*35)
+    print("\n" + "🌧️" * 35)
     print("VERS3DYNAMICS R.A.I.N. UNIT-01")
     print("Novelty Detection System")
-    print("🌧️"*35 + "\n")
+    print("🌧️" * 35 + "\n")
     start_shift()

@@ -11,9 +11,7 @@ from graphr1.base import BaseKVStorage
 @dataclass
 class MongoKVStorage(BaseKVStorage):
     def __post_init__(self):
-        client = MongoClient(
-            os.environ.get("MONGO_URI", "mongodb://root:root@localhost:27017/")
-        )
+        client = MongoClient(os.environ.get("MONGO_URI", "mongodb://root:root@localhost:27017/"))
         database = client.get_database(os.environ.get("MONGO_DATABASE", "GraphR1"))
         self._data = database.get_collection(self.namespace)
         logger.info(f"Use MongoDB as KV {self.namespace}")
@@ -35,9 +33,7 @@ class MongoKVStorage(BaseKVStorage):
         )
 
     async def filter_keys(self, data: list[str]) -> set[str]:
-        existing_ids = [
-            str(x["_id"]) for x in self._data.find({"_id": {"$in": data}}, {"_id": 1})
-        ]
+        existing_ids = [str(x["_id"]) for x in self._data.find({"_id": {"$in": data}}, {"_id": 1})]
         return set([s for s in data if s not in existing_ids])
 
     async def upsert(self, data: dict[str, dict]):

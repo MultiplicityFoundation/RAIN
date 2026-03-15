@@ -1,4 +1,4 @@
-﻿"""Unified async runtime for R.A.I.N. Lab integrations.
+"""Unified async runtime for R.A.I.N. Lab integrations.
 
 This module provides a stable async entrypoint used by gateways (e.g. Telegram)
 with lightweight typed runtime state/events plus provenance extraction.
@@ -204,10 +204,7 @@ def _load_runtime_config_file(config_path: Optional[str]) -> tuple[dict[str, Any
     if not resolved.exists():
         raise RuntimeError(f"R.A.I.N. runtime config error: file not found: {resolved}")
     if tomllib is None:
-        raise RuntimeError(
-            "R.A.I.N. runtime config error: TOML parser unavailable. "
-            "Use Python 3.11+ or install tomli."
-        )
+        raise RuntimeError("R.A.I.N. runtime config error: TOML parser unavailable. Use Python 3.11+ or install tomli.")
 
     try:
         content = resolved.read_text(encoding="utf-8")
@@ -231,12 +228,7 @@ def _is_local_or_private_base_url(base_url: str) -> bool:
         ip = ipaddress.ip_address(host)
     except ValueError:
         return False
-    return (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or getattr(ip, "is_unspecified", False)
-    )
+    return ip.is_loopback or ip.is_private or ip.is_link_local or getattr(ip, "is_unspecified", False)
 
 
 def _validate_runtime_config(config: RuntimeConfig) -> None:
@@ -250,10 +242,7 @@ def _validate_runtime_config(config: RuntimeConfig) -> None:
 
     model = (config.llm_model or "").strip()
     if not model:
-        raise RuntimeError(
-            "R.A.I.N. runtime config error: missing model. "
-            "Set LM_STUDIO_MODEL or llm.model."
-        )
+        raise RuntimeError("R.A.I.N. runtime config error: missing model. Set LM_STUDIO_MODEL or llm.model.")
 
     if not config.llm_api_key and not _is_local_or_private_base_url(base_url):
         raise RuntimeError(
@@ -310,16 +299,22 @@ def _load_runtime_config(config_path: Optional[str] = None) -> RuntimeConfig:
     trace_enabled_default = _coerce_bool(runtime_section.get("trace_enabled"), False)
     trace_include_payload_default = _coerce_bool(runtime_section.get("trace_include_payload"), False)
 
-    base_url_default = _pick_optional_str(
-        llm_section.get("base_url"),
-        runtime_section.get("llm_base_url"),
-        _DEFAULT_LLM_BASE_URL,
-    ) or _DEFAULT_LLM_BASE_URL
-    model_default = _pick_optional_str(
-        llm_section.get("model"),
-        runtime_section.get("llm_model"),
-        _DEFAULT_LLM_MODEL,
-    ) or _DEFAULT_LLM_MODEL
+    base_url_default = (
+        _pick_optional_str(
+            llm_section.get("base_url"),
+            runtime_section.get("llm_base_url"),
+            _DEFAULT_LLM_BASE_URL,
+        )
+        or _DEFAULT_LLM_BASE_URL
+    )
+    model_default = (
+        _pick_optional_str(
+            llm_section.get("model"),
+            runtime_section.get("llm_model"),
+            _DEFAULT_LLM_MODEL,
+        )
+        or _DEFAULT_LLM_MODEL
+    )
     api_key_default = _pick_optional_str(
         llm_section.get("api_key"),
         runtime_section.get("llm_api_key"),
@@ -693,10 +688,7 @@ def _build_grounding_payload(
             "red_badge": not bool(provenance),
         }
 
-    evidence = [
-        Evidence(source=p.source, quote=(p.quote or ""), span_start=None, span_end=None)
-        for p in provenance
-    ]
+    evidence = [Evidence(source=p.source, quote=(p.quote or ""), span_start=None, span_end=None) for p in provenance]
     return build_grounded_response(
         answer=answer,
         confidence=confidence,
@@ -719,6 +711,7 @@ def runtime_healthcheck(config_path: Optional[str] = None) -> dict[str, Any]:
 
     try:
         import openai  # noqa: F401
+
         checks["openai_importable"] = True
     except Exception:
         checks["openai_importable"] = False
@@ -895,8 +888,7 @@ async def run_rain_lab(
 
     if config.strict_grounding and not grounded:
         response_text = (
-            "Grounding policy blocked this answer. "
-            "Please provide a narrower query or add supporting local sources."
+            "Grounding policy blocked this answer. Please provide a narrower query or add supporting local sources."
         )
         state.status = "blocked"
         state.add_event(

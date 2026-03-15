@@ -5,7 +5,6 @@ RLM agent tools for research: web search, paper reading, library search, RAG.
 """
 
 
-
 def get_setup_code() -> str:
     """Returns the setup code that gets injected into RLM agent context."""
     return r'''
@@ -246,7 +245,10 @@ def search_web(query):
     # 1. Check for "task" or "objective" meta-searches
     if any(x in query.lower() for x in ["task", "objective", "instruction", "what to do", "requirements"]):
         print("⚠️ Meta-search detected. Returning hint.")
-        return f"SYSTEM HINT: The 'task' is the meeting TOPIC: '{TOPIC}'. Do not search for 'task'. Search for information related to '{TOPIC}'."
+        return (
+            f"SYSTEM HINT: The 'task' is the meeting TOPIC: '{TOPIC}'."
+            f" Do not search for 'task'. Search for information related to '{TOPIC}'."
+        )
 
     try:
         # Try both package names just in case
@@ -302,7 +304,12 @@ def read_paper(keyword):
     kw_lower = kw.lower()
     exact = [f for f in all_files if os.path.basename(f).lower() == kw_lower]
     if not exact:
-        exact = [f for f in all_files if os.path.basename(f).lower() == (kw_lower + ".md") or os.path.basename(f).lower() == (kw_lower + ".txt")]
+        exact = [
+            f
+            for f in all_files
+            if os.path.basename(f).lower() == (kw_lower + ".md")
+            or os.path.basename(f).lower() == (kw_lower + ".txt")
+        ]
 
     chosen_files = exact if exact else [f for f in all_files if kw_lower in os.path.basename(f).lower()]
     if not chosen_files:
@@ -396,8 +403,19 @@ def search_library(query):
         result = "\\n".join(output)
     else:
         # Auto-list papers if search fails
-        all_files = [os.path.basename(f) for f in glob.glob(os.path.join(LIBRARY_PATH, "*.md")) + glob.glob(os.path.join(LIBRARY_PATH, "*.txt")) if not os.path.basename(f).startswith("_") and "SOUL" not in os.path.basename(f).upper() and "LOG" not in os.path.basename(f).upper()]
-        result = f"No direct matches for '{query}'.\\nAVAILABLE PAPERS:\\n" + ", ".join(all_files) + "\\n\\nSYSTEM ADVICE: Pick a filename from above and use read_paper() on it."
+        all_files = [
+            os.path.basename(f)
+            for f in glob.glob(os.path.join(LIBRARY_PATH, "*.md"))
+            + glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
+            if not os.path.basename(f).startswith("_")
+            and "SOUL" not in os.path.basename(f).upper()
+            and "LOG" not in os.path.basename(f).upper()
+        ]
+        result = (
+            f"No direct matches for '{query}'.\\nAVAILABLE PAPERS:\\n"
+            + ", ".join(all_files)
+            + "\\n\\nSYSTEM ADVICE: Pick a filename from above and use read_paper() on it."
+        )
 
     print(result)
     _trace_event("return", "search_library", {"status": "ok", "chars": len(result)})
@@ -445,7 +463,13 @@ def semantic_search(query):
 def list_papers():
     """Lists all research papers in the library."""
     files = glob.glob(os.path.join(LIBRARY_PATH, "*.md")) + glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
-    research = [os.path.basename(f) for f in files if not os.path.basename(f).startswith("_") and "SOUL" not in os.path.basename(f).upper() and "LOG" not in os.path.basename(f).upper()]
+    research = [
+        os.path.basename(f)
+        for f in files
+        if not os.path.basename(f).startswith("_")
+        and "SOUL" not in os.path.basename(f).upper()
+        and "LOG" not in os.path.basename(f).upper()
+    ]
     if os.path.exists(HELLO_OS_PATH) or os.path.isdir(HELLO_OS_PKG):
         research.append("hello_os")
     result = "Available papers: " + ", ".join(research)
@@ -822,7 +846,8 @@ def extract_claims(text: str) -> list:
     # Patterns for numerical claims
     patterns = [
         r"([A-Z][^.!?]*?\d+\.?\d*\s*(?:Hz|kHz|MHz|GHz|s|ms|ns|J|eV|keV|MeV|GeV|T|mT|G|K|W|kW|MW|kg|g|m|cm|mm|nm|um|mol|L|mL|Pa|bar|atm|ohm|Hz/s))",
-        r"((?:found|measured|observed|calculated|estimated)\s+[^.!?]*?\d+\.?\d*\s*(?:%|percent|times|order of magnitude))",
+        r"((?:found|measured|observed|calculated|estimated)\s+[^.!?]*?\d+\.?\d*\s*"  # noqa: E501
+        r"(?:%|percent|times|order of magnitude))",
         r"((?:increased|decreased|changed)\s+by\s+\d+\.?\d*\s*(?:%|times))",
     ]
 

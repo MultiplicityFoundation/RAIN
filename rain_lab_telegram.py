@@ -194,8 +194,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception:
         logging.exception("run_rain_lab failed")
         await update.message.reply_text(
-            "Sorry — R.A.I.N. Lab hit an internal error while processing that request. "
-            "Please try again in a moment."
+            "Sorry — R.A.I.N. Lab hit an internal error while processing that request. Please try again in a moment."
         )
 
 

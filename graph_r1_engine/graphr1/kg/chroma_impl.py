@@ -47,16 +47,12 @@ class ChromaVectorDBStorage(BaseVectorStorage):
                 **user_collection_settings,
             }
 
-            auth_provider = config.get(
-                "auth_provider", "chromadb.auth.token_authn.TokenAuthClientProvider"
-            )
+            auth_provider = config.get("auth_provider", "chromadb.auth.token_authn.TokenAuthClientProvider")
             auth_credentials = config.get("auth_token", "secret-token")
             headers = {}
 
             if "token_authn" in auth_provider:
-                headers = {
-                    config.get("auth_header_name", "X-Chroma-Token"): auth_credentials
-                }
+                headers = {config.get("auth_header_name", "X-Chroma-Token"): auth_credentials}
             elif "basic_authn" in auth_provider:
                 auth_credentials = config.get("auth_credentials", "admin:admin")
 
@@ -97,16 +93,12 @@ class ChromaVectorDBStorage(BaseVectorStorage):
             ids = list(data.keys())
             documents = [v["content"] for v in data.values()]
             metadatas = [
-                {k: v for k, v in item.items() if k in self.meta_fields}
-                or {"_default": "true"}
+                {k: v for k, v in item.items() if k in self.meta_fields} or {"_default": "true"}
                 for item in data.values()
             ]
 
             # Process in batches
-            batches = [
-                documents[i : i + self._max_batch_size]
-                for i in range(0, len(documents), self._max_batch_size)
-            ]
+            batches = [documents[i : i + self._max_batch_size] for i in range(0, len(documents), self._max_batch_size)]
 
             embedding_tasks = [self.embedding_func(batch) for batch in batches]
             embeddings_list = []

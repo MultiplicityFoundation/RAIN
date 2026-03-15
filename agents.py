@@ -84,7 +84,8 @@ RULES:
 - Be concise: 80-120 words max per response unless structured output requires more.
 - When you need data, write code to get it.
 - Use ONLY research papers from this library and web search.
-- Only use: read_paper(), search_web(), list_papers(), search_library(), semantic_search(), visualize_concepts(), generate_mermaid(), remember_entity(), recall_entity()
+- Only use: read_paper(), search_web(), list_papers(), search_library(), semantic_search(),
+  visualize_concepts(), generate_mermaid(), remember_entity(), recall_entity()
 """
             self._soul_cache = external_soul + rlm_rules
             print(f"     Soul loaded: {self.name.upper()}_SOUL.md")
@@ -181,7 +182,9 @@ def create_extended_team() -> List[Agent]:
                 role="External Reviewer / Skeptic",
                 focus="Brings outside perspective and challenges assumptions.",
                 color="\033[91m",
-                tool_instruction="ALEX: Act as a peer reviewer. Challenge assumptions, identify gaps, question methodology.",
+                tool_instruction=(
+                    "ALEX: Act as a peer reviewer. Challenge assumptions, identify gaps, question methodology."
+                ),
             ),
             Agent(
                 name="Sarah",

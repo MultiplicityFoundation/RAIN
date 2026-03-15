@@ -17,12 +17,14 @@ warnings.filterwarnings("ignore")
 # ---------------------------------------------------------------------------
 try:
     from scipy.fftpack import fftn, fftshift
+
     _SCIPY_FFT = True
 except ImportError:
     _SCIPY_FFT = False
 
 try:
     import cupy as _cp
+
     _GPU = True
 except ImportError:
     _GPU = False
@@ -46,7 +48,7 @@ __all__ = [
 def normalize_points(p):
     """Centre and scale a point cloud to the unit ball."""
     p = p - p.mean(axis=0)
-    p = p / (np.sqrt(np.sum(p ** 2, axis=1)).max() + 1e-8)
+    p = p / (np.sqrt(np.sum(p**2, axis=1)).max() + 1e-8)
     return p
 
 
@@ -72,9 +74,7 @@ def generate_quasicrystal(N, a1, a2, size, use_gpu=None):
     phi = (1 + np.sqrt(5)) / 2
 
     if use_gpu:
-        pts = _cp.random.randint(-size, size + 1, (N, 8), dtype=_cp.int32).astype(
-            _cp.float32
-        )
+        pts = _cp.random.randint(-size, size + 1, (N, 8), dtype=_cp.int32).astype(_cp.float32)
     else:
         pts = np.random.randint(-size, size + 1, (N, 8)).astype(np.float32)
 
@@ -90,9 +90,7 @@ def generate_quasicrystal(N, a1, a2, size, use_gpu=None):
     )
 
     c2, s2 = np.cos(a2), np.sin(a2)
-    M2 = np.array(
-        [[1, 0, 0, 0], [0, c2, -s2, 0], [0, s2, c2, 0]], dtype=np.float32
-    )
+    M2 = np.array([[1, 0, 0, 0], [0, c2, -s2, 0], [0, s2, c2, 0]], dtype=np.float32)
 
     if use_gpu:
         pts = pts @ _cp.asarray(M1).T @ _cp.asarray(M2).T
@@ -111,9 +109,7 @@ def diffraction_and_score(pts, grid=128):
     3-D FFT magnitude and *score* is a sharpness metric.
     """
     if not _SCIPY_FFT:
-        raise ImportError(
-            "scipy.fftpack is required for diffraction_and_score"
-        )
+        raise ImportError("scipy.fftpack is required for diffraction_and_score")
 
     h, _ = np.histogramdd(pts, bins=grid, range=[[-1.1, 1.1]] * 3)
     fft = fftshift(fftn(h))
@@ -153,9 +149,11 @@ def find_best_angles(resolution=10, points=5000, size=12, use_gpu=None):
 # Visualisation helpers (require plotly — degrade gracefully)
 # ============================================================================
 
+
 def _require_plotly():
     try:
         import plotly.graph_objects as go  # noqa: F401
+
         return go
     except ImportError:
         raise ImportError("plotly is required for visualisation helpers")
@@ -202,9 +200,7 @@ def plot3d(pts, mode="rainbow", title="Quasicrystal"):
 def plot_diff(slice2d):
     """Visualise diffraction pattern (requires plotly)."""
     go = _require_plotly()
-    fig = go.Figure(
-        go.Heatmap(z=np.log1p(slice2d), colorscale="Inferno", showscale=False)
-    )
+    fig = go.Figure(go.Heatmap(z=np.log1p(slice2d), colorscale="Inferno", showscale=False))
     fig.update_layout(
         title="Diffraction Pattern (log scale)",
         width=600,

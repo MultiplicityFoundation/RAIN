@@ -11,15 +11,18 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Start conservatively: only catch real bugs and unused imports
+# Catch style, bugs, and unused code; remaining ignores are justified below
 select = ["E", "F", "W"]
 ignore = [
-    "E501",   # line-length — many scripts exceed 120 today
     "E402",   # module-level import not at top — scripts do sys.path manipulation
     "F541",   # f-string without placeholders — cosmetic, not a bug
     "F841",   # local variable assigned but never used — clean up later
     "W605",   # invalid escape sequence — raw-string Windows paths
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Prompt template file: all long lines are natural-language prompt strings
+"graph_r1_engine/graphr1/prompt.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

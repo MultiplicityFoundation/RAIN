@@ -1,4 +1,4 @@
-﻿import openai
+import openai
 import json
 import datetime
 import sys
@@ -8,7 +8,7 @@ import os
 import io
 
 # --- 1. FORCE UTF-8 ---
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # --- CONFIGURATION ---
 EMPLOYEE_ID = "James"
@@ -21,12 +21,13 @@ MAX_READ_CHARS = 3000
 POSSIBLE_PATHS = [
     "james_library",
     r"C:\Users\chris\Downloads\files\james_library",
-    os.path.join(os.path.expanduser("~"), "Downloads", "files", "james_library")
+    os.path.join(os.path.expanduser("~"), "Downloads", "files", "james_library"),
 ]
 
 # --- SEARCH MODULE ---
 try:
     from duckduckgo_search import DDGS
+
     HAS_SEARCH = True
 except ImportError:
     HAS_SEARCH = False
@@ -39,6 +40,7 @@ except Exception as e:
     print(f">>> ❌ CONNECTION ERROR: {e}")
     sys.exit(1)
 
+
 # --- TOOLS ---
 def get_library_path():
     for p in POSSIBLE_PATHS:
@@ -46,11 +48,13 @@ def get_library_path():
             return p
     return None
 
+
 def load_file(filename, default):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             return f.read()
     return default
+
 
 def read_theory_context():
     lib_path = get_library_path()
@@ -64,12 +68,14 @@ def read_theory_context():
         content = f.read()[:MAX_READ_CHARS]
         return selected, content
 
+
 def load_recent_findings(n=5):
     if not os.path.exists(LAB_NOTEBOOK):
         return "No recent findings yet."
     with open(LAB_NOTEBOOK, "r", encoding="utf-8") as f:
         lines = f.readlines()
     return "".join(lines[-50:]) if lines else "No recent findings yet."
+
 
 def generate_sensor_data():
     base_freq = round(random.uniform(40, 800), 2)
@@ -79,9 +85,10 @@ def generate_sensor_data():
         "primary_freq": f"{base_freq} Hz",
         "harmonics": harmonics,
         "phase_lock": round(random.uniform(0.7, 0.99), 2),
-        "entropy": round(random.uniform(0.01, 0.5), 2)
+        "entropy": round(random.uniform(0.01, 0.5), 2),
     }
     return json.dumps(data, indent=2)
+
 
 def search_web(query):
     print(f"🌐 [CHECKING] Searching external grid for: '{query}'...", flush=True)
@@ -95,14 +102,19 @@ def search_web(query):
             return "Network instability. Assuming novelty."
     return "Offline Mode. Search skipped."
 
+
 def file_finding(title, hypothesis, coherence):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     clean_hyp = hypothesis.replace("{file_path:", "").replace("content:", "").replace("}", "")
-    entry = f"\n=== ROUTINE ANALYSIS ({timestamp}) ===\nTOPIC: {title}\nCOHERENCE: {coherence}/10\nNOTES: {clean_hyp}\n[SIGNED] {EMPLOYEE_ID}\n"
+    entry = (
+        f"\n=== ROUTINE ANALYSIS ({timestamp}) ===\nTOPIC: {title}\n"
+        f"COHERENCE: {coherence}/10\nNOTES: {clean_hyp}\n[SIGNED] {EMPLOYEE_ID}\n"
+    )
     with open(LAB_NOTEBOOK, "a", encoding="utf-8") as f:
         f.write(entry)
     print(f"📄 [FILED] Saved to Lab Notebook: '{title}'", flush=True)
     return "Finding documented."
+
 
 # --- MAIN LOOP ---
 def start_lab():
@@ -122,8 +134,8 @@ def start_lab():
             "function": {
                 "name": "search_web",
                 "description": "Search online.",
-                "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
-            }
+                "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+            },
         },
         {
             "type": "function",
@@ -135,17 +147,17 @@ def start_lab():
                     "properties": {
                         "title": {"type": "string"},
                         "hypothesis": {"type": "string"},
-                        "coherence": {"type": "integer"}
+                        "coherence": {"type": "integer"},
                     },
-                    "required": ["title", "hypothesis", "coherence"]
-                }
-            }
-        }
+                    "required": ["title", "hypothesis", "coherence"],
+                },
+            },
+        },
     ]
 
     while True:
         try:
-            print(f"\n{'='*60}", flush=True)
+            print(f"\n{'=' * 60}", flush=True)
 
             # 1. LOAD PAPER
             paper_name, paper_content = read_theory_context()
@@ -163,7 +175,9 @@ def start_lab():
             # 4. PROMPT (With PRIMING)
             messages = [
                 {"role": "system", "content": f"{soul}\nYour goal is to analyze the sensor data against the paper."},
-                {"role": "user", "content": f"""
+                {
+                    "role": "user",
+                    "content": f"""
 RESEARCH PAPER: "{paper_name}"
 {paper_content}
 
@@ -175,8 +189,9 @@ MEMORY:
 
 TASK: Analyze the correlation. Do NOT solve math problems.
 CRITICAL: KEEP YOUR ANALYSIS SHORT (UNDER 100 WORDS).
-"""},
-                {"role": "assistant", "content": "I am filing the finding now:"}
+""",
+                },
+                {"role": "assistant", "content": "I am filing the finding now:"},
             ]
 
             # Execution Cycle
@@ -196,12 +211,7 @@ CRITICAL: KEEP YOUR ANALYSIS SHORT (UNDER 100 WORDS).
                             res = search_web(args["query"])
                         elif fname == "file_finding":
                             res = file_finding(args["title"], args["hypothesis"], args["coherence"])
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": fname,
-                            "content": str(res)
-                        })
+                        messages.append({"role": "tool", "tool_call_id": tc.id, "name": fname, "content": str(res)})
                 elif msg.content:
                     print(f"\n💭 [THOUGHT] {msg.content}", flush=True)
                     file_finding("Auto-Logged Thought", msg.content, 5)
@@ -214,6 +224,7 @@ CRITICAL: KEEP YOUR ANALYSIS SHORT (UNDER 100 WORDS).
         except Exception as e:
             print(f"❌ CRITICAL ERROR: {e}")
             time.sleep(SHIFT_INTERVAL)
+
 
 if __name__ == "__main__":
     start_lab()

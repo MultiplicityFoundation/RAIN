@@ -23,7 +23,7 @@ except ImportError:
 # --- FORCE UTF-8 GLOBALLY (must be before other imports) ---
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding='utf-8')
+        _stream.reconfigure(encoding="utf-8")
     except Exception:
         # Some environments don't expose reconfigure(); keep running.
         pass
@@ -46,8 +46,9 @@ sys.path.append(os.path.join(TARGET_PATH, "rlm-main", "rlm-main"))  # Double nes
 
 try:
     import sys as _sys_mod
+
     for _m in list(_sys_mod.modules):
-        if _m == 'rlm' or _m.startswith('rlm.'):
+        if _m == "rlm" or _m.startswith("rlm."):
             _sys_mod.modules.pop(_m, None)
 except Exception:  # noqa: E722 — best-effort cache clear; safe to ignore
     pass
@@ -57,6 +58,7 @@ if "--help" not in sys.argv and "-h" not in sys.argv:
     try:
         from rlm import RLM
         import rlm as _rlm_mod
+
         print(f"Using RLM from: {_rlm_mod.__file__}")
     except ImportError as e:
         missing_dep = getattr(e, "name", None)
@@ -83,12 +85,13 @@ def _host_has_web_search() -> bool:
     except ImportError:
         return False
 
+
 # --- FORCE UTF-8 ---
 for _name in ("stdout", "stderr"):
     _obj = getattr(sys, _name, None)
     _buffer = getattr(_obj, "buffer", None)
     if _buffer is not None:
-        setattr(sys, _name, io.TextIOWrapper(_buffer, encoding='utf-8'))
+        setattr(sys, _name, io.TextIOWrapper(_buffer, encoding="utf-8"))
 
 
 def sanitize_text(text: str) -> str:
@@ -163,7 +166,10 @@ def _get_library_files():
     """Return cached list of library files to avoid repeated globs."""
     global _library_files_cache
     if _library_files_cache is None:
-        _library_files_cache = glob.glob(os.path.join(LIBRARY_PATH, "*.md")) + glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
+        _library_files_cache = (
+            glob.glob(os.path.join(LIBRARY_PATH, "*.md"))
+            + glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
+        )
     return _library_files_cache
 
 
@@ -313,7 +319,10 @@ def search_web(query):
     # 1. Check for "task" or "objective" meta-searches
     if any(x in query.lower() for x in ["task", "objective", "instruction", "what to do", "requirements"]):
         print("⚠️ Meta-search detected. Returning hint.")
-        return f"SYSTEM HINT: The 'task' is the meeting TOPIC: '{TOPIC}'. Do not search for 'task'. Search for information related to '{TOPIC}'."
+        return (
+            f"SYSTEM HINT: The 'task' is the meeting TOPIC: '{TOPIC}'."
+            f" Do not search for 'task'. Search for information related to '{TOPIC}'."
+        )
 
     try:
         # Try both package names just in case
@@ -359,7 +368,11 @@ def read_paper(keyword):
     kw_lower = kw.lower()
     exact = [f for f in all_files if os.path.basename(f).lower() == kw_lower]
     if not exact:
-        exact = [f for f in all_files if os.path.basename(f).lower() == (kw_lower + ".md") or os.path.basename(f).lower() == (kw_lower + ".txt")]
+        exact = [
+            f for f in all_files
+            if os.path.basename(f).lower() == (kw_lower + ".md")
+            or os.path.basename(f).lower() == (kw_lower + ".txt")
+        ]
 
     chosen_files = exact if exact else [f for f in all_files if kw_lower in os.path.basename(f).lower()]
     if not chosen_files:
@@ -442,8 +455,17 @@ def search_library(query):
         result = "\\n".join(output)
     else:
         # Auto-list papers if search fails
-        all_files = [os.path.basename(f) for f in _get_library_files() if not os.path.basename(f).startswith("_") and "SOUL" not in os.path.basename(f).upper() and "LOG" not in os.path.basename(f).upper()]
-        result = f"No direct matches for '{query}'.\\nAVAILABLE PAPERS:\\n" + ", ".join(all_files) + "\\n\\nSYSTEM ADVICE: Pick a filename from above and use read_paper() on it."
+        all_files = [
+            os.path.basename(f) for f in _get_library_files()
+            if not os.path.basename(f).startswith("_")
+            and "SOUL" not in os.path.basename(f).upper()
+            and "LOG" not in os.path.basename(f).upper()
+        ]
+        result = (
+            f"No direct matches for '{query}'.\\nAVAILABLE PAPERS:\\n"
+            + ", ".join(all_files)
+            + "\\n\\nSYSTEM ADVICE: Pick a filename from above and use read_paper() on it."
+        )
 
     print(result)
     return result
@@ -480,7 +502,12 @@ def semantic_search(query):
 def list_papers():
     """Lists all research papers in the library."""
     files = _get_library_files()
-    research = [os.path.basename(f) for f in files if not os.path.basename(f).startswith("_") and "SOUL" not in os.path.basename(f).upper() and "LOG" not in os.path.basename(f).upper()]
+    research = [
+        os.path.basename(f) for f in files
+        if not os.path.basename(f).startswith("_")
+        and "SOUL" not in os.path.basename(f).upper()
+        and "LOG" not in os.path.basename(f).upper()
+    ]
     if os.path.exists(HELLO_OS_PATH) or os.path.isdir(HELLO_OS_PKG):
         research.append("hello_os")
     result = "Available papers: " + ", ".join(research)
@@ -583,6 +610,7 @@ if collection and collection.count() == 0:
     index_library()
 '''
 
+
 def _resolve_setup_code(default_code: str) -> str:
     """Load setup code from tools.py when valid; otherwise keep embedded fallback."""
     if _get_setup_code is None:
@@ -619,7 +647,7 @@ class Agent:
         soul_path = Path(library_path) / f"{self.name.upper()}_SOUL.md"
 
         if soul_path.exists():
-            with open(soul_path, 'r', encoding='utf-8-sig') as f:
+            with open(soul_path, "r", encoding="utf-8-sig") as f:
                 external_soul = f.read()
 
             # RLM code execution rules
@@ -644,8 +672,11 @@ RULES:
 - You are ONLY {self.name}. Never speak as another team member.
 - Be concise: 80-120 words max per response.
 - When you need data, write code to get it.
-- Use ONLY research papers from this library (e.g., Coherence Depth, Discrete Celestial Holography, Location is a Dynamic Variable) and web search.
-- Only use: read_paper(), read_hello_os(), search_web(), list_papers(), search_library(), semantic_search()
+- Use ONLY research papers from this library and web search.
+- Example papers: Coherence Depth, Discrete Celestial Holography,
+  Location is a Dynamic Variable.
+- Only use: read_paper(), read_hello_os(), search_web(), list_papers(),
+  search_library(), semantic_search()
 """
             self._soul_cache = external_soul + rlm_rules
             print(f"     ✓ Soul loaded: {self.name.upper()}_SOUL.md")
@@ -671,28 +702,34 @@ AVAILABLE: read_paper(), read_hello_os(), run_hello_os_executable(), search_web(
 BANNED: llm_query(), FINAL_VAR(), FINAL(), SHOW_VARS(), context
 RESPOND: 50-100 words, conversational, as a scientist.
 SOURCE RULE: Use only local research papers + web search; do not rely on other sources.
-"""
+""",
         ),
         Agent(
             name="Jasmine",
             role="Hardware Architect",
             focus="Check 'Feasibility', 'Energy Requirements', 'Material Constraints'. Can we build this?",
             color="\033[93m",  # Yellow
-            tool_instruction="⚡ JASMINE: You MUST use search_web() to find real-world energy constraints and hardware specifications."
+            tool_instruction=(
+                "⚡ JASMINE: You MUST use search_web() to find"
+                " real-world energy constraints and hardware specifications."
+            ),
         ),
         Agent(
             name="Elena",
             role="Quantum Information Theorist",
             focus="Check 'Information Bounds', 'Computational Limits'. Demand mathematical rigor.",
             color="\033[95m",  # Magenta
-            tool_instruction="🔢 ELENA: Audit the code for computational feasibility. Challenge hand-waving with math."
+            tool_instruction="🔢 ELENA: Audit the code for computational feasibility. Challenge hand-waving with math.",
         ),
         Agent(
             name="Luca",
             role="Field Tomographer / Theorist",
             focus="Analyze 'Topology', 'Fields', 'Gradients'. Describe geometry of the theory.",
             color="\033[96m",  # Cyan
-            tool_instruction="🎨 LUCA: Audit the theoretical consistency. Look for mathematical beauty in the structure."
+            tool_instruction=(
+                "🎨 LUCA: Audit the theoretical consistency."
+                " Look for mathematical beauty in the structure."
+            ),
         ),
     ]
 
@@ -706,13 +743,13 @@ class LogManager:
 
     def initialize(self, topic: str):
         header = f"""
-{'='*70}
+{"=" * 70}
 R.A.I.N. LAB RESEARCH
-{'='*70}
+{"=" * 70}
 TOPIC: {topic}
-DATE: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+DATE: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 MODE: Recursive Language Model - Code Execution Enabled
-{'='*70}
+{"=" * 70}
 
 """
         self._write(header)
@@ -721,17 +758,15 @@ MODE: Recursive Language Model - Code Execution Enabled
         self._write(f"**{agent_name}:** {content}\n\n")
 
     def finalize(self):
-        self._write(f"\n{'='*70}\nSESSION ENDED\n{'='*70}\n")
+        self._write(f"\n{'=' * 70}\nSESSION ENDED\n{'=' * 70}\n")
 
     def _write(self, text: str):
-        with open(self.log_path, 'a', encoding='utf-8') as f:
+        with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(text)
 
 
-
-
 def _host_local_context(topic: str) -> tuple[list[str], str]:
-    '''Build a small local context snippet from the library for the given topic.'''
+    """Build a small local context snippet from the library for the given topic."""
     lib = Path(TARGET_PATH)
     files = list(lib.glob("*.md")) + list(lib.glob("*.txt"))
     # filter out SOUL/LOG and underscore files
@@ -768,7 +803,6 @@ def _host_local_context(topic: str) -> tuple[list[str], str]:
     return [f.name for f in matches[:2]], "\n\n".join(snippets)
 
 
-
 def _host_select_files(topic: str, max_files: int = 2) -> list[Path]:
     lib = Path(TARGET_PATH)
     files = list(lib.glob("*.md")) + list(lib.glob("*.txt"))
@@ -803,6 +837,7 @@ def _host_snippets(files: list[Path], per_file_chars: int = 1200) -> str:
         except Exception:
             continue
     return "\n\n".join(snippets)
+
 
 # =============================================================================
 # MAIN ORCHESTRATOR
@@ -896,11 +931,9 @@ BEGIN EXECUTION IMMEDIATELY.
                 "timeout": 180.0,
             },
             environment="local",
-            environment_kwargs={
-                "setup_code": setup_code
-            },
+            environment_kwargs={"setup_code": setup_code},
             custom_system_prompt=custom_prompt,
-            verbose=False
+            verbose=False,
         )
         print("   ✓ RLM initialized with read_paper(), read_hello_os(), and search_web()")
 
@@ -939,11 +972,11 @@ FORMAT: Write a ```python``` code block, then plain text response.
 
         # Dynamic instruction based on meeting state
         if not history:
-             # FIRST TURN: James starts the meeting
-             keyword_guess = topic.split()[0] if topic else "research"
+            # FIRST TURN: James starts the meeting
+            keyword_guess = topic.split()[0] if topic else "research"
 
-             # Force James to open naturally
-             start_instruction = f"""
+            # Force James to open naturally
+            start_instruction = f"""
 ERROR: You are writing a REPORT. Stop immediately.
 INSTEAD, you are OPENING A MEETING with your team.
 
@@ -987,14 +1020,15 @@ MEETING MODE:
 - Use conversation history and Shared sources for your SOURCE quote.
 """
 
-
         # Keep the history and topic
         # INJECT FULL SOUL (Personality + Rules)
         web_instruction = ""
         if must_web:
             web_instruction = "\nMANDATORY: You MUST call search_web() in your next code block before responding.\n"
         if shared_only:
-            web_instruction += "\nMANDATORY: Use the Shared sources below for your SOURCE quote. Do NOT call any tools this turn.\n"
+            web_instruction += (
+                "\nMANDATORY: Use the Shared sources below for your SOURCE quote. Do NOT call any tools this turn.\n"
+            )
 
         core_prompt = f"""{agent.soul}
 
@@ -1014,9 +1048,9 @@ Shared sources (use these for quotes during discussion turns):
         return banned_block + core_prompt
 
     def run(self, topic: str, max_turns: int = 16):
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("║" + "R.A.I.N. LAB".center(68) + "║")
-        print("="*70)
+        print("=" * 70)
         print(f"📋 Topic: {topic}\n")
         os.environ["RLM_TOPIC"] = topic
 
@@ -1057,8 +1091,9 @@ Shared sources (use these for quotes during discussion turns):
         print("Press Ctrl+C to end early (after current turn)")
         if max_turns <= 0:
             print("Turns enabled: running until Ctrl+C.")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
         self.stop_requested = False
+
         def _handle_sigint(sig, frame):
             if not self.stop_requested:
                 print("\n\nStop requested. Will end after current turn.")
@@ -1066,6 +1101,7 @@ Shared sources (use these for quotes during discussion turns):
 
         try:
             import signal
+
             signal.signal(signal.SIGINT, _handle_sigint)
         except Exception:  # SIGINT handler unavailable on some platforms
             pass
@@ -1073,7 +1109,7 @@ Shared sources (use these for quotes during discussion turns):
         turn = 0
         while max_turns <= 0 or turn < max_turns:
             agent = self.team[turn % len(self.team)]
-            tools_locked = (turn >= 1)
+            tools_locked = turn >= 1
 
             print(f"\n{agent.color}▶ {agent.name}'s turn ({agent.role})\033[0m")
 
@@ -1084,12 +1120,13 @@ Shared sources (use these for quotes during discussion turns):
                 if selected_names:
                     prompt += "\n\nPREFERRED_FILES: " + ", ".join(selected_names) + "\n"
             try:
-                print("\n" + "="*50)
+                print("\n" + "=" * 50)
                 print("🔍 Searching for Vers3Dynamics satellite...")
-                print("="*50)
+                print("=" * 50)
 
                 # Timeout-protected call (retry once with shorter prompt)
                 turn_model_calls = 0
+
                 def _call_model(p: str):
                     nonlocal turn_model_calls
                     if turn_model_calls >= self.max_model_calls_per_turn:
@@ -1113,7 +1150,7 @@ Shared sources (use these for quotes during discussion turns):
                 if result is None:
                     response = "[Timeout waiting for model response.]"
                 else:
-                    response = result.response if hasattr(result, 'response') else str(result)
+                    response = result.response if hasattr(result, "response") else str(result)
                 raw_response = response
 
                 # Some LM Studio / backend combinations can ignore turn context and
@@ -1139,7 +1176,9 @@ Shared sources (use these for quotes during discussion turns):
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 if retry_response and retry_response.strip():
                                     response = retry_response.strip()
                                     raw_response = response
@@ -1149,29 +1188,35 @@ Shared sources (use these for quotes during discussion turns):
                 # Clean up any thinking tags or artifacts
 
                 import re
-                response = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL|re.IGNORECASE)
-                response = re.sub(r'<think>.*', '', response, flags=re.DOTALL|re.IGNORECASE)
-                response = re.sub(r'~\d+ words', '', response)  # Remove word counts
+
+                response = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL | re.IGNORECASE)
+                response = re.sub(r"<think>.*", "", response, flags=re.DOTALL | re.IGNORECASE)
+                response = re.sub(r"~\d+ words", "", response)  # Remove word counts
 
                 # Strip hallucinated function calls that don't exist
-                response = re.sub(r'FINAL_VAR\s*\([^)]*\)', '', response)
-                response = re.sub(r'FINAL\s*\([^)]*\)', '', response)
-                response = re.sub(r'llm_query\s*\([^)]*\)', '[USE read_paper() INSTEAD]', response)
-                response = re.sub(r'SHOW_VARS\s*\([^)]*\)', '', response)
+                response = re.sub(r"FINAL_VAR\s*\([^)]*\)", "", response)
+                response = re.sub(r"FINAL\s*\([^)]*\)", "", response)
+                response = re.sub(r"llm_query\s*\([^)]*\)", "[USE read_paper() INSTEAD]", response)
+                response = re.sub(r"SHOW_VARS\s*\([^)]*\)", "", response)
 
                 # Clean up any leftover empty code blocks
-                response = re.sub(r'```repl\s*```', '', response)
-                response = re.sub(r'```python\s*```', '', response)
+                response = re.sub(r"```repl\s*```", "", response)
+                response = re.sub(r"```python\s*```", "", response)
 
                 # Track whether the agent actually used web search
                 if "search_web" in raw_response:
                     self.agent_web_used[agent.name] = True
 
-
                 # Absolute override on first turn: always read preferred files
                 if (turn == 0) and selected_names:
-                    forced = "\n".join([f"read_paper(\"{n}\")" for n in selected_names])
-                    response = "```python\n" + forced + "\n```\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                    forced = "\n".join([f'read_paper("{n}")' for n in selected_names])
+                    response = (
+                        "```python\n"
+                        + forced
+                        + "\n```\n"
+                        + f"Hey team, so today we're talking about '{topic}'."
+                        + " I found relevant excerpts in the library. What are your thoughts?"
+                    )
                 # Enforce forced local reads on first turn
                 if match_names:
                     missing_forced = []
@@ -1179,41 +1224,69 @@ Shared sources (use these for quotes during discussion turns):
                         if ('read_paper("' + n + '")' not in response) and ("read_paper('" + n + "')" not in response):
                             missing_forced.append(n)
                     if missing_forced:
-                        retry_prompt = prompt + "\n\nSTRICT RETRY:\n- You MUST call read_paper() on the exact filenames listed in FORCED_LOCAL_READ before any other tool.\n- Do NOT choose different papers.\n- Start with a python block.\n"
+                        retry_prompt = (
+                            prompt
+                            + "\n\nSTRICT RETRY:\n"
+                            + "- You MUST call read_paper() on the exact filenames"
+                            + " listed in FORCED_LOCAL_READ before any other tool.\n"
+                            + "- Do NOT choose different papers.\n"
+                            + "- Start with a python block.\n"
+                        )
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 response = retry_response.strip()
                             except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                 pass
-
 
                     # Hard override on first turn if model tries web search or skips preferred files
                     if (turn == 0) and selected_names:
                         used_web = ("search_web" in response) or ("search_web" in raw_response)
                         missing_pref = []
                         for n in selected_names:
-                            if (n not in response) and ("read_paper(\"" + n + "\")" not in response):
+                            if (n not in response) and ('read_paper("' + n + '")' not in response):
                                 missing_pref.append(n)
                         if used_web or missing_pref:
-                            forced = "\n".join([f"read_paper(\"{n}\")" for n in selected_names])
-                            response = "```python\n" + forced + "\n```\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                            forced = "\n".join([f'read_paper("{n}")' for n in selected_names])
+                            response = (
+                                "```python\n"
+                                + forced
+                                + "\n```\n"
+                                + f"Hey team, so today we're talking about '{topic}'."
+                        " I found relevant excerpts in the library."
+                        " What are your thoughts?"
+                            )
                     response = response.strip()
                     # TOOLS LOCK: no tool calls after first turn
                     if tools_locked:
                         cleaned_lines = []
                         for ln in response.splitlines():
-                            if any(t in ln for t in ["read_paper(", "read_hello_os(", "run_hello_os_executable(", "search_web(", "search_library(", "semantic_search(", "list_papers("]):
+                            if any(
+                                t in ln
+                                for t in [
+                                    "read_paper(",
+                                    "read_hello_os(",
+                                    "run_hello_os_executable(",
+                                    "search_web(",
+                                    "search_library(",
+                                    "semantic_search(",
+                                    "list_papers(",
+                                ]
+                            ):
                                 continue
                             cleaned_lines.append(ln)
                         response = "\n".join(cleaned_lines).strip()
 
                     # Enforce preferred files on first turn (override non-preferred reads)
                     if (turn == 0) and selected_names:
+
                         def _is_preferred(line: str) -> bool:
                             return any(n in line for n in selected_names)
+
                         # Strip read_paper calls for non-preferred files
                         cleaned_lines = []
                         saw_non_pref = False
@@ -1226,32 +1299,49 @@ Shared sources (use these for quotes during discussion turns):
 
                         missing_pref = []
                         for n in selected_names:
-                            if (n not in response) and ('read_paper("' + n + '")' not in response) and ("read_paper('" + n + "')" not in response):
+                            if (
+                                (n not in response)
+                                and ('read_paper("' + n + '")' not in response)
+                                and ("read_paper('" + n + "')" not in response)
+                            ):
                                 missing_pref.append(n)
                         if missing_pref:
-                            forced = "\\n".join([f"read_paper(\\\"{n}\\\")" for n in selected_names])
+                            forced = "\\n".join([f'read_paper(\\"{n}\\")' for n in selected_names])
                             response = "```python\\n" + forced + "\\n```\\n" + response
                         # If model tried to read non-preferred file, override with forced block + opener
                         if saw_non_pref:
-                            forced = "\\n".join([f"read_paper(\\\"{n}\\\")" for n in selected_names])
-                            response = "```python\\n" + forced + "\\n```\\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                            forced = "\\n".join([f'read_paper(\\"{n}\\")' for n in selected_names])
+                            response = (
+                                "```python\\n"
+                                + forced
+                                + "\\n```\\n"
+                                + f"Hey team, so today we're talking about '{topic}'."
+                        " I found relevant excerpts in the library."
+                        " What are your thoughts?"
+                            )
 
                     # Clean prefix if present
                     if response.startswith(f"{agent.name}:"):
-                        response = response[len(f"{agent.name}:"):].strip()
+                        response = response[len(f"{agent.name}:") :].strip()
 
                     # Cache SOURCE snippets for shared context
                     import re
-                    for m in re.findall(r'SOURCE:\s*\"(.+?)\"', response):
+
+                    for m in re.findall(r"SOURCE:\s*\"(.+?)\"", response):
                         if m and m not in self.shared_sources:
                             self.shared_sources.append(m)
 
                     # Retry if model asks for context, refuses, or mentions guidelines
-                    if ("provide the context" in response.lower() or "please provide the context" in response.lower()
+                    if (
+                        "provide the context" in response.lower()
+                        or "please provide the context" in response.lower()
                         or "i will begin by analyzing" in response.lower()
-                        or "can't comply" in response.lower() or "cannot comply" in response.lower()
-                        or "guidelines" in response.lower() or "not supported" in response.lower()
-                        or "apologize" in response.lower() or "apologies" in response.lower()
+                        or "can't comply" in response.lower()
+                        or "cannot comply" in response.lower()
+                        or "guidelines" in response.lower()
+                        or "not supported" in response.lower()
+                        or "apologize" in response.lower()
+                        or "apologies" in response.lower()
                         or "task definition" in response.lower()
                         or "don't have a specific topic" in response.lower()
                         or "no specific topic" in response.lower()
@@ -1266,64 +1356,131 @@ Shared sources (use these for quotes during discussion turns):
                         or "analyze the context" in response.lower()
                         or "analyze the provided context" in response.lower()
                         or "task analysis" in response.lower()
-                        or "analyzing the paper" in response.lower()):
-                        retry_prompt = prompt + "\n\nSTRICT RETRY:\n- Do NOT mention guidelines or refusal.\n- Do NOT mention repl blocks.\n- Do NOT apologize.\n- Run tools immediately.\n- Start with a python block.\n"
+                        or "analyzing the paper" in response.lower()
+                    ):
+                        retry_prompt = (
+                            prompt
+                            + "\n\nSTRICT RETRY:\n- Do NOT mention guidelines or refusal.\n- Do NOT mention repl blocks.\n- Do NOT apologize.\n- Run tools immediately.\n- Start with a python block.\n"  # noqa: E501
+                        )
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 response = retry_response.strip()
                             except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                 pass
 
                     # Hard override: strip refusals/apologies/repl talk entirely
-                    if ("apologize" in response.lower()
+                    if (
+                        "apologize" in response.lower()
                         or "no access to a repl" in response.lower()
                         or "don't have access to a repl" in response.lower()
                         or "please provide the topic" in response.lower()
                         or "task is missing" in response.lower()
-                        or "guidelines" in response.lower()):
-                        forced = "\n".join([f"read_paper(\"{n}\")" for n in selected_names]) if selected_names else ""
-                        response = "```python\n" + forced + "\n```\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                        or "guidelines" in response.lower()
+                    ):
+                        forced = "\n".join([f'read_paper("{n}")' for n in selected_names]) if selected_names else ""
+                        response = (
+                            "```python\n"
+                            + forced
+                            + "\n```\n"
+                            + f"Hey team, so today we're talking about '{topic}'."
+                        " I found relevant excerpts in the library."
+                        " What are your thoughts?"
+                        )
 
                     # SOUL enforcement: reject generic/assistant-style disclaimers
-                    if any(x in response.lower() for x in ["autonomous multi-agent", "as an ai", "i do not have access", "please provide", "i'm sorry", "i apologize"]):
-                        forced = "\n".join([f"read_paper(\"{n}\")" for n in selected_names]) if selected_names else ""
-                        response = "```python\n" + forced + "\n```\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                    if any(
+                        x in response.lower()
+                        for x in [
+                            "autonomous multi-agent",
+                            "as an ai",
+                            "i do not have access",
+                            "please provide",
+                            "i'm sorry",
+                            "i apologize",
+                        ]
+                    ):
+                        forced = "\n".join([f'read_paper("{n}")' for n in selected_names]) if selected_names else ""
+                        response = (
+                            "```python\n"
+                            + forced
+                            + "\n```\n"
+                            + f"Hey team, so today we're talking about '{topic}'."
+                        " I found relevant excerpts in the library."
+                        " What are your thoughts?"
+                        )
 
                     # Hard override if model still claims the topic/task is missing
-                    if ("provided task is missing" in response.lower() or "task is missing" in response.lower()
+                    if (
+                        "provided task is missing" in response.lower()
+                        or "task is missing" in response.lower()
                         or "no specific topic" in response.lower()
                         or "please provide the topic" in response.lower()
                         or "don't have access to a repl" in response.lower()
                         or "do not have access to a repl" in response.lower()
                         or "no access to a repl" in response.lower()
-                        or "apologize" in response.lower()):
-                        forced = "\\n".join([f"read_paper(\\\"{n}\\\")" for n in selected_names]) if selected_names else ""
-                        response = "```python\\n" + forced + "\\n```\\n" + f"Hey team, so today we're talking about '{topic}'. I found relevant excerpts in the library. What are your thoughts?"
+                        or "apologize" in response.lower()
+                    ):
+                        forced = (
+                            "\\n".join([f'read_paper(\\"{n}\\")' for n in selected_names]) if selected_names else ""
+                        )
+                        response = (
+                            "```python\\n"
+                            + forced
+                            + "\\n```\\n"
+                            + f"Hey team, so today we're talking about '{topic}'."
+                        " I found relevant excerpts in the library."
+                        " What are your thoughts?"
+                        )
 
                     # Retry if model tries to print context instead of reading papers
                     if "print(context)" in response or "USE read_paper() TO ACCESS DATA" in response:
-                        retry_prompt = prompt + "\n\nSTRICT RETRY:\n- Do NOT use or print context.\n- Use read_paper() on PREFERRED_FILES or a relevant filename.\n- Start with a python block.\n"
+                        retry_prompt = (
+                            prompt
+                            + "\n\nSTRICT RETRY:\n- Do NOT use or print context.\n- Use read_paper() on PREFERRED_FILES or a relevant filename.\n- Start with a python block.\n"  # noqa: E501
+                        )
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 response = retry_response.strip()
                             except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                 pass
 
                     # After the opener turn, avoid any new tool calls
                     if turn >= 1:
-                        if any(x in response for x in ["search_web", "search_library", "semantic_search", "read_paper", "read_hello_os", "run_hello_os_executable", "list_papers"]):
-                            retry_prompt = prompt + "\n\nSTRICT RETRY:\n- Do NOT call any tools.\n- Use a Shared sources quote for SOURCE.\n"
+                        if any(
+                            x in response
+                            for x in [
+                                "search_web",
+                                "search_library",
+                                "semantic_search",
+                                "read_paper",
+                                "read_hello_os",
+                                "run_hello_os_executable",
+                                "list_papers",
+                            ]
+                        ):
+                            retry_prompt = (
+                                prompt
+                                + "\n\nSTRICT RETRY:\n- Do NOT call any tools.\n- Use a Shared sources quote for SOURCE.\n"  # noqa: E501
+                            )
                             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                                 future = executor.submit(_call_model, retry_prompt)
                                 try:
                                     retry_result = future.result(timeout=45)
-                                    retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                    retry_response = (
+                                        retry_result.response
+                                        if hasattr(retry_result, "response")
+                                        else str(retry_result)
+                                    )
                                     response = retry_response.strip()
                                 except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                     pass
@@ -1343,12 +1500,17 @@ Shared sources (use these for quotes during discussion turns):
                     has_q = "?" in response
                     has_source = bool(re.search(r'SOURCE:\s*".+?"', response))
                     if not (mentions_last and has_q and has_source):
-                        retry_prompt = prompt + f"\n\nSTRICT RETRY:\n- First sentence must mention {last_speaker}.\n- Last sentence must be a question to a named teammate.\n- Include SOURCE: \"...\" (<=25 words).\n- Keep under 120 words.\n"
+                        retry_prompt = (
+                            prompt
+                            + f'\n\nSTRICT RETRY:\n- First sentence must mention {last_speaker}.\n- Last sentence must be a question to a named teammate.\n- Include SOURCE: "..." (<=25 words).\n- Keep under 120 words.\n'  # noqa: E501
+                        )
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 response = retry_response.strip()
                             except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                 pass
@@ -1360,14 +1522,22 @@ Shared sources (use these for quotes during discussion turns):
                     must_name = last_speaker.lower()
                     mentions_last = must_name in response.lower()
                     has_q = "?" in response
-                    has_discourse = any(k in response.lower() for k in ["i agree", "i disagree", "building on", "to add", "hold on", "i think"])
+                    has_discourse = any(
+                        k in response.lower()
+                        for k in ["i agree", "i disagree", "building on", "to add", "hold on", "i think"]
+                    )
                     if not (mentions_last and has_q and has_discourse):
-                        retry_prompt = prompt + "\n\nSTRICT RETRY:\n- Use a discussion marker (agree/disagree/building on/to add/hold on).\n- Mention the last speaker by name.\n- End with a question to a teammate.\n"
+                        retry_prompt = (
+                            prompt
+                            + "\n\nSTRICT RETRY:\n- Use a discussion marker (agree/disagree/building on/to add/hold on).\n- Mention the last speaker by name.\n- End with a question to a teammate.\n"  # noqa: E501
+                        )
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model, retry_prompt)
                             try:
                                 retry_result = future.result(timeout=45)
-                                retry_response = retry_result.response if hasattr(retry_result, 'response') else str(retry_result)
+                                retry_response = (
+                                    retry_result.response if hasattr(retry_result, "response") else str(retry_result)
+                                )
                                 response = retry_response.strip()
                             except concurrent.futures.TimeoutError:  # Retry timed out; keep prior response
                                 pass
@@ -1415,7 +1585,9 @@ if __name__ == "__main__":
     # Compatibility flags accepted by launcher/chat mode; ignored by RLM engine.
     parser.add_argument("--timeout", type=float, default=None, help="Compatibility flag (ignored in RLM mode)")
     parser.add_argument("--recursive-depth", type=int, default=None, help="Compatibility flag (ignored in RLM mode)")
-    parser.add_argument("--no-recursive-intellect", action="store_true", help="Compatibility flag (ignored in RLM mode)")
+    parser.add_argument(
+        "--no-recursive-intellect", action="store_true", help="Compatibility flag (ignored in RLM mode)"
+    )
     parser.add_argument("--no-web", action="store_true", help="Disable required web search")
     parser.add_argument("--require-web", action="store_true", help="Require web search (default)")
 
@@ -1435,13 +1607,13 @@ if __name__ == "__main__":
     elif args.topic_words:
         topic = " ".join(args.topic_words).strip()
         if topic.lower().startswith("findstr "):
-            topic = topic[len("findstr "):].strip()
+            topic = topic[len("findstr ") :].strip()
         elif topic.lower() == "findstr" and unknown:
             topic = " ".join(unknown).strip()
     else:
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("R.A.I.N. LAB - RESEARCH")
-        print("="*70)
+        print("=" * 70)
         topic = input("\n📋 What should we talk about?: ").strip()
         if not topic:
             topic = "Open research discussion"
@@ -1455,9 +1627,8 @@ if __name__ == "__main__":
     except BaseException:
         print("Exception caught!")
         import traceback
+
         with open("traceback.txt", "w", encoding="utf-8") as f:
             f.write(traceback.format_exc())
             f.write("\nDEBUG INFO:\n")
         raise
-
-

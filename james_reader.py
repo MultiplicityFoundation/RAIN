@@ -60,11 +60,7 @@ def _directory_not_found_message(directory: str) -> str:
 
 def _missing_api_key_message() -> str:
     """Return instructions for configuring an API key."""
-    return (
-        "Missing API key. Set one of these environment variables, then retry:\n"
-        "- ZEROCLAW_API_KEY\n"
-        "- OPENAI_API_KEY"
-    )
+    return "Missing API key. Set one of these environment variables, then retry:\n- ZEROCLAW_API_KEY\n- OPENAI_API_KEY"
 
 
 def _no_supported_documents_message(directory: str) -> str:
@@ -91,10 +87,7 @@ def _has_supported_documents(directory: str) -> bool:
 # Models
 # =============================================================================
 
-Tools: TypeAlias = Literal[
-    "read", "grep", "glob", "scan_folder",
-    "preview_file", "parse_file"
-]
+Tools: TypeAlias = Literal["read", "grep", "glob", "scan_folder", "preview_file", "parse_file"]
 ActionType: TypeAlias = Literal["stop", "godeeper", "toolcall", "askhuman"]
 
 
@@ -185,6 +178,7 @@ class TokenUsage:
 # =============================================================================
 # Filesystem Operations
 # =============================================================================
+
 
 def describe_dir_content(directory: str) -> str:
     """Describe the contents of a directory."""
@@ -306,7 +300,9 @@ def _preview_single_file(file_path: str, preview_chars: int) -> dict:
         return {"file": file_path, "filename": filename, "preview": "", "status": f"error: {e}"}
 
 
-def scan_folder(directory: str, max_workers: int = DEFAULT_MAX_WORKERS, preview_chars: int = DEFAULT_SCAN_PREVIEW_CHARS) -> str:
+def scan_folder(
+    directory: str, max_workers: int = DEFAULT_MAX_WORKERS, preview_chars: int = DEFAULT_SCAN_PREVIEW_CHARS
+) -> str:
     """Scan all documents in a folder in parallel."""
     if not os.path.exists(directory) or not os.path.isdir(directory):
         return _directory_not_found_message(directory)
@@ -333,7 +329,7 @@ def scan_folder(directory: str, max_workers: int = DEFAULT_MAX_WORKERS, preview_
     output = [f"SCAN: {directory} ({len(results)} documents)"]
     for r in results:
         output.append(f"  - {r['filename']}: {r['status']}")
-        if r['status'] == 'success' and r['preview']:
+        if r["status"] == "success" and r["preview"]:
             output.append(f"    Preview: {r['preview'][:200]}...")
 
     return "\n".join(output)
@@ -398,6 +394,7 @@ Example:
 # Agent Implementation
 # =============================================================================
 
+
 class ResearcherAgent:
     """
     Headless agent for exploring research documents.
@@ -417,9 +414,7 @@ class ResearcherAgent:
 
     def configure_task(self, task: str) -> None:
         """Add a task message to the conversation history."""
-        self._chat_history.append(
-            Content(role="user", parts=[Part.from_text(text=task)])
-        )
+        self._chat_history.append(Content(role="user", parts=[Part.from_text(text=task)]))
 
     async def take_action(self) -> tuple[Action, ActionType] | None:
         """Request the next action from the AI model."""
@@ -483,6 +478,7 @@ class ResearcherAgent:
 # Research Workflow
 # =============================================================================
 
+
 async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -> None:
     """Execute the research workflow."""
 
@@ -496,13 +492,13 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
         print(f"ERROR: {_no_supported_documents_message(root_dir)}")
         sys.exit(1)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"James Reader - Research Analysis")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Topic: {topic}")
     print(f"Path: {root_dir}")
     print(f"Model: {model}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Initialize agent with API key
     api_key = os.getenv("ZEROCLAW_API_KEY") or os.getenv("OPENAI_API_KEY")
@@ -537,15 +533,17 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
         if action_type == "toolcall":
             toolcall = action.action
             print(f"    Tool: {toolcall.tool_name}")
-            print(f"    Reason: {action.reason[:100]}..." if len(action.reason) > 100 else f"    Reason: {action.reason}")
+            print(
+                f"    Reason: {action.reason[:100]}..." if len(action.reason) > 100 else f"    Reason: {action.reason}"
+            )
 
         elif action_type == "stop":
             final_result = action.action.final_result
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"FINAL ANSWER")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
             print(final_result)
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(agent.token_usage.summary())
 
             if agent.documents_referenced:
@@ -553,7 +551,7 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
                 print("Documents Referenced:")
                 for doc in unique_docs:
                     print(f"  - {doc}")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
             return
 
         elif action_type == "godeeper":
@@ -581,6 +579,7 @@ async def run_research(topic: str, path: str, model: str, max_steps: int = 20) -
 # CLI Entry Point
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="James Reader - Headless research document analyzer",
@@ -590,43 +589,32 @@ Examples:
   python james_reader.py --topic "Scalar Resonance" --path ./downloads
   python james_reader.py --topic "Havana Syndrome" --path "C:/Users/chris/Downloads/files"
   python james_reader.py --topic "Coherence" --path ./library --model "google/gemini-2.0-flash-001"
-"""
+""",
     )
 
-    parser.add_argument(
-        "--topic", "-t",
-        required=True,
-        help="The research question or topic to investigate"
-    )
+    parser.add_argument("--topic", "-t", required=True, help="The research question or topic to investigate")
 
     parser.add_argument(
-        "--path", "-p",
+        "--path",
+        "-p",
         default="./library",
-        help="Folder containing documents to search (supported: .doc, .docx, .html, .md, .pdf, .pptx, .txt, .xlsx; default: ./library)"
+        help=(
+            "Folder containing documents to search"
+            " (supported: .doc, .docx, .html, .md, .pdf, .pptx, .txt, .xlsx;"
+            " default: ./library)"
+        ),
     )
 
     parser.add_argument(
-        "--model", "-m",
-        default="gemini-2.0-flash-001",
-        help="Model to use (default: gemini-2.0-flash-001)"
+        "--model", "-m", default="gemini-2.0-flash-001", help="Model to use (default: gemini-2.0-flash-001)"
     )
 
-    parser.add_argument(
-        "--max-steps",
-        type=int,
-        default=20,
-        help="Maximum agent steps (default: 20)"
-    )
+    parser.add_argument("--max-steps", type=int, default=20, help="Maximum agent steps (default: 20)")
 
     args = parser.parse_args()
 
     # Run the async workflow
-    asyncio.run(run_research(
-        topic=args.topic,
-        path=args.path,
-        model=args.model,
-        max_steps=args.max_steps
-    ))
+    asyncio.run(run_research(topic=args.topic, path=args.path, model=args.model, max_steps=args.max_steps))
 
 
 if __name__ == "__main__":

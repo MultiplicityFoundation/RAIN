@@ -11,7 +11,6 @@ COLORS = {
     "dim": "\033[2m",
     "italic": "\033[3m",
     "underline": "\033[4m",
-
     # Foreground colors
     "black": "\033[30m",
     "red": "\033[31m",
@@ -21,7 +20,6 @@ COLORS = {
     "magenta": "\033[35m",
     "cyan": "\033[36m",
     "white": "\033[37m",
-
     # Bright foreground
     "bright_black": "\033[90m",
     "bright_red": "\033[91m",
@@ -31,7 +29,6 @@ COLORS = {
     "bright_magenta": "\033[95m",
     "bright_cyan": "\033[96m",
     "bright_white": "\033[97m",
-
     # Background colors
     "bg_black": "\033[40m",
     "bg_red": "\033[41m",
@@ -79,7 +76,7 @@ def panel(title: str, content: str, width: int = 60) -> str:
     Returns:
         Formatted panel string
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
     max_len = max(len(line_text) for line_text in lines) if lines else 0
     w = min(max(width, max_len + 4), 120)
 
@@ -145,7 +142,7 @@ def table(headers: list, rows: list, align: list = None) -> str:
 
     # Default alignment
     if align is None:
-        align = ['l'] * col_count
+        align = ["l"] * col_count
 
     # Build table
     lines = []
@@ -154,9 +151,9 @@ def table(headers: list, rows: list, align: list = None) -> str:
     header_cells = []
     for i, h in enumerate(headers):
         w = col_widths[i]
-        if align[i] == 'r':
+        if align[i] == "r":
             header_cells.append(h.rjust(w))
-        elif align[i] == 'c':
+        elif align[i] == "c":
             header_cells.append(h.center(w))
         else:
             header_cells.append(h.ljust(w))
@@ -174,9 +171,9 @@ def table(headers: list, rows: list, align: list = None) -> str:
                 break
             w = col_widths[i]
             cell_str = str(cell)
-            if align[i] == 'r':
+            if align[i] == "r":
                 row_cells.append(cell_str.rjust(w))
-            elif align[i] == 'c':
+            elif align[i] == "c":
                 row_cells.append(cell_str.center(w))
             else:
                 row_cells.append(cell_str.ljust(w))
@@ -276,7 +273,11 @@ def meeting_header(topic: str, turn: int = None, max_turns: int = None) -> str:
     """
     lines = []
     lines.append(f"{COLORS['bold']}{COLORS['blue']}{'═' * 60}{COLORS['reset']}")
-    lines.append(f"{COLORS['bold']}{COLORS['blue']}║{'R.A.I.N. LAB'.center(56)}{COLORS['reset']}{COLORS['blue']}║{COLORS['reset']}")
+    lines.append(
+        f"{COLORS['bold']}{COLORS['blue']}║"
+        f"{'R.A.I.N. LAB'.center(56)}"
+        f"{COLORS['reset']}{COLORS['blue']}║{COLORS['reset']}"
+    )
     lines.append(f"{COLORS['bold']}{COLORS['blue']}{'═' * 60}{COLORS['reset']}")
 
     if turn is not None and max_turns is not None:

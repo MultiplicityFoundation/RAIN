@@ -16,9 +16,7 @@ def test_preflight_does_not_crash(repo_root):
             "PYTHONUTF8": "1",
         },
     )
-    assert result.returncode in (0, 1), (
-        f"Preflight crashed (rc={result.returncode}):\n{result.stderr}"
-    )
+    assert result.returncode in (0, 1), f"Preflight crashed (rc={result.returncode}):\n{result.stderr}"
 
 
 def test_preflight_uses_env_var(repo_root):

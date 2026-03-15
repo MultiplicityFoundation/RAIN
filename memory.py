@@ -26,7 +26,7 @@ class ResearchMemory:
         """Load memory from file."""
         try:
             if os.path.exists(self.memory_file):
-                with open(self.memory_file, 'r', encoding='utf-8') as f:
+                with open(self.memory_file, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception:
             pass
@@ -36,7 +36,7 @@ class ResearchMemory:
         """Save memory to file."""
         try:
             mem["last_updated"] = datetime.now().isoformat()
-            with open(self.memory_file, 'w', encoding='utf-8') as f:
+            with open(self.memory_file, "w", encoding="utf-8") as f:
                 json.dump(mem, f, indent=2)
         except Exception as e:
             print(f"Memory save warning: {e}")
@@ -50,7 +50,7 @@ class ResearchMemory:
         mem["entities"][name] = {
             "description": description,
             "type": entity_type,
-            "first_mentioned": datetime.now().isoformat()
+            "first_mentioned": datetime.now().isoformat(),
         }
         self._save(mem)
         return f"✓ Remembered: {name} ({entity_type})"
@@ -92,10 +92,7 @@ class ResearchMemory:
         if topic not in mem["topics"]:
             mem["topics"][topic] = []
 
-        mem["topics"][topic].append({
-            "insight": insight,
-            "timestamp": datetime.now().isoformat()
-        })
+        mem["topics"][topic].append({"insight": insight, "timestamp": datetime.now().isoformat()})
         self._save(mem)
         return f"✓ Insight saved for topic: {topic}"
 
@@ -117,12 +114,9 @@ class ResearchMemory:
         if "connections" not in mem:
             mem["connections"] = []
 
-        mem["connections"].append({
-            "from": entity1,
-            "to": entity2,
-            "relationship": relationship,
-            "timestamp": datetime.now().isoformat()
-        })
+        mem["connections"].append(
+            {"from": entity1, "to": entity2, "relationship": relationship, "timestamp": datetime.now().isoformat()}
+        )
         self._save(mem)
         return f"✓ Connected: {entity1} --[{relationship}]--> {entity2}"
 
@@ -143,6 +137,7 @@ class ResearchMemory:
 
 # Standalone functions for RLM agent use
 _memory = None
+
 
 def _get_memory():
     """Get or create global memory instance."""

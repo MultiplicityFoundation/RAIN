@@ -139,17 +139,17 @@ class TTSEngine:
 
                 # Try to set voice
                 try:
-                    voices = engine.getProperty('voices')
+                    voices = engine.getProperty("voices")
                     if voice_id < len(voices):
-                        engine.setProperty('voice', voices[voice_id].id)
+                        engine.setProperty("voice", voices[voice_id].id)
                 except Exception:
                     pass
 
                 # Set rate and volume from config or defaults
                 rate = config.get("rate", 180)
                 volume = config.get("volume", 1.0)
-                engine.setProperty('rate', rate)
-                engine.setProperty('volume', volume)
+                engine.setProperty("rate", rate)
+                engine.setProperty("volume", volume)
 
                 engine.say(clean_text)
                 engine.runAndWait()
@@ -164,15 +164,16 @@ class TTSEngine:
     async def _edge_speak(self, text: str, voice: str, rate: str = "+0%", volume: str = "+0%"):
         """Speak using edge-tts."""
         import time
+
         # Use unique filename for each speak to avoid overwrite
-        temp_dir = os.environ.get('TEMP', '/tmp')
-        temp_file = os.path.join(temp_dir, f'rain_lab_tts_{int(time.time()*1000)}.mp3')
+        temp_dir = os.environ.get("TEMP", "/tmp")
+        temp_file = os.path.join(temp_dir, f"rain_lab_tts_{int(time.time() * 1000)}.mp3")
 
         communicate = edge_tts.Communicate(text, voice, rate=rate, volume=volume)
         await communicate.save(temp_file)
 
         # Play the audio
-        if os.name == 'nt':
+        if os.name == "nt":
             os.system(f'start "" "{temp_file}"')
         else:
             os.system(f"afplay {temp_file} &")
@@ -189,17 +190,17 @@ class TTSEngine:
         import re
 
         # Remove code blocks
-        text = re.sub(r'```[\s\S]*?```', '', text)
+        text = re.sub(r"```[\s\S]*?```", "", text)
         # Remove inline code
-        text = re.sub(r'`[^`]+`', '', text)
+        text = re.sub(r"`[^`]+`", "", text)
         # Remove bold
-        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
         # Remove italic
-        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        text = re.sub(r"\*([^*]+)\*", r"\1", text)
         # Remove URLs
-        text = re.sub(r'http[s]?://\S+', '', text)
+        text = re.sub(r"http[s]?://\S+", "", text)
         # Clean up extra whitespace
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
         # Truncate if too long
         if len(text) > 5000:
             text = text[:5000] + "..."
@@ -265,7 +266,7 @@ def list_voices() -> list:
     elif pyttsx3:
         try:
             engine = pyttsx3.init()
-            voices = engine.getProperty('voices')
+            voices = engine.getProperty("voices")
             return [(v.id, v.name) for v in voices]
         except Exception:
             return []

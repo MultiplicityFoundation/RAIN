@@ -60,11 +60,7 @@ class CognitiveState:
     compression_depth: int
 
     def __repr__(self):
-        return (
-            f"State(act={self.activation:.2f}, "
-            f"phase={self.temporal_phase:.2f}, "
-            f"depth={self.compression_depth})"
-        )
+        return f"State(act={self.activation:.2f}, phase={self.temporal_phase:.2f}, depth={self.compression_depth})"
 
 
 # ============================================================================
@@ -195,9 +191,7 @@ class Loop(CSLOperator):
     def __init__(self):
         super().__init__("λ", "Loop")
 
-    def __call__(
-        self, state: Optional[CognitiveState] = None, iterations: int = 3
-    ) -> CognitiveState:
+    def __call__(self, state: Optional[CognitiveState] = None, iterations: int = 3) -> CognitiveState:
         if state is None:
             state = Source()()
         v = state.symbolic_vector
@@ -215,9 +209,7 @@ class Time(CSLOperator):
     def __init__(self):
         super().__init__("⧖", "Time")
 
-    def __call__(
-        self, state: Optional[CognitiveState] = None, delta: float = 0.2
-    ) -> CognitiveState:
+    def __call__(self, state: Optional[CognitiveState] = None, delta: float = 0.2) -> CognitiveState:
         if state is None:
             state = Source()()
         decay = xp.exp(xp.float32(-0.1 * delta))
@@ -284,15 +276,9 @@ class Synthesis(CSLOperator):
         synthesized = signs * xp.exp(log_mean)
         return CognitiveState(
             symbolic_vector=normalize(synthesized),
-            activation=float(
-                xp.mean(xp.array([s.activation for s in states]))
-            ),
-            temporal_phase=float(
-                xp.mean(xp.array([s.temporal_phase for s in states]))
-            ),
-            compression_depth=int(
-                xp.mean(xp.array([s.compression_depth for s in states]))
-            ),
+            activation=float(xp.mean(xp.array([s.activation for s in states]))),
+            temporal_phase=float(xp.mean(xp.array([s.temporal_phase for s in states]))),
+            compression_depth=int(xp.mean(xp.array([s.compression_depth for s in states]))),
         )
 
 
@@ -307,9 +293,7 @@ class OperatorRegistry:
 
     def register(self, op: CSLOperator):
         if op.glyph in self.ops:
-            logger.warning(
-                f"Overwriting existing operator for glyph: {op.glyph}"
-            )
+            logger.warning(f"Overwriting existing operator for glyph: {op.glyph}")
         self.ops[op.glyph] = op
 
     def get(self, glyph: str):
@@ -364,9 +348,7 @@ class CSLSentence:
             logger.warning("matplotlib not available — skipping visualize_trace")
             return
 
-        fig, axes = plt.subplots(
-            2, len(self.trace), figsize=(4 * len(self.trace), 8)
-        )
+        fig, axes = plt.subplots(2, len(self.trace), figsize=(4 * len(self.trace), 8))
         if len(self.trace) == 1:
             axes = axes.reshape(2, 1)
 
@@ -396,9 +378,7 @@ class CSLSentence:
                 alpha=0.6,
                 edgecolors="black",
             )
-            ax2.set_title(
-                f"Phase Space\nDepth: {state.compression_depth}", fontsize=10
-            )
+            ax2.set_title(f"Phase Space\nDepth: {state.compression_depth}", fontsize=10)
             ax2.set_aspect("equal")
             ax2.grid(alpha=0.3)
 

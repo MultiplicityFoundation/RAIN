@@ -122,13 +122,9 @@ class CognitiveScroll:
             )
             ax_flow.add_patch(circle)
             glyph = name.split()[0]
-            ax_flow.text(
-                x, 0, glyph, ha="center", va="center", fontsize=20, weight="bold"
-            )
+            ax_flow.text(x, 0, glyph, ha="center", va="center", fontsize=20, weight="bold")
             op_name = " ".join(name.split()[1:])
-            ax_flow.text(
-                x, -0.6, op_name, ha="center", va="top", fontsize=9, style="italic"
-            )
+            ax_flow.text(x, -0.6, op_name, ha="center", va="top", fontsize=9, style="italic")
             info = f"α={state.activation:.2f}\nd={state.compression_depth}"
             ax_flow.text(
                 x,
@@ -151,9 +147,7 @@ class CognitiveScroll:
                 ax_flow.add_patch(arrow)
 
         ax_energy = fig.add_subplot(gs[2, 0])
-        ax_energy.plot(
-            [s.activation for _, s in self.full_trace], "o-", color="crimson"
-        )
+        ax_energy.plot([s.activation for _, s in self.full_trace], "o-", color="crimson")
         ax_energy.set_title("Activation Energy")
         ax_energy.grid(alpha=0.3)
         ax_energy.set_ylim(0, 1.1)
@@ -167,9 +161,7 @@ class CognitiveScroll:
         ax_depth.set_title("Compression Depth")
 
         ax_phase = fig.add_subplot(gs[2, 2])
-        ax_phase.plot(
-            [s.temporal_phase for _, s in self.full_trace], "s-", color="darkgreen"
-        )
+        ax_phase.plot([s.temporal_phase for _, s in self.full_trace], "s-", color="darkgreen")
         ax_phase.set_title("Temporal Phase")
         ax_phase.grid(alpha=0.3)
 
@@ -181,9 +173,7 @@ class CognitiveScroll:
         if not self.full_trace:
             return None
         if plt is None or animation is None:
-            logger.warning(
-                "matplotlib not available — skipping animate_field_evolution"
-            )
+            logger.warning("matplotlib not available — skipping animate_field_evolution")
             return None
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
@@ -258,6 +248,7 @@ def demonstrate_csl():
     print("║" + " CSL: COGNISPHERIC SYMBOLIC LANGUAGE ".center(78) + "║")
     print("║" + " Geometric Intelligence Engine ".center(78) + "║")
     from hello_os.symbols import GPU_AVAILABLE as _gpu
+
     print("║" + f" {'GPU Accelerated' if _gpu else 'CPU Mode'} ".center(78) + "║")
     print("╚" + "═" * 78 + "╝")
     print()

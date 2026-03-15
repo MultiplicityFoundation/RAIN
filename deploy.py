@@ -95,9 +95,9 @@ def _macos_install(repo_root: Path, args: argparse.Namespace, dry_run: bool) -> 
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>{repo_root / 'logs' / 'openclaw.out.log'}</string>
+    <string>{repo_root / "logs" / "openclaw.out.log"}</string>
     <key>StandardErrorPath</key>
-    <string>{repo_root / 'logs' / 'openclaw.err.log'}</string>
+    <string>{repo_root / "logs" / "openclaw.err.log"}</string>
   </dict>
 </plist>
 """

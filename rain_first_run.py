@@ -30,7 +30,7 @@ def _run_preflight(repo_root: Path) -> subprocess.CompletedProcess[str]:
 
 def _print_next_steps(topic: str) -> None:
     print("\n[first-run] Next steps")
-    print(f"  1. python rain_lab.py --mode chat --topic \"{topic}\"")
+    print(f'  1. python rain_lab.py --mode chat --topic "{topic}"')
     print("  2. python rain_lab.py --mode backup")
     print("  3. Review docs/TROUBLESHOOTING.md if you hit runtime issues")
 

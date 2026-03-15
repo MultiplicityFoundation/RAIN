@@ -80,8 +80,7 @@ class TestImport:
             timeout=30,
         )
         assert result.returncode == 0, (
-            f"Script {script_name}.py failed to compile:\n"
-            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            f"Script {script_name}.py failed to compile:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
 
     def test_rain_lab_imports(self):
@@ -98,19 +97,13 @@ class TestPreflightPath:
     """rain_preflight_check.py must NOT contain a hardcoded Windows path."""
 
     def test_no_hardcoded_windows_path(self):
-        source = (REPO_ROOT / "rain_preflight_check.py").read_text(
-            encoding="utf-8"
-        )
+        source = (REPO_ROOT / "rain_preflight_check.py").read_text(encoding="utf-8")
         assert r"C:\Users" not in source, (
-            "rain_preflight_check.py still contains a hardcoded "
-            "Windows path — parameterise via JAMES_LIBRARY_PATH"
+            "rain_preflight_check.py still contains a hardcoded Windows path — parameterise via JAMES_LIBRARY_PATH"
         )
 
     def test_uses_env_var(self):
-        source = (REPO_ROOT / "rain_preflight_check.py").read_text(
-            encoding="utf-8"
-        )
+        source = (REPO_ROOT / "rain_preflight_check.py").read_text(encoding="utf-8")
         assert "JAMES_LIBRARY_PATH" in source, (
-            "rain_preflight_check.py should read JAMES_LIBRARY_PATH "
-            "from the environment"
+            "rain_preflight_check.py should read JAMES_LIBRARY_PATH from the environment"
         )

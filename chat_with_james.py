@@ -12,13 +12,14 @@ def sanitize_text(text: str) -> str:
     text = text.replace("[SEARCH:", "[SEARCH;")
     return text.strip()
 
+
 # Add the RLM library to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "rlm-main", "rlm-main"))
 
 from rlm import RLM
 
 # --- 1. FORCE UTF-8 ---
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # --- CONFIGURATION ---
 LIBRARY_PATH = os.environ.get("JAMES_LIBRARY_PATH", os.path.dirname(__file__))
@@ -29,20 +30,13 @@ MAX_PAPER_CHARS = 6000  # Limits paper size to fit in context
 # --- INITIALIZE RLM ---
 james_rlm = RLM(
     backend="openai",
-    backend_kwargs={
-        "model_name": MODEL_NAME,
-        "base_url": BASE_URL
-    },
+    backend_kwargs={"model_name": MODEL_NAME, "base_url": BASE_URL},
     environment="local",  # Allows code execution on your machine
     verbose=True,  # Shows chain-of-thought and code execution
 )
 
 # --- LOCATE THE SOUL ---
-soul_paths = [
-    os.path.join(LIBRARY_PATH, "JAMES_SOUL.md"),
-    r"james_library\JAMES_SOUL.md",
-    r"JAMES_SOUL.md"
-]
+soul_paths = [os.path.join(LIBRARY_PATH, "JAMES_SOUL.md"), r"james_library\JAMES_SOUL.md", r"JAMES_SOUL.md"]
 
 james_personality = "You are James, a visionary scientist at Vers3Dynamics. You are intense, curious, and precise."
 
@@ -163,7 +157,7 @@ while True:
         result = james_rlm.completion(full_prompt)
 
         # Get the response
-        response = result.response if hasattr(result, 'response') else str(result)
+        response = result.response if hasattr(result, "response") else str(result)
 
         print(response)
 

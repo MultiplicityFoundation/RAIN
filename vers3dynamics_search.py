@@ -22,27 +22,29 @@ from datetime import datetime
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
+
 class Config:
     """System configuration parameters"""
+
     # Frequency spectrum
-    FREQ_START = 88e6      # 88 MHz
-    FREQ_END = 2.4e9       # 2.4 GHz
-    NUM_BANDS = 64         # Number of frequency bands to monitor
+    FREQ_START = 88e6  # 88 MHz
+    FREQ_END = 2.4e9  # 2.4 GHz
+    NUM_BANDS = 64  # Number of frequency bands to monitor
 
     # Temporal parameters
-    SAMPLE_RATE = 10       # Samples per second
-    WINDOW_SIZE = 100      # Historical samples for baseline calculation
+    SAMPLE_RATE = 10  # Samples per second
+    WINDOW_SIZE = 100  # Historical samples for baseline calculation
     UPDATE_INTERVAL = 0.1  # Seconds between updates
 
     # Anomaly detection
-    ANOMALY_THRESHOLD = 2.5    # Standard deviations for anomaly detection
+    ANOMALY_THRESHOLD = 2.5  # Standard deviations for anomaly detection
     STABILITY_THRESHOLD = 0.15  # Variance threshold for stability assessment
 
     # Visualization
@@ -59,34 +61,38 @@ class Config:
 # DATA STRUCTURES
 # =============================================================================
 
+
 @dataclass
 class SpectralNode:
     """Represents a frequency band in the spectral field"""
-    frequency: float        # Center frequency (Hz)
-    power: float           # Current power level (dBm)
-    baseline: float        # Historical baseline power
-    variance: float        # Temporal variance
-    anomaly_score: float   # Deviation from baseline
-    stability: float       # Temporal stability metric (0-1)
-    band_class: str       # "low", "mid", "high" frequency classification
+
+    frequency: float  # Center frequency (Hz)
+    power: float  # Current power level (dBm)
+    baseline: float  # Historical baseline power
+    variance: float  # Temporal variance
+    anomaly_score: float  # Deviation from baseline
+    stability: float  # Temporal stability metric (0-1)
+    band_class: str  # "low", "mid", "high" frequency classification
     position: Tuple[float, float, float]  # 3D coordinates
-    history: deque         # Recent power measurements
+    history: deque  # Recent power measurements
 
 
 @dataclass
 class SignalSource:
     """Simulated RF signal source"""
-    frequency: float       # Center frequency
-    bandwidth: float       # Signal bandwidth
-    power: float          # Base power level
-    modulation: str       # Type of modulation
-    duty_cycle: float     # Transmission duty cycle
-    phase: float         # Current phase
+
+    frequency: float  # Center frequency
+    bandwidth: float  # Signal bandwidth
+    power: float  # Base power level
+    modulation: str  # Type of modulation
+    duty_cycle: float  # Transmission duty cycle
+    phase: float  # Current phase
 
 
 # =============================================================================
 # RF SIGNAL PROCESSING
 # =============================================================================
+
 
 class RFProcessor:
     """Processes RF spectrum data and computes spectral features"""
@@ -119,11 +125,7 @@ class RFProcessor:
             radius = 10 + 5 * normalized_freq
             height = normalized_freq * 20 - 10
 
-            position = (
-                radius * np.cos(angle),
-                radius * np.sin(angle),
-                height
-            )
+            position = (radius * np.cos(angle), radius * np.sin(angle), height)
 
             node = SpectralNode(
                 frequency=freq,
@@ -134,7 +136,7 @@ class RFProcessor:
                 stability=1.0,
                 band_class=band_class,
                 position=position,
-                history=deque(maxlen=self.config.WINDOW_SIZE)
+                history=deque(maxlen=self.config.WINDOW_SIZE),
             )
             bands.append(node)
 
@@ -168,26 +170,29 @@ class RFProcessor:
         with self.lock:
             nodes_data = []
             for node in self.bands:
-                nodes_data.append({
-                    'frequency': node.frequency,
-                    'power': node.power,
-                    'baseline': node.baseline,
-                    'anomaly_score': node.anomaly_score,
-                    'stability': node.stability,
-                    'band_class': node.band_class,
-                    'position': node.position
-                })
+                nodes_data.append(
+                    {
+                        "frequency": node.frequency,
+                        "power": node.power,
+                        "baseline": node.baseline,
+                        "anomaly_score": node.anomaly_score,
+                        "stability": node.stability,
+                        "band_class": node.band_class,
+                        "position": node.position,
+                    }
+                )
 
             return {
-                'nodes': nodes_data,
-                'timestamp': datetime.now().isoformat(),
-                'num_anomalies': sum(1 for n in self.bands if n.anomaly_score > self.config.ANOMALY_THRESHOLD)
+                "nodes": nodes_data,
+                "timestamp": datetime.now().isoformat(),
+                "num_anomalies": sum(1 for n in self.bands if n.anomaly_score > self.config.ANOMALY_THRESHOLD),
             }
 
 
 # =============================================================================
 # SDR INTERFACE / SIMULATOR
 # =============================================================================
+
 
 class SpectrumSource:
     """Provides RF spectrum data - simulated or from real SDR"""
@@ -204,14 +209,16 @@ class SpectrumSource:
 
         for i in range(self.config.NUM_SIGNAL_SOURCES):
             freq = self.config.FREQ_START + np.random.random() * freq_range
-            sources.append(SignalSource(
-                frequency=freq,
-                bandwidth=1e6 * (0.5 + np.random.random() * 2),  # 0.5-2.5 MHz
-                power=-60 + np.random.random() * 30,  # -60 to -30 dBm
-                modulation=np.random.choice(['FM', 'AM', 'QAM', 'PSK']),
-                duty_cycle=0.3 + np.random.random() * 0.7,
-                phase=np.random.random() * 2 * np.pi
-            ))
+            sources.append(
+                SignalSource(
+                    frequency=freq,
+                    bandwidth=1e6 * (0.5 + np.random.random() * 2),  # 0.5-2.5 MHz
+                    power=-60 + np.random.random() * 30,  # -60 to -30 dBm
+                    modulation=np.random.choice(["FM", "AM", "QAM", "PSK"]),
+                    duty_cycle=0.3 + np.random.random() * 0.7,
+                    phase=np.random.random() * 2 * np.pi,
+                )
+            )
 
         return sources
 
@@ -241,9 +248,7 @@ class SpectrumSource:
 
                     if active:
                         signal_power = source.power * envelope + np.random.normal(0, 1)
-                        spectrum[band_idx] = 10 * np.log10(
-                            10**(spectrum[band_idx]/10) + 10**(signal_power/10)
-                        )
+                        spectrum[band_idx] = 10 * np.log10(10 ** (spectrum[band_idx] / 10) + 10 ** (signal_power / 10))
 
             # Update source phase
             source.phase += 0.1 + np.random.random() * 0.2
@@ -261,6 +266,7 @@ class SpectrumSource:
 # VISUALIZATION ENGINE
 # =============================================================================
 
+
 class Visualizer:
     """Generates 3D visualization of spectral field"""
 
@@ -269,73 +275,69 @@ class Visualizer:
 
     def create_3d_scene(self, spectral_state: Dict) -> str:
         """Create Plotly 3D visualization"""
-        nodes = spectral_state['nodes']
+        nodes = spectral_state["nodes"]
 
         # Extract data for visualization
-        x = [n['position'][0] for n in nodes]
-        y = [n['position'][1] for n in nodes]
-        z = [n['position'][2] for n in nodes]
+        x = [n["position"][0] for n in nodes]
+        y = [n["position"][1] for n in nodes]
+        z = [n["position"][2] for n in nodes]
 
         # Size based on power (normalized)
-        powers = np.array([n['power'] for n in nodes])
+        powers = np.array([n["power"] for n in nodes])
         power_normalized = (powers - powers.min()) / (powers.max() - powers.min() + 1e-6)
         sizes = 5 + power_normalized * 20
 
         # Color based on anomaly score and band class
         colors = []
         for node in nodes:
-            if node['anomaly_score'] > self.config.ANOMALY_THRESHOLD:
-                colors.append('red')  # Anomaly
-            elif node['band_class'] == 'low':
-                colors.append('cyan')
-            elif node['band_class'] == 'mid':
-                colors.append('lime')
+            if node["anomaly_score"] > self.config.ANOMALY_THRESHOLD:
+                colors.append("red")  # Anomaly
+            elif node["band_class"] == "low":
+                colors.append("cyan")
+            elif node["band_class"] == "mid":
+                colors.append("lime")
             else:
-                colors.append('magenta')
+                colors.append("magenta")
 
         # Opacity based on stability
-        opacities = [n['stability'] * 0.8 + 0.2 for n in nodes]
+        opacities = [n["stability"] * 0.8 + 0.2 for n in nodes]
 
         # Create hover text
         hover_texts = []
         for node in nodes:
-            freq_mhz = node['frequency'] / 1e6
-            text = (f"Freq: {freq_mhz:.1f} MHz<br>"
-                   f"Power: {node['power']:.1f} dBm<br>"
-                   f"Baseline: {node['baseline']:.1f} dBm<br>"
-                   f"Anomaly: {node['anomaly_score']:.2f}σ<br>"
-                   f"Stability: {node['stability']:.2%}<br>"
-                   f"Class: {node['band_class']}")
+            freq_mhz = node["frequency"] / 1e6
+            text = (
+                f"Freq: {freq_mhz:.1f} MHz<br>"
+                f"Power: {node['power']:.1f} dBm<br>"
+                f"Baseline: {node['baseline']:.1f} dBm<br>"
+                f"Anomaly: {node['anomaly_score']:.2f}σ<br>"
+                f"Stability: {node['stability']:.2%}<br>"
+                f"Class: {node['band_class']}"
+            )
             hover_texts.append(text)
 
         # Create spectral nodes trace
         nodes_trace = go.Scatter3d(
-            x=x, y=y, z=z,
-            mode='markers',
-            marker=dict(
-                size=sizes,
-                color=colors,
-                opacity=opacities,
-                line=dict(color='white', width=0.5)
-            ),
+            x=x,
+            y=y,
+            z=z,
+            mode="markers",
+            marker=dict(size=sizes, color=colors, opacity=opacities, line=dict(color="white", width=0.5)),
             text=hover_texts,
-            hoverinfo='text',
-            name='Spectral Nodes'
+            hoverinfo="text",
+            name="Spectral Nodes",
         )
 
         # Observer origin
         observer_trace = go.Scatter3d(
-            x=[0], y=[0], z=[0],
-            mode='markers',
-            marker=dict(
-                size=15,
-                color='yellow',
-                symbol='diamond',
-                line=dict(color='orange', width=2)
-            ),
-            text=['Observer Platform'],
-            hoverinfo='text',
-            name='Observer'
+            x=[0],
+            y=[0],
+            z=[0],
+            mode="markers",
+            marker=dict(size=15, color="yellow", symbol="diamond", line=dict(color="orange", width=2)),
+            text=["Observer Platform"],
+            hoverinfo="text",
+            name="Observer",
         )
 
         # Create figure
@@ -345,34 +347,38 @@ class Visualizer:
         fig.update_layout(
             title=dict(
                 text=f"Vers3Dynamics Search - Spectral Situational Awareness<br>"
-                     f"<sub>Timestamp: {spectral_state['timestamp']} | "
-                     f"Anomalies: {spectral_state['num_anomalies']}</sub>",
+                f"<sub>Timestamp: {spectral_state['timestamp']} | "
+                f"Anomalies: {spectral_state['num_anomalies']}</sub>",
                 x=0.5,
-                xanchor='center'
+                xanchor="center",
             ),
             scene=dict(
-                xaxis=dict(title='X (Spatial)', backgroundcolor='rgb(10, 10, 30)',
-                          gridcolor='rgb(30, 30, 60)', showbackground=True),
-                yaxis=dict(title='Y (Spatial)', backgroundcolor='rgb(10, 10, 30)',
-                          gridcolor='rgb(30, 30, 60)', showbackground=True),
-                zaxis=dict(title='Z (Frequency)', backgroundcolor='rgb(10, 10, 30)',
-                          gridcolor='rgb(30, 30, 60)', showbackground=True),
-                bgcolor='rgb(5, 5, 20)',
-                camera=dict(
-                    eye=dict(x=1.5, y=1.5, z=1.2)
-                )
+                xaxis=dict(
+                    title="X (Spatial)",
+                    backgroundcolor="rgb(10, 10, 30)",
+                    gridcolor="rgb(30, 30, 60)",
+                    showbackground=True,
+                ),
+                yaxis=dict(
+                    title="Y (Spatial)",
+                    backgroundcolor="rgb(10, 10, 30)",
+                    gridcolor="rgb(30, 30, 60)",
+                    showbackground=True,
+                ),
+                zaxis=dict(
+                    title="Z (Frequency)",
+                    backgroundcolor="rgb(10, 10, 30)",
+                    gridcolor="rgb(30, 30, 60)",
+                    showbackground=True,
+                ),
+                bgcolor="rgb(5, 5, 20)",
+                camera=dict(eye=dict(x=1.5, y=1.5, z=1.2)),
             ),
-            paper_bgcolor='rgb(0, 0, 15)',
-            font=dict(color='rgb(200, 200, 255)', family='Courier New'),
+            paper_bgcolor="rgb(0, 0, 15)",
+            font=dict(color="rgb(200, 200, 255)", family="Courier New"),
             showlegend=True,
-            legend=dict(
-                x=0.02,
-                y=0.98,
-                bgcolor='rgba(0, 0, 0, 0.7)',
-                bordercolor='cyan',
-                borderwidth=1
-            ),
-            margin=dict(l=0, r=0, t=80, b=0)
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(0, 0, 0, 0.7)", bordercolor="cyan", borderwidth=1),
+            margin=dict(l=0, r=0, t=80, b=0),
         )
 
         return fig.to_json()
@@ -381,6 +387,7 @@ class Visualizer:
 # =============================================================================
 # CORE SYSTEM
 # =============================================================================
+
 
 class Vers3DynamicsSearch:
     """Main system coordinator"""
@@ -394,7 +401,7 @@ class Vers3DynamicsSearch:
         self.acquisition_thread = None
 
         logger.info("Vers3Dynamics Search initialized")
-        logger.info(f"Monitoring: {self.config.FREQ_START/1e6:.1f} - {self.config.FREQ_END/1e9:.3f} GHz")
+        logger.info(f"Monitoring: {self.config.FREQ_START / 1e6:.1f} - {self.config.FREQ_END / 1e9:.3f} GHz")
         logger.info(f"Bands: {self.config.NUM_BANDS} | Update rate: {self.config.SAMPLE_RATE} Hz")
 
     def start_acquisition(self):
@@ -673,37 +680,40 @@ app = Flask(__name__)
 CORS(app)
 system = None
 
-@app.route('/')
+
+@app.route("/")
 def index():
     """Serve main interface"""
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/api/spectrum')
+
+@app.route("/api/spectrum")
 def get_spectrum():
     """API endpoint for spectrum data"""
     try:
         plot_json = system.get_visualization_data()
-        return jsonify({
-            'plot': plot_json,
-            'status': 'active'
-        })
+        return jsonify({"plot": plot_json, "status": "active"})
     except Exception as e:
         logger.error(f"API error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/status')
+
+@app.route("/api/status")
 def get_status():
     """Get system status"""
-    return jsonify({
-        'running': system.running,
-        'bands': system.config.NUM_BANDS,
-        'freq_range': f"{system.config.FREQ_START/1e6:.1f} - {system.config.FREQ_END/1e9:.3f} GHz"
-    })
+    return jsonify(
+        {
+            "running": system.running,
+            "bands": system.config.NUM_BANDS,
+            "freq_range": f"{system.config.FREQ_START / 1e6:.1f} - {system.config.FREQ_END / 1e9:.3f} GHz",
+        }
+    )
 
 
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
+
 
 def main():
     """Main entry point"""
@@ -733,11 +743,12 @@ def main():
 
     try:
         # Run Flask app
-        app.run(host='0.0.0.0', port=system.config.PORT, debug=False, threaded=True)
+        app.run(host="0.0.0.0", port=system.config.PORT, debug=False, threaded=True)
     except KeyboardInterrupt:
         print("\n\nShutting down...")
         system.stop_acquisition()
         print("Vers3Dynamics Search terminated.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
