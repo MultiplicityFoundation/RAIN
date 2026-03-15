@@ -82,7 +82,7 @@ The R.A.I.N. Lab runs on **Windows**, **macOS**, and **Linux**. Pick your platfo
 > **What you will need before you start:**
 >
 > - An internet connection (to download the project)
-> - About 1 GB of free disk space
+> - A love of learning
 > - **Python 3.10 or newer** (the install guide below shows you how to get it)
 
 ---
