@@ -28,10 +28,7 @@ impl FromStr for InitSystem {
             "auto" => Ok(Self::Auto),
             "systemd" => Ok(Self::Systemd),
             "openrc" => Ok(Self::Openrc),
-            other => bail!(
-                "Unknown init system: '{}'. Supported: auto, systemd, openrc",
-                other
-            ),
+            other => bail!("Unknown init system: '{other}'. Supported: auto, systemd, openrc"),
         }
     }
 }
@@ -270,7 +267,7 @@ fn status(config: &Config, init_system: InitSystem) -> Result<()> {
                         "❌ not running"
                     }
                 );
-                println!("Task: {}", task_name);
+                println!("Task: {task_name}");
             }
             Err(_) => {
                 println!("Service: ❌ not installed");
@@ -493,26 +490,21 @@ fn check_zeroclaw_user() -> Result<()> {
 
                 if uid.parse::<u32>().unwrap_or(999) >= 1000 {
                     bail!(
-                        "User 'zeroclaw' exists but has unexpected UID {} (expected system UID < 1000).\n\
-                         Recreate with: sudo {} && sudo {}",
-                        uid, del_cmd, add_cmd
+                        "User 'zeroclaw' exists but has unexpected UID {uid} (expected system UID < 1000).\n\
+                         Recreate with: sudo {del_cmd} && sudo {add_cmd}"
                     );
                 }
 
                 if !shell.contains("nologin") && !shell.contains("false") {
                     bail!(
-                        "User 'zeroclaw' exists but has unexpected shell '{}'.\n\
-                         Expected nologin/false for security. Fix with: sudo {} && sudo {}",
-                        shell,
-                        del_cmd,
-                        add_cmd
+                        "User 'zeroclaw' exists but has unexpected shell '{shell}'.\n\
+                         Expected nologin/false for security. Fix with: sudo {del_cmd} && sudo {add_cmd}"
                     );
                 }
 
                 if home != "/var/lib/zeroclaw" && home != "/nonexistent" {
                     eprintln!(
-                        "⚠️  Warning: zeroclaw user has home directory '{}' (expected /var/lib/zeroclaw or /nonexistent)",
-                        home
+                        "⚠️  Warning: zeroclaw user has home directory '{home}' (expected /var/lib/zeroclaw or /nonexistent)"
                     );
                 }
 
@@ -1017,7 +1009,7 @@ fn install_windows(config: &Config) -> Result<()> {
         "/F",
     ]))?;
 
-    println!("✅ Installed Windows scheduled task: {}", task_name);
+    println!("✅ Installed Windows scheduled task: {task_name}");
     println!("   Wrapper: {}", wrapper.display());
     println!("   Logs: {}", logs_dir.display());
     println!("   Start with: zeroclaw service start");

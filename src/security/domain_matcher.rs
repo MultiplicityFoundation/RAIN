@@ -152,7 +152,7 @@ fn normalize_pattern(raw: &str) -> Result<String> {
             "Domain pattern '{raw}' contains invalid characters; allowed: a-z, 0-9, '.', '-', '*'"
         );
     }
-    if pattern.split('.').any(|label| label.is_empty()) {
+    if pattern.split('.').any(str::is_empty) {
         bail!("Domain pattern '{raw}' contains an empty label");
     }
     if pattern.starts_with("*.") && pattern.len() <= 2 {

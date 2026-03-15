@@ -1,7 +1,6 @@
 #![recursion_limit = "256"]
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(
-    clippy::assigning_clones,
     clippy::bool_to_int_with_if,
     clippy::case_sensitive_file_extension_comparisons,
     clippy::cast_possible_wrap,
@@ -11,18 +10,14 @@
     clippy::implicit_clone,
     clippy::items_after_statements,
     clippy::map_unwrap_or,
-    clippy::manual_let_else,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::module_name_repetitions,
     clippy::needless_pass_by_value,
-    clippy::needless_raw_string_hashes,
-    clippy::redundant_closure_for_method_calls,
     clippy::similar_names,
     clippy::single_match_else,
     clippy::struct_field_names,
     clippy::too_many_lines,
-    clippy::uninlined_format_args,
     clippy::unused_self,
     clippy::cast_precision_loss,
     clippy::unnecessary_cast,
@@ -1285,7 +1280,7 @@ struct PendingOAuthLoginFile {
 }
 
 fn pending_oauth_login_path(config: &Config, provider: &str) -> std::path::PathBuf {
-    let filename = format!("auth-{}-pending.json", provider);
+    let filename = format!("auth-{provider}-pending.json");
     auth::state_dir_from_config(config).join(filename)
 }
 
@@ -1352,7 +1347,7 @@ fn load_pending_oauth_login(config: &Config, provider: &str) -> Result<Option<Pe
     } else if let Some(plaintext) = persisted.code_verifier {
         plaintext
     } else {
-        bail!("Pending {} login is missing code verifier", provider);
+        bail!("Pending {provider} login is missing code verifier");
     };
     Ok(Some(PendingOAuthLogin {
         provider: persisted.provider.unwrap_or_else(|| provider.to_string()),
@@ -1792,7 +1787,7 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
                         Some(_) => {
                             let profile_name = profile.as_deref().unwrap_or("default");
                             println!("✓ Gemini token refreshed successfully");
-                            println!("  Profile: gemini:{}", profile_name);
+                            println!("  Profile: gemini:{profile_name}");
                             Ok(())
                         }
                         None => {

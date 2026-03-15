@@ -193,7 +193,7 @@ impl PromptGuard {
         }
 
         // Check for attempts to close JSON and inject new content
-        if content.contains(r#"}"}"#) || content.contains(r#"}'"#) {
+        if content.contains(r#"}"}"#) || content.contains(r"}'") {
             patterns.push("json_escape_attempt".to_string());
             return 0.7;
         }

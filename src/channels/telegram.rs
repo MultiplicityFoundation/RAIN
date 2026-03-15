@@ -977,7 +977,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .map(|id| id.to_string());
 
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{}:{}", chat_id, tid)
+            format!("{chat_id}:{tid}")
         } else {
             chat_id.clone()
         };
@@ -1104,7 +1104,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .map(|id| id.to_string());
 
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{}:{}", chat_id, tid)
+            format!("{chat_id}:{tid}")
         } else {
             chat_id.clone()
         };
@@ -1298,7 +1298,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
 
         // reply_target: chat_id or chat_id:thread_id format
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{}:{}", chat_id, tid)
+            format!("{chat_id}:{tid}")
         } else {
             chat_id.clone()
         };
@@ -1336,7 +1336,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         use base64::Engine as _;
 
         // Step 1: call getFile to get file_path
-        let get_file_url = self.api_url(&format!("getFile?file_id={}", file_id));
+        let get_file_url = self.api_url(&format!("getFile?file_id={file_id}"));
         let resp = self.http_client().get(&get_file_url).send().await?;
         let json: serde_json::Value = resp.json().await?;
         let file_path = json
@@ -1374,7 +1374,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         .await??;
 
         let b64 = base64::engine::general_purpose::STANDARD.encode(&resized_bytes);
-        Ok(format!("data:image/jpeg;base64,{}", b64))
+        Ok(format!("data:image/jpeg;base64,{b64}"))
     }
 
     /// Convert Markdown to Telegram HTML format.
@@ -1607,11 +1607,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 let plain_status = plain_resp.status();
                 let plain_err = plain_resp.text().await.unwrap_or_default();
                 anyhow::bail!(
-                    "Telegram sendMessage failed (markdown {}: {}; plain {}: {})",
-                    markdown_status,
-                    markdown_err,
-                    plain_status,
-                    plain_err
+                    "Telegram sendMessage failed (markdown {markdown_status}: {markdown_err}; plain {plain_status}: {plain_err})"
                 );
             }
 
@@ -2203,7 +2199,7 @@ impl Channel for TelegramChannel {
         let message_id = resp_json
             .get("result")
             .and_then(|r| r.get("message_id"))
-            .and_then(|id| id.as_i64())
+            .and_then(serde_json::Value::as_i64)
             .map(|id| id.to_string());
 
         self.last_draft_edit

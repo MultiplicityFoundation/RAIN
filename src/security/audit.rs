@@ -189,7 +189,7 @@ impl AuditLogger {
             .append(true)
             .open(&self.log_path)?;
 
-        writeln!(file, "{}", line)?;
+        writeln!(file, "{line}")?;
         file.sync_all()?;
 
         Ok(())

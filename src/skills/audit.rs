@@ -393,7 +393,7 @@ fn has_shell_shebang(path: &Path) -> bool {
 fn extract_markdown_links(content: &str) -> Vec<String> {
     static MARKDOWN_LINK_RE: OnceLock<Regex> = OnceLock::new();
     let regex = MARKDOWN_LINK_RE.get_or_init(|| {
-        Regex::new(r#"\[[^\]]*\]\(([^)]+)\)"#).expect("markdown link regex must compile")
+        Regex::new(r"\[[^\]]*\]\(([^)]+)\)").expect("markdown link regex must compile")
     });
 
     regex

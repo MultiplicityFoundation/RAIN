@@ -204,7 +204,10 @@ impl SignalChannel {
 
         let parsed: serde_json::Value = serde_json::from_str(&text)?;
         if let Some(err) = parsed.get("error") {
-            let code = err.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
+            let code = err
+                .get("code")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(-1);
             let msg = err
                 .get("message")
                 .and_then(|m| m.as_str())
@@ -899,7 +902,7 @@ mod tests {
 
     #[test]
     fn envelope_defaults() {
-        let json = r#"{}"#;
+        let json = r"{}";
         let env: Envelope = serde_json::from_str(json).unwrap();
         assert!(env.source.is_none());
         assert!(env.source_number.is_none());

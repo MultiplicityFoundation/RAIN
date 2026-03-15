@@ -83,7 +83,7 @@ pub async fn handle_command(cmd: crate::PeripheralCommands, config: &Config) -> 
                 .iter()
                 .any(|b| b.board == board && b.path.as_deref() == path_opt.as_deref())
             {
-                println!("Board {} at {:?} already configured.", board, path_opt);
+                println!("Board {board} at {path_opt:?} already configured.");
                 return Ok(());
             }
 
@@ -94,7 +94,7 @@ pub async fn handle_command(cmd: crate::PeripheralCommands, config: &Config) -> 
                 baud: 115_200,
             });
             cfg.save().await?;
-            println!("Added {} at {}. Restart daemon to apply.", board, path);
+            println!("Added {board} at {path}. Restart daemon to apply.");
         }
         #[cfg(feature = "hardware")]
         crate::PeripheralCommands::Flash { port } => {

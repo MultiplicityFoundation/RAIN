@@ -138,7 +138,7 @@ impl Tool for PushoverTool {
 
         let title = args.get("title").and_then(|v| v.as_str()).map(String::from);
 
-        let priority = match args.get("priority").and_then(|v| v.as_i64()) {
+        let priority = match args.get("priority").and_then(serde_json::Value::as_i64) {
             Some(value) if (-2..=2).contains(&value) => Some(value),
             Some(value) => {
                 return Ok(ToolResult {
@@ -187,21 +187,18 @@ impl Tool for PushoverTool {
             return Ok(ToolResult {
                 success: false,
                 output: body,
-                error: Some(format!("Pushover API returned status {}", status)),
+                error: Some(format!("Pushover API returned status {status}")),
             });
         }
 
         let api_status = serde_json::from_str::<serde_json::Value>(&body)
             .ok()
-            .and_then(|json| json.get("status").and_then(|value| value.as_i64()));
+            .and_then(|json| json.get("status").and_then(serde_json::Value::as_i64));
 
         if api_status == Some(1) {
             Ok(ToolResult {
                 success: true,
-                output: format!(
-                    "Pushover notification sent successfully. Response: {}",
-                    body
-                ),
+                output: format!("Pushover notification sent successfully. Response: {body}"),
                 error: None,
             })
         } else {

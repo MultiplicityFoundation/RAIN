@@ -547,7 +547,7 @@ fn mask_vec_secrets(values: &mut [String]) {
 #[allow(clippy::ref_option)]
 fn restore_optional_secret(value: &mut Option<String>, current: &Option<String>) {
     if value.as_deref().is_some_and(is_masked_secret) {
-        *value = current.clone();
+        value.clone_from(current);
     }
 }
 
@@ -561,7 +561,7 @@ fn restore_vec_secrets(values: &mut [String], current: &[String]) {
     for (idx, value) in values.iter_mut().enumerate() {
         if is_masked_secret(value) {
             if let Some(existing) = current.get(idx) {
-                *value = existing.clone();
+                value.clone_from(existing);
             }
         }
     }
@@ -640,7 +640,7 @@ fn restore_model_route_api_keys(
 
         if let Some(idx) = match_idx {
             used_current[idx] = true;
-            incoming_route.api_key = current[idx].api_key.clone();
+            incoming_route.api_key.clone_from(&current[idx].api_key);
         } else {
             // Never persist UI placeholders to disk when no safe restore target exists.
             incoming_route.api_key = None;
@@ -684,7 +684,7 @@ fn restore_embedding_route_api_keys(
 
         if let Some(idx) = match_idx {
             used_current[idx] = true;
-            incoming_route.api_key = current[idx].api_key.clone();
+            incoming_route.api_key.clone_from(&current[idx].api_key);
         } else {
             // Never persist UI placeholders to disk when no safe restore target exists.
             incoming_route.api_key = None;
@@ -980,8 +980,8 @@ fn hydrate_config_for_save(
 ) -> crate::config::Config {
     restore_masked_sensitive_fields(&mut incoming, current);
     // These are runtime-computed fields skipped from TOML serialization.
-    incoming.config_path = current.config_path.clone();
-    incoming.workspace_dir = current.workspace_dir.clone();
+    incoming.config_path.clone_from(&current.config_path);
+    incoming.workspace_dir.clone_from(&current.workspace_dir);
     incoming
 }
 

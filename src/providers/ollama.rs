@@ -133,7 +133,7 @@ impl OllamaProvider {
     fn is_local_endpoint(&self) -> bool {
         reqwest::Url::parse(&self.base_url)
             .ok()
-            .and_then(|url| url.host_str().map(|host| host.to_string()))
+            .and_then(|url| url.host_str().map(std::string::ToString::to_string))
             .is_some_and(|host| matches!(host.as_str(), "localhost" | "127.0.0.1" | "::1"))
     }
 
@@ -147,15 +147,13 @@ impl OllamaProvider {
 
         if requests_cloud && self.is_local_endpoint() {
             anyhow::bail!(
-                "Model '{}' requested cloud routing, but Ollama endpoint is local. Configure api_url with a remote Ollama endpoint.",
-                model
+                "Model '{model}' requested cloud routing, but Ollama endpoint is local. Configure api_url with a remote Ollama endpoint."
             );
         }
 
         if requests_cloud && self.api_key.is_none() {
             anyhow::bail!(
-                "Model '{}' requested cloud routing, but no API key is configured. Set OLLAMA_API_KEY or config api_key.",
-                model
+                "Model '{model}' requested cloud routing, but no API key is configured. Set OLLAMA_API_KEY or config api_key."
             );
         }
 
@@ -186,8 +184,7 @@ impl OllamaProvider {
                 thinking_log_excerpt
             );
             return format!(
-                "I was thinking about this: {}... but I didn't complete my response. Could you try asking again?",
-                thinking_reply_excerpt
+                "I was thinking about this: {thinking_reply_excerpt}... but I didn't complete my response. Could you try asking again?"
             );
         }
 
@@ -212,7 +209,7 @@ impl OllamaProvider {
             stream: false,
             options: Options { temperature },
             think: self.reasoning_enabled,
-            tools: tools.map(|t| t.to_vec()),
+            tools: tools.map(<[serde_json::Value]>::to_vec),
         }
     }
 
@@ -364,7 +361,7 @@ impl OllamaProvider {
             request.messages.len(),
             temperature,
             request.think,
-            request.tools.as_ref().map_or(0, |t| t.len()),
+            request.tools.as_ref().map_or(0, std::vec::Vec::len),
         );
 
         let mut request_builder = self.http_client().post(&url).json(&request);
@@ -391,9 +388,7 @@ impl OllamaProvider {
                 sanitized
             );
             anyhow::bail!(
-                "Ollama API error ({}): {}. Is Ollama running? (brew install ollama && ollama serve)",
-                status,
-                sanitized
+                "Ollama API error ({status}): {sanitized}. Is Ollama running? (brew install ollama && ollama serve)"
             );
         }
 

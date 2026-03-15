@@ -133,30 +133,30 @@ impl Tool for ContentSearchTool {
 
         let case_sensitive = args
             .get("case_sensitive")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(true);
 
         #[allow(clippy::cast_possible_truncation)]
         let context_before = args
             .get("context_before")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0) as usize;
 
         #[allow(clippy::cast_possible_truncation)]
         let context_after = args
             .get("context_after")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0) as usize;
 
         let multiline = args
             .get("multiline")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         #[allow(clippy::cast_possible_truncation)]
         let max_results = args
             .get("max_results")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .map(|v| v as usize)
             .unwrap_or(MAX_RESULTS)
             .min(MAX_RESULTS);

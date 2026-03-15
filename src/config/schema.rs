@@ -3511,12 +3511,12 @@ connect_timeout_secs = 12
 
     #[test]
     async fn runtime_reasoning_enabled_deserializes() {
-        let raw = r#"
+        let raw = r"
 default_temperature = 0.7
 
 [runtime]
 reasoning_enabled = false
-"#;
+";
 
         let parsed: Config = toml::from_str(raw).unwrap();
         assert_eq!(parsed.runtime.reasoning_enabled, Some(false));

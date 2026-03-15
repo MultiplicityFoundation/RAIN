@@ -102,7 +102,7 @@ impl LinqChannel {
         // Skip messages sent by the bot itself
         if data
             .get("is_from_me")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
         {
             tracing::debug!("Linq: skipping is_from_me message");

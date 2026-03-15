@@ -78,11 +78,11 @@ impl SlackChannel {
                 let id = channel.get("id").and_then(|id| id.as_str())?;
                 let is_archived = channel
                     .get("is_archived")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false);
                 let is_member = channel
                     .get("is_member")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(true);
                 if is_archived || !is_member {
                     return None;

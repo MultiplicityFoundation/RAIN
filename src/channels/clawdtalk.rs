@@ -90,7 +90,7 @@ impl ClawdTalkChannel {
         _prompt: Option<&str>,
     ) -> anyhow::Result<CallSession> {
         if !self.is_destination_allowed(to) {
-            anyhow::bail!("Destination {} is not in allowed list", to);
+            anyhow::bail!("Destination {to} is not in allowed list");
         }
 
         let request = CallRequest {
@@ -116,7 +116,7 @@ impl ClawdTalkChannel {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            anyhow::bail!("Failed to initiate call: {}", error);
+            anyhow::bail!("Failed to initiate call: {error}");
         }
 
         let call_response: CallResponse = response.json().await?;
@@ -153,7 +153,7 @@ impl ClawdTalkChannel {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            anyhow::bail!("Failed to speak: {}", error);
+            anyhow::bail!("Failed to speak: {error}");
         }
 
         Ok(())
@@ -211,7 +211,7 @@ impl ClawdTalkChannel {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            anyhow::bail!("Failed to start AI conversation: {}", error);
+            anyhow::bail!("Failed to start AI conversation: {error}");
         }
 
         Ok(())

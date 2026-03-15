@@ -159,7 +159,7 @@ fn resolve_embedding_config(
         .as_deref()
         .map(str::trim)
         .filter(|value: &&str| !value.is_empty())
-        .map(|value| value.to_string());
+        .map(std::string::ToString::to_string);
 
     ResolvedEmbeddingConfig {
         provider: provider.to_string(),

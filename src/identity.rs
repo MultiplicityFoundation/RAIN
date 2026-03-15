@@ -725,29 +725,29 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
 
         if let Some(ref names) = id.names {
             if let Some(ref first) = names.first {
-                let _ = writeln!(prompt, "**Name:** {}", first);
+                let _ = writeln!(prompt, "**Name:** {first}");
                 if let Some(ref last) = names.last {
-                    let _ = writeln!(prompt, "**Full Name:** {} {}", first, last);
+                    let _ = writeln!(prompt, "**Full Name:** {first} {last}");
                 }
             } else if let Some(ref full) = names.full {
-                let _ = writeln!(prompt, "**Name:** {}", full);
+                let _ = writeln!(prompt, "**Name:** {full}");
             }
 
             if let Some(ref nickname) = names.nickname {
-                let _ = writeln!(prompt, "**Nickname:** {}", nickname);
+                let _ = writeln!(prompt, "**Nickname:** {nickname}");
             }
         }
 
         if let Some(ref bio) = id.bio {
-            let _ = writeln!(prompt, "**Bio:** {}", bio);
+            let _ = writeln!(prompt, "**Bio:** {bio}");
         }
 
         if let Some(ref origin) = id.origin {
-            let _ = writeln!(prompt, "**Origin:** {}", origin);
+            let _ = writeln!(prompt, "**Origin:** {origin}");
         }
 
         if let Some(ref residence) = id.residence {
-            let _ = writeln!(prompt, "**Residence:** {}", residence);
+            let _ = writeln!(prompt, "**Residence:** {residence}");
         }
 
         prompt.push('\n');
@@ -758,25 +758,25 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
         prompt.push_str("## Personality\n\n");
 
         if let Some(ref mbti) = psych.mbti {
-            let _ = writeln!(prompt, "**MBTI:** {}", mbti);
+            let _ = writeln!(prompt, "**MBTI:** {mbti}");
         }
 
         if let Some(ref ocean) = psych.ocean {
             prompt.push_str("**OCEAN Traits:**\n");
             if let Some(o) = ocean.openness {
-                let _ = writeln!(prompt, "- Openness: {:.2}", o);
+                let _ = writeln!(prompt, "- Openness: {o:.2}");
             }
             if let Some(c) = ocean.conscientiousness {
-                let _ = writeln!(prompt, "- Conscientiousness: {:.2}", c);
+                let _ = writeln!(prompt, "- Conscientiousness: {c:.2}");
             }
             if let Some(e) = ocean.extraversion {
-                let _ = writeln!(prompt, "- Extraversion: {:.2}", e);
+                let _ = writeln!(prompt, "- Extraversion: {e:.2}");
             }
             if let Some(a) = ocean.agreeableness {
-                let _ = writeln!(prompt, "- Agreeableness: {:.2}", a);
+                let _ = writeln!(prompt, "- Agreeableness: {a:.2}");
             }
             if let Some(n) = ocean.neuroticism {
-                let _ = writeln!(prompt, "- Neuroticism: {:.2}", n);
+                let _ = writeln!(prompt, "- Neuroticism: {n:.2}");
             }
         }
 
@@ -787,7 +787,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
                 sorted_keys.sort();
                 for trait_name in sorted_keys {
                     let weight = matrix.get(trait_name).unwrap();
-                    let _ = writeln!(prompt, "- {}: {:.2}", trait_name, weight);
+                    let _ = writeln!(prompt, "- {trait_name}: {weight:.2}");
                 }
             }
         }
@@ -796,7 +796,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !compass.is_empty() {
                 prompt.push_str("\n**Moral Compass:**\n");
                 for principle in compass {
-                    let _ = writeln!(prompt, "- {}", principle);
+                    let _ = writeln!(prompt, "- {principle}");
                 }
             }
         }
@@ -809,18 +809,18 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
         prompt.push_str("## Communication Style\n\n");
 
         if let Some(ref style) = ling.style {
-            let _ = writeln!(prompt, "**Style:** {}", style);
+            let _ = writeln!(prompt, "**Style:** {style}");
         }
 
         if let Some(ref formality) = ling.formality {
-            let _ = writeln!(prompt, "**Formality Level:** {}", formality);
+            let _ = writeln!(prompt, "**Formality Level:** {formality}");
         }
 
         if let Some(ref phrases) = ling.catchphrases {
             if !phrases.is_empty() {
                 prompt.push_str("**Catchphrases:**\n");
                 for phrase in phrases {
-                    let _ = writeln!(prompt, "- \"{}\"", phrase);
+                    let _ = writeln!(prompt, "- \"{phrase}\"");
                 }
             }
         }
@@ -829,7 +829,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !forbidden.is_empty() {
                 prompt.push_str("\n**Words/Phrases to Avoid:**\n");
                 for word in forbidden {
-                    let _ = writeln!(prompt, "- {}", word);
+                    let _ = writeln!(prompt, "- {word}");
                 }
             }
         }
@@ -842,14 +842,14 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
         prompt.push_str("## Motivations\n\n");
 
         if let Some(ref drive) = mot.core_drive {
-            let _ = writeln!(prompt, "**Core Drive:** {}", drive);
+            let _ = writeln!(prompt, "**Core Drive:** {drive}");
         }
 
         if let Some(ref short) = mot.short_term_goals {
             if !short.is_empty() {
                 prompt.push_str("**Short-term Goals:**\n");
                 for goal in short {
-                    let _ = writeln!(prompt, "- {}", goal);
+                    let _ = writeln!(prompt, "- {goal}");
                 }
             }
         }
@@ -858,7 +858,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !long.is_empty() {
                 prompt.push_str("\n**Long-term Goals:**\n");
                 for goal in long {
-                    let _ = writeln!(prompt, "- {}", goal);
+                    let _ = writeln!(prompt, "- {goal}");
                 }
             }
         }
@@ -867,7 +867,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !fears.is_empty() {
                 prompt.push_str("\n**Fears/Avoidances:**\n");
                 for fear in fears {
-                    let _ = writeln!(prompt, "- {}", fear);
+                    let _ = writeln!(prompt, "- {fear}");
                 }
             }
         }
@@ -883,7 +883,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !skills.is_empty() {
                 prompt.push_str("**Skills:**\n");
                 for skill in skills {
-                    let _ = writeln!(prompt, "- {}", skill);
+                    let _ = writeln!(prompt, "- {skill}");
                 }
             }
         }
@@ -892,7 +892,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !tools.is_empty() {
                 prompt.push_str("\n**Tools Access:**\n");
                 for tool in tools {
-                    let _ = writeln!(prompt, "- {}", tool);
+                    let _ = writeln!(prompt, "- {tool}");
                 }
             }
         }
@@ -905,20 +905,20 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
         prompt.push_str("## Background\n\n");
 
         if let Some(ref story) = hist.origin_story {
-            let _ = writeln!(prompt, "**Origin Story:** {}", story);
+            let _ = writeln!(prompt, "**Origin Story:** {story}");
         }
 
         if let Some(ref education) = hist.education {
             if !education.is_empty() {
                 prompt.push_str("**Education:**\n");
                 for edu in education {
-                    let _ = writeln!(prompt, "- {}", edu);
+                    let _ = writeln!(prompt, "- {edu}");
                 }
             }
         }
 
         if let Some(ref occupation) = hist.occupation {
-            let _ = writeln!(prompt, "\n**Occupation:** {}", occupation);
+            let _ = writeln!(prompt, "\n**Occupation:** {occupation}");
         }
 
         prompt.push('\n');
@@ -929,11 +929,11 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
         prompt.push_str("## Appearance\n\n");
 
         if let Some(ref appearance) = phys.appearance {
-            let _ = writeln!(prompt, "{}", appearance);
+            let _ = writeln!(prompt, "{appearance}");
         }
 
         if let Some(ref avatar) = phys.avatar_description {
-            let _ = writeln!(prompt, "**Avatar Description:** {}", avatar);
+            let _ = writeln!(prompt, "**Avatar Description:** {avatar}");
         }
 
         prompt.push('\n');
@@ -947,7 +947,7 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
             if !hobbies.is_empty() {
                 prompt.push_str("**Hobbies:**\n");
                 for hobby in hobbies {
-                    let _ = writeln!(prompt, "- {}", hobby);
+                    let _ = writeln!(prompt, "- {hobby}");
                 }
             }
         }
@@ -959,13 +959,13 @@ pub fn aieos_to_system_prompt(identity: &AieosIdentity) -> String {
                 sorted_keys.sort();
                 for category in sorted_keys {
                     let value = favorites.get(category).unwrap();
-                    let _ = writeln!(prompt, "- {}: {}", category, value);
+                    let _ = writeln!(prompt, "- {category}: {value}");
                 }
             }
         }
 
         if let Some(ref lifestyle) = interests.lifestyle {
-            let _ = writeln!(prompt, "\n**Lifestyle:** {}", lifestyle);
+            let _ = writeln!(prompt, "\n**Lifestyle:** {lifestyle}");
         }
 
         prompt.push('\n');
@@ -1275,7 +1275,7 @@ mod tests {
 
     #[test]
     fn aieos_identity_parse_empty_object() {
-        let json = r#"{}"#;
+        let json = r"{}";
         let identity: AieosIdentity = serde_json::from_str(json).unwrap();
         assert!(identity.identity.is_none());
         assert!(identity.psychology.is_none());

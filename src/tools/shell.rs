@@ -50,11 +50,12 @@ fn is_valid_env_var_name(name: &str) -> bool {
 fn collect_allowed_shell_env_vars(security: &SecurityPolicy) -> Vec<String> {
     let mut out = Vec::new();
     let mut seen = HashSet::new();
-    for key in SAFE_ENV_VARS
-        .iter()
-        .copied()
-        .chain(security.shell_env_passthrough.iter().map(|s| s.as_str()))
-    {
+    for key in SAFE_ENV_VARS.iter().copied().chain(
+        security
+            .shell_env_passthrough
+            .iter()
+            .map(std::string::String::as_str),
+    ) {
         let candidate = key.trim();
         if candidate.is_empty() || !is_valid_env_var_name(candidate) {
             continue;
@@ -101,7 +102,7 @@ impl Tool for ShellTool {
             .ok_or_else(|| anyhow::anyhow!("Missing 'command' parameter"))?;
         let approved = args
             .get("approved")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         if self.security.is_rate_limited() {

@@ -2000,19 +2000,16 @@ fn endpoint_reachable(endpoint: &reqwest::Url, timeout: Duration) -> bool {
         _ => return false,
     };
 
-    let port = match endpoint.port_or_known_default() {
-        Some(port) => port,
-        None => return false,
+    let Some(port) = endpoint.port_or_known_default() else {
+        return false;
     };
 
-    let mut addrs = match (host, port).to_socket_addrs() {
-        Ok(addrs) => addrs,
-        Err(_) => return false,
+    let Ok(mut addrs) = (host, port).to_socket_addrs() else {
+        return false;
     };
 
-    let addr = match addrs.next() {
-        Some(addr) => addr,
-        None => return false,
+    let Some(addr) = addrs.next() else {
+        return false;
     };
 
     std::net::TcpStream::connect_timeout(&addr, timeout).is_ok()

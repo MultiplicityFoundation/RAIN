@@ -111,7 +111,7 @@ impl SqliteMemory {
                 Ok(Ok(c)) => c,
                 Ok(Err(e)) => return Err(e).context("SQLite failed to open database"),
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    anyhow::bail!("SQLite connection open timed out after {} seconds", capped);
+                    anyhow::bail!("SQLite connection open timed out after {capped} seconds");
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     anyhow::bail!("SQLite open thread exited unexpectedly");

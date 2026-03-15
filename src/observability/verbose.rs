@@ -22,10 +22,7 @@ impl Observer for VerboseObserver {
                 messages_count,
             } => {
                 eprintln!("> Thinking");
-                eprintln!(
-                    "> Send (provider={}, model={}, messages={})",
-                    provider, model, messages_count
-                );
+                eprintln!("> Send (provider={provider}, model={model}, messages={messages_count})");
             }
             ObserverEvent::LlmResponse {
                 duration, success, ..

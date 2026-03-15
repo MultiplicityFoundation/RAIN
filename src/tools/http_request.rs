@@ -286,7 +286,7 @@ impl Tool for HttpRequestTool {
                     success: status.is_success(),
                     output,
                     error: if status.is_client_error() || status.is_server_error() {
-                        Some(format!("HTTP {}", status_code))
+                        Some(format!("HTTP {status_code}"))
                     } else {
                         None
                     },

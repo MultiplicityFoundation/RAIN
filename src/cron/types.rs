@@ -26,8 +26,7 @@ impl TryFrom<&str> for JobType {
             "shell" => Ok(JobType::Shell),
             "agent" => Ok(JobType::Agent),
             _ => Err(format!(
-                "Invalid job type '{}'. Expected one of: 'shell', 'agent'",
-                value
+                "Invalid job type '{value}'. Expected one of: 'shell', 'agent'"
             )),
         }
     }

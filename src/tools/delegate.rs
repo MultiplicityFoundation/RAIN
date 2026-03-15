@@ -195,24 +195,20 @@ impl Tool for DelegateTool {
             .unwrap_or("");
 
         // Look up agent config
-        let agent_config = match self.agents.get(agent_name) {
-            Some(cfg) => cfg,
-            None => {
-                let available: Vec<&str> =
-                    self.agents.keys().map(|s: &String| s.as_str()).collect();
-                return Ok(ToolResult {
-                    success: false,
-                    output: String::new(),
-                    error: Some(format!(
-                        "Unknown agent '{agent_name}'. Available agents: {}",
-                        if available.is_empty() {
-                            "(none configured)".to_string()
-                        } else {
-                            available.join(", ")
-                        }
-                    )),
-                });
-            }
+        let Some(agent_config) = self.agents.get(agent_name) else {
+            let available: Vec<&str> = self.agents.keys().map(|s: &String| s.as_str()).collect();
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!(
+                    "Unknown agent '{agent_name}'. Available agents: {}",
+                    if available.is_empty() {
+                        "(none configured)".to_string()
+                    } else {
+                        available.join(", ")
+                    }
+                )),
+            });
         };
 
         // Check recursion depth (immutable — set at construction, incremented for sub-agents)

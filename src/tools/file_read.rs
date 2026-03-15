@@ -145,7 +145,7 @@ impl Tool for FileReadTool {
 
                 let offset = args
                     .get("offset")
-                    .and_then(|v| v.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .map(|v| {
                         usize::try_from(v.max(1))
                             .unwrap_or(usize::MAX)
@@ -154,7 +154,7 @@ impl Tool for FileReadTool {
                     .unwrap_or(0);
                 let start = offset.min(total);
 
-                let end = match args.get("limit").and_then(|v| v.as_u64()) {
+                let end = match args.get("limit").and_then(serde_json::Value::as_u64) {
                     Some(l) => {
                         let limit = usize::try_from(l).unwrap_or(usize::MAX);
                         (start.saturating_add(limit)).min(total)

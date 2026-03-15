@@ -38,18 +38,18 @@ pub(crate) fn scrub_credentials(input: &str) -> String {
 
             if full_match.contains(':') {
                 if full_match.contains('"') {
-                    format!("\"{}\": \"{}*[REDACTED]\"", key, prefix)
+                    format!("\"{key}\": \"{prefix}*[REDACTED]\"")
                 } else {
-                    format!("{}: {}*[REDACTED]", key, prefix)
+                    format!("{key}: {prefix}*[REDACTED]")
                 }
             } else if full_match.contains('=') {
                 if full_match.contains('"') {
-                    format!("{}=\"{}*[REDACTED]\"", key, prefix)
+                    format!("{key}=\"{prefix}*[REDACTED]\"")
                 } else {
-                    format!("{}={}*[REDACTED]", key, prefix)
+                    format!("{key}={prefix}*[REDACTED]")
                 }
             } else {
-                format!("{}: {}*[REDACTED]", key, prefix)
+                format!("{key}: {prefix}*[REDACTED]")
             }
         })
         .to_string()

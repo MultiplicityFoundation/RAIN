@@ -220,7 +220,7 @@ pub async fn run_models(
     let mut matrix_rows: Vec<(String, ModelProbeOutcome, Option<usize>, String)> = Vec::new();
 
     for provider_name in &targets {
-        println!("  [{}]", provider_name);
+        println!("  [{provider_name}]");
 
         match crate::onboard::run_models_refresh(config, Some(provider_name), !use_cache).await {
             Ok(()) => {
@@ -290,8 +290,7 @@ pub async fn run_models(
     }
 
     println!(
-        "  Summary: {} ok, {} skipped, {} auth/access, {} errors",
-        ok_count, skipped_count, auth_count, error_count
+        "  Summary: {ok_count} ok, {skipped_count} skipped, {auth_count} auth/access, {error_count} errors"
     );
 
     if !matrix_rows.is_empty() {

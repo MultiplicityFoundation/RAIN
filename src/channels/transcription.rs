@@ -94,7 +94,7 @@ pub async fn transcribe_audio(
 
     if !status.is_success() {
         let error_msg = body["error"]["message"].as_str().unwrap_or("unknown error");
-        bail!("Transcription API error ({}): {}", status, error_msg);
+        bail!("Transcription API error ({status}): {error_msg}");
     }
 
     let text = body["text"]

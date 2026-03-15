@@ -162,7 +162,7 @@ pub async fn exchange_code_for_tokens(
                 err.error_description.unwrap_or_default()
             );
         }
-        anyhow::bail!("Google OAuth token exchange failed ({}): {}", status, body);
+        anyhow::bail!("Google OAuth token exchange failed ({status}): {body}");
     }
 
     let token_response: TokenResponse =
@@ -212,7 +212,7 @@ pub async fn refresh_access_token(client: &Client, refresh_token: &str) -> Resul
                 err.error_description.unwrap_or_default()
             );
         }
-        anyhow::bail!("Google OAuth refresh failed ({}): {}", status, body);
+        anyhow::bail!("Google OAuth refresh failed ({status}): {body}");
     }
 
     let token_response: TokenResponse =
@@ -260,7 +260,7 @@ pub async fn start_device_code_flow(client: &Client) -> Result<DeviceCodeStart> 
                 err.error_description.unwrap_or_default()
             );
         }
-        anyhow::bail!("Google device code request failed ({}): {}", status, body);
+        anyhow::bail!("Google device code request failed ({status}): {body}");
     }
 
     let device_response: DeviceCodeResponse =
@@ -591,7 +591,7 @@ mod tests {
         let header = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r#"{"alg":"RS256"}"#);
         let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(r#"{"email":"test@example.com"}"#);
-        let token = format!("{}.{}.signature", header, payload);
+        let token = format!("{header}.{payload}.signature");
 
         let email = extract_account_email_from_id_token(&token);
         assert_eq!(email, Some("test@example.com".to_string()));

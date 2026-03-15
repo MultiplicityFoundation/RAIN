@@ -73,7 +73,10 @@ impl RuntimeTraceLogger {
             return Ok(());
         }
 
-        let _guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
@@ -188,7 +191,9 @@ pub fn init_from_config(config: &ObservabilityConfig, workspace_dir: &Path) {
         )))
     };
 
-    let mut guard = TRACE_LOGGER.write().unwrap_or_else(|e| e.into_inner());
+    let mut guard = TRACE_LOGGER
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     *guard = logger;
 }
 
@@ -205,7 +210,7 @@ pub fn record_event(
 ) {
     let logger = TRACE_LOGGER
         .read()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
     let Some(logger) = logger else {
         return;

@@ -26,12 +26,16 @@ impl std::fmt::Display for ToolLoopCancelled {
 impl std::error::Error for ToolLoopCancelled {}
 
 pub(crate) fn is_tool_loop_cancelled(err: &anyhow::Error) -> bool {
-    err.chain().any(|source| source.is::<ToolLoopCancelled>())
+    err.chain()
+        .any(<dyn std::error::Error + 'static>::is::<ToolLoopCancelled>)
 }
 
 /// Find a tool by name in the registry.
 pub(crate) fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> Option<&'a dyn Tool> {
-    tools.iter().find(|t| t.name() == name).map(|t| t.as_ref())
+    tools
+        .iter()
+        .find(|t| t.name() == name)
+        .map(std::convert::AsRef::as_ref)
 }
 
 pub(crate) async fn execute_one_tool(

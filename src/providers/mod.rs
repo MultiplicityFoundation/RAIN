@@ -2843,10 +2843,9 @@ mod tests {
                 );
                 assert!(
                     !canonical_ids.contains(alias),
-                    "Alias conflicts with canonical provider id: {}",
-                    alias
+                    "Alias conflicts with canonical provider id: {alias}"
                 );
-                assert!(aliases.insert(alias), "Duplicate provider alias: {}", alias);
+                assert!(aliases.insert(alias), "Duplicate provider alias: {alias}");
             }
         }
     }

@@ -586,7 +586,7 @@ impl SecurityPolicy {
                 .unwrap_or("")
                 .to_ascii_lowercase();
 
-            let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
+            let args: Vec<String> = words.map(str::to_ascii_lowercase).collect();
             let joined_segment = cmd_part.to_ascii_lowercase();
 
             // High-risk commands
@@ -799,7 +799,7 @@ impl SecurityPolicy {
             }
 
             // Validate arguments for the command
-            let args: Vec<String> = words.map(|w| w.to_ascii_lowercase()).collect();
+            let args: Vec<String> = words.map(str::to_ascii_lowercase).collect();
             if !self.is_args_safe(base_cmd, &args) {
                 return false;
             }

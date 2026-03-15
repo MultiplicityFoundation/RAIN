@@ -413,7 +413,7 @@ fn is_local_ollama_endpoint(api_url: Option<&str>) -> bool {
 
     reqwest::Url::parse(raw)
         .ok()
-        .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
+        .and_then(|url| url.host_str().map(str::to_ascii_lowercase))
         .is_some_and(|host| matches!(host.as_str(), "localhost" | "127.0.0.1" | "::1" | "0.0.0.0"))
 }
 
@@ -515,7 +515,7 @@ impl Config {
                 );
             }
             // Set computed paths that are skipped during serialization
-            config.config_path = config_path.clone();
+            config.config_path.clone_from(&config_path);
             config.workspace_dir = workspace_dir;
             let store = crate::security::SecretStore::new(&zeroclaw_dir, config.secrets.encrypt);
             decrypt_optional_secret(&store, &mut config.api_key, "config.api_key")?;
@@ -627,7 +627,7 @@ impl Config {
             .api_url
             .as_deref()
             .map(str::trim)
-            .is_none_or(|value| value.is_empty())
+            .is_none_or(str::is_empty)
         {
             if let Some(base_url) = base_url.as_ref() {
                 self.api_url = Some(base_url.clone());
@@ -639,7 +639,7 @@ impl Config {
                 .api_key
                 .as_deref()
                 .map(str::trim)
-                .is_none_or(|value| value.is_empty())
+                .is_none_or(str::is_empty)
         {
             let codex_key = std::env::var("OPENAI_API_KEY")
                 .ok()

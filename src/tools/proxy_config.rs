@@ -33,8 +33,8 @@ impl ProxyConfigTool {
                 self.config.config_path.display()
             )
         })?;
-        parsed.config_path = self.config.config_path.clone();
-        parsed.workspace_dir = self.config.workspace_dir.clone();
+        parsed.config_path.clone_from(&self.config.config_path);
+        parsed.workspace_dir.clone_from(&self.config.workspace_dir);
         Ok(parsed)
     }
 

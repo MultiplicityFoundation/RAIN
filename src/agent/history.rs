@@ -93,8 +93,7 @@ pub(crate) async fn auto_compact_history(
     let summarizer_system = "You are a conversation compaction engine. Summarize older chat history into concise context for future turns. Preserve: user preferences, commitments, decisions, unresolved tasks, key facts. Omit: filler, repeated chit-chat, verbose tool logs. Output plain text bullet points only.";
 
     let summarizer_user = format!(
-        "Summarize the following conversation history for context preservation. Keep it short (max 12 bullet points).\n\n{}",
-        transcript
+        "Summarize the following conversation history for context preservation. Keep it short (max 12 bullet points).\n\n{transcript}"
     );
 
     let summary_raw = provider

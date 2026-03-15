@@ -625,8 +625,7 @@ async fn run_quick_setup_with_home(
                 println!("    3. Status:            zeroclaw status");
             } else {
                 println!(
-                    "    1. Login:             zeroclaw auth login --provider {}",
-                    provider_name
+                    "    1. Login:             zeroclaw auth login --provider {provider_name}"
                 );
                 println!("    2. Chat:              zeroclaw agent -m \"Hello!\"");
                 println!("    3. Gateway:           zeroclaw gateway");
@@ -1412,7 +1411,7 @@ fn normalize_ollama_endpoint_url(raw_url: &str) -> String {
 fn ollama_endpoint_is_local(endpoint_url: &str) -> bool {
     reqwest::Url::parse(endpoint_url)
         .ok()
-        .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
+        .and_then(|url| url.host_str().map(str::to_ascii_lowercase))
         .is_some_and(|host| matches!(host.as_str(), "localhost" | "127.0.0.1" | "::1" | "0.0.0.0"))
 }
 
@@ -1764,8 +1763,7 @@ pub async fn run_models_refresh(
             print_model_preview(&cached.models);
             println!();
             println!(
-                "Tip: run `zeroclaw models refresh --force --provider {}` to fetch latest now.",
-                provider_name
+                "Tip: run `zeroclaw models refresh --force --provider {provider_name}` to fetch latest now."
             );
             return Ok(());
         }
@@ -1796,7 +1794,7 @@ pub async fn run_models_refresh(
                 return Ok(());
             }
 
-            anyhow::bail!("Provider '{}' returned an empty model list", provider_name)
+            anyhow::bail!("Provider '{provider_name}' returned an empty model list")
         }
         Err(error) => {
             if let Some(stale_cache) =
@@ -1941,7 +1939,7 @@ pub async fn run_models_refresh_all(config: &Config, force: bool) -> Result<()> 
     let mut fail_count = 0usize;
 
     for provider_name in &targets {
-        println!("== {} ==", provider_name);
+        println!("== {provider_name} ==");
         match run_models_refresh(config, Some(provider_name), force).await {
             Ok(()) => {
                 ok_count += 1;
@@ -1954,7 +1952,7 @@ pub async fn run_models_refresh_all(config: &Config, force: bool) -> Result<()> 
         println!();
     }
 
-    println!("Summary: {} succeeded, {} failed", ok_count, fail_count);
+    println!("Summary: {ok_count} succeeded, {fail_count} failed");
 
     if ok_count == 0 {
         anyhow::bail!("Model refresh failed for all providers")
@@ -3092,7 +3090,9 @@ fn setup_hardware() -> Result<HardwareConfig> {
                 .default(0)
                 .interact()?;
 
-            hw_config.serial_port = serial_devices[port_idx].device_path.clone();
+            hw_config
+                .serial_port
+                .clone_from(&serial_devices[port_idx].device_path);
         } else if serial_devices.is_empty() {
             // User chose serial but no device discovered — ask for manual path
             let manual_port: String = Input::new()
@@ -3952,11 +3952,11 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     let user_id = payload
                         .get("user_id")
                         .and_then(|value| value.as_str())
-                        .map(|value| value.to_string());
+                        .map(std::string::ToString::to_string);
                     let device_id = payload
                         .get("device_id")
                         .and_then(|value| value.as_str())
-                        .map(|value| value.to_string());
+                        .map(std::string::ToString::to_string);
 
                     Ok::<_, reqwest::Error>((true, user_id, device_id))
                 })

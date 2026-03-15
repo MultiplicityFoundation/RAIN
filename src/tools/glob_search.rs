@@ -114,15 +114,13 @@ impl Tool for GlobSearchTool {
         let mut truncated = false;
 
         for entry in entries {
-            let path = match entry {
-                Ok(p) => p,
-                Err(_) => continue, // skip unreadable entries
+            let Ok(path) = entry else {
+                continue; // skip unreadable entries
             };
 
             // Canonicalize to resolve symlinks, then verify still inside workspace
-            let resolved = match std::fs::canonicalize(&path) {
-                Ok(p) => p,
-                Err(_) => continue, // skip broken symlinks / unresolvable paths
+            let Ok(resolved) = std::fs::canonicalize(&path) else {
+                continue; // skip broken symlinks / unresolvable paths
             };
 
             if !self.security.is_resolved_path_allowed(&resolved) {

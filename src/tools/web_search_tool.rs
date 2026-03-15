@@ -30,7 +30,7 @@ impl WebSearchTool {
 
     async fn search_duckduckgo(&self, query: &str) -> anyhow::Result<String> {
         let encoded_query = urlencoding::encode(query);
-        let search_url = format!("https://html.duckduckgo.com/html/?q={}", encoded_query);
+        let search_url = format!("https://html.duckduckgo.com/html/?q={encoded_query}");
 
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(self.timeout_secs))
@@ -70,7 +70,7 @@ impl WebSearchTool {
             .collect();
 
         if link_matches.is_empty() {
-            return Ok(format!("No results found for: {}", query));
+            return Ok(format!("No results found for: {query}"));
         }
 
         let mut lines = vec![format!("Search results for: {} (via DuckDuckGo)", query)];
@@ -90,7 +90,7 @@ impl WebSearchTool {
                 let snippet = strip_tags(&snippet_matches[i][1]);
                 let snippet = snippet.trim();
                 if !snippet.is_empty() {
-                    lines.push(format!("   {}", snippet));
+                    lines.push(format!("   {snippet}"));
                 }
             }
         }
@@ -137,7 +137,7 @@ impl WebSearchTool {
             .ok_or_else(|| anyhow::anyhow!("Invalid Brave API response"))?;
 
         if results.is_empty() {
-            return Ok(format!("No results found for: {}", query));
+            return Ok(format!("No results found for: {query}"));
         }
 
         let mut lines = vec![format!("Search results for: {} (via Brave)", query)];
@@ -154,9 +154,9 @@ impl WebSearchTool {
                 .unwrap_or("");
 
             lines.push(format!("{}. {}", i + 1, title));
-            lines.push(format!("   {}", url));
+            lines.push(format!("   {url}"));
             if !description.is_empty() {
-                lines.push(format!("   {}", description));
+                lines.push(format!("   {description}"));
             }
         }
 

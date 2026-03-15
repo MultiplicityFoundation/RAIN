@@ -658,10 +658,7 @@ fn sse_bytes_to_chunks(
                         Ok(t) => t,
                         Err(e) => {
                             let _ = tx
-                                .send(Err(StreamError::InvalidSse(format!(
-                                    "Invalid UTF-8: {}",
-                                    e
-                                ))))
+                                .send(Err(StreamError::InvalidSse(format!("Invalid UTF-8: {e}"))))
                                 .await;
                             break;
                         }
@@ -1596,8 +1593,7 @@ impl Provider for OpenAiCompatibleProvider {
                 let provider_name = self.name.clone();
                 return stream::once(async move {
                     Err(StreamError::Provider(format!(
-                        "{} API key not set",
-                        provider_name
+                        "{provider_name} API key not set"
                     )))
                 })
                 .boxed();
@@ -1639,7 +1635,7 @@ impl Provider for OpenAiCompatibleProvider {
             // Apply auth header
             req_builder = match &auth_header {
                 AuthStyle::Bearer => {
-                    req_builder.header("Authorization", format!("Bearer {}", credential))
+                    req_builder.header("Authorization", format!("Bearer {credential}"))
                 }
                 AuthStyle::XApiKey => req_builder.header("x-api-key", &credential),
                 AuthStyle::Custom(header) => req_builder.header(header, &credential),
@@ -1662,10 +1658,10 @@ impl Provider for OpenAiCompatibleProvider {
                 let status = response.status();
                 let error = match response.text().await {
                     Ok(e) => e,
-                    Err(_) => format!("HTTP error: {}", status),
+                    Err(_) => format!("HTTP error: {status}"),
                 };
                 let _ = tx
-                    .send(Err(StreamError::Provider(format!("{}: {}", status, error))))
+                    .send(Err(StreamError::Provider(format!("{status}: {error}"))))
                     .await;
                 return;
             }

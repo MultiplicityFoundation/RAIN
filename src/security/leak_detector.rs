@@ -331,11 +331,11 @@ mod tests {
     #[test]
     fn detects_private_keys() {
         let detector = LeakDetector::new();
-        let content = r#"
+        let content = r"
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEA0ZPr5JeyVDonXsKhfq...
 -----END RSA PRIVATE KEY-----
-"#;
+";
         let result = detector.scan(content);
         match result {
             LeakResult::Detected { patterns, redacted } => {

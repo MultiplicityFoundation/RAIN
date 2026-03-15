@@ -699,8 +699,8 @@ pub(crate) fn build_curl_command(url: &str) -> Option<String> {
         return None;
     }
 
-    let escaped = url.replace('\'', r#"'\\''"#);
-    Some(format!("curl -s '{}'", escaped))
+    let escaped = url.replace('\'', r"'\\''");
+    Some(format!("curl -s '{escaped}'"))
 }
 
 /// Return the canonical default parameter name for a tool.

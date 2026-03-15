@@ -113,12 +113,12 @@ pub fn handle_command(command: crate::CronCommands, config: &Config) -> Result<(
             // preserves the existing timezone.
             let schedule = if expression.is_some() || tz.is_some() {
                 let existing = get_job(config, &id)?;
-                let (existing_expr, existing_tz) = match existing.schedule {
-                    Schedule::Cron {
-                        expr,
-                        tz: existing_tz,
-                    } => (expr, existing_tz),
-                    _ => bail!("Cannot update expression/tz on a non-cron schedule"),
+                let Schedule::Cron {
+                    expr: existing_expr,
+                    tz: existing_tz,
+                } = existing.schedule
+                else {
+                    bail!("Cannot update expression/tz on a non-cron schedule");
                 };
                 Some(Schedule::Cron {
                     expr: expression.unwrap_or(existing_expr),

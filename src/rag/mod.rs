@@ -63,7 +63,7 @@ fn parse_pin_aliases(content: &str) -> PinAliases {
         }
         // Table row: | red_led | 13 | (skip header | alias | pin | and separator |---|)
         if line.starts_with('|') {
-            let parts: Vec<&str> = line.split('|').map(|s| s.trim()).collect();
+            let parts: Vec<&str> = line.split('|').map(str::trim).collect();
             if parts.len() >= 3 {
                 let alias = parts[1].trim().to_lowercase().replace(' ', "_");
                 let pin_str = parts[2].trim();
@@ -317,10 +317,10 @@ mod tests {
 
     #[test]
     fn parse_pin_aliases_key_value() {
-        let md = r#"## Pin Aliases
+        let md = r"## Pin Aliases
 red_led: 13
 builtin_led: 13
-user_led: 5"#;
+user_led: 5";
         let a = parse_pin_aliases(md);
         assert_eq!(a.get("red_led"), Some(&13));
         assert_eq!(a.get("builtin_led"), Some(&13));
@@ -329,11 +329,11 @@ user_led: 5"#;
 
     #[test]
     fn parse_pin_aliases_table() {
-        let md = r#"## Pin Aliases
+        let md = r"## Pin Aliases
 | alias | pin |
 |-------|-----|
 | red_led | 13 |
-| builtin_led | 13 |"#;
+| builtin_led | 13 |";
         let a = parse_pin_aliases(md);
         assert_eq!(a.get("red_led"), Some(&13));
         assert_eq!(a.get("builtin_led"), Some(&13));
@@ -367,12 +367,12 @@ user_led: 5"#;
         let tmp = tempfile::tempdir().unwrap();
         let base = tmp.path().join("datasheets");
         std::fs::create_dir_all(&base).unwrap();
-        let content = r#"# Test Board
+        let content = r"# Test Board
 ## Pin Aliases
 red_led: 13
 ## GPIO
 Pin 13: LED
-"#;
+";
         std::fs::write(base.join("test-board.md"), content).unwrap();
 
         let rag = HardwareRag::load(tmp.path(), "datasheets").unwrap();

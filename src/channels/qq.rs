@@ -423,9 +423,8 @@ impl Channel for QQChannel {
                     }
 
                     let event_type = event.get("t").and_then(|t| t.as_str()).unwrap_or("");
-                    let d = match event.get("d") {
-                        Some(d) => d,
-                        None => continue,
+                    let Some(d) = event.get("d") else {
+                        continue;
                     };
 
                     match event_type {

@@ -615,9 +615,9 @@ pub(crate) async fn run_tool_call_loop(
             if let Some(ref tx) = on_delta {
                 let hint = truncate_tool_args_for_progress(&tool_name, &tool_args, 60);
                 let progress = if hint.is_empty() {
-                    format!("\u{23f3} {}\n", tool_name)
+                    format!("\u{23f3} {tool_name}\n")
                 } else {
-                    format!("\u{23f3} {}: {hint}\n", tool_name)
+                    format!("\u{23f3} {tool_name}: {hint}\n")
                 };
                 tracing::debug!(tool = %tool_name, "Sending progress start to draft");
                 let _ = tx.send(progress).await;
@@ -1105,7 +1105,7 @@ pub async fn run(
             &[],
         )
         .await?;
-        final_output = response.clone();
+        final_output.clone_from(&response);
         println!("{response}");
         observer.record_event(&ObserverEvent::TurnComplete);
     } else {
@@ -2168,10 +2168,10 @@ mod tests {
 
     #[test]
     fn parse_tool_calls_handles_malformed_json() {
-        let response = r#"<tool_call>
+        let response = r"<tool_call>
 not valid json
 </tool_call>
-Some text after."#;
+Some text after.";
 
         let (text, calls) = parse_tool_calls(response);
         assert!(calls.is_empty());
@@ -2309,11 +2309,11 @@ I will now call the tool with this payload:
 
     #[test]
     fn parse_tool_calls_handles_xml_nested_tool_payload() {
-        let response = r#"<tool_call>
+        let response = r"<tool_call>
 <memory_recall>
 <query>project roadmap</query>
 </memory_recall>
-</tool_call>"#;
+</tool_call>";
 
         let (text, calls) = parse_tool_calls(response);
         assert!(text.is_empty());
@@ -2327,12 +2327,12 @@ I will now call the tool with this payload:
 
     #[test]
     fn parse_tool_calls_ignores_xml_thinking_wrapper() {
-        let response = r#"<tool_call>
+        let response = r"<tool_call>
 <thinking>Need to inspect memory first</thinking>
 <memory_recall>
 <query>recent deploy notes</query>
 </memory_recall>
-</tool_call>"#;
+</tool_call>";
 
         let (text, calls) = parse_tool_calls(response);
         assert!(text.is_empty());
@@ -2545,14 +2545,14 @@ Done."#;
 
     #[test]
     fn parse_tool_calls_handles_minimax_invoke_with_surrounding_text() {
-        let response = r#"Preface
+        let response = r"Preface
 <minimax:tool_call>
 <invoke name='http_request'>
 <parameter name='url'>https://example.com</parameter>
 <parameter name='method'>GET</parameter>
 </invoke>
 </minimax:tool_call>
-Tail"#;
+Tail";
 
         let (text, calls) = parse_tool_calls(response);
         assert!(text.contains("Preface"));
@@ -3149,8 +3149,8 @@ Done."#;
 
     #[test]
     fn parse_glm_style_multiple_calls() {
-        let response = r#"shell/command>ls
-browser_open/url>https://example.com"#;
+        let response = r"shell/command>ls
+browser_open/url>https://example.com";
         let calls = parse_glm_style_tool_calls(response);
         assert_eq!(calls.len(), 2);
     }
@@ -3251,8 +3251,7 @@ browser_open/url>https://example.com"#;
     fn parse_tool_calls_very_large_arguments_no_panic() {
         let large_arg = "x".repeat(100_000);
         let response = format!(
-            r#"<tool_call>{{"name":"echo","arguments":{{"message":"{}"}}}}</tool_call>"#,
-            large_arg
+            r#"<tool_call>{{"name":"echo","arguments":{{"message":"{large_arg}"}}}}</tool_call>"#
         );
         let (_text, calls) = parse_tool_calls(&response);
         assert_eq!(calls.len(), 1, "large arguments should still parse");

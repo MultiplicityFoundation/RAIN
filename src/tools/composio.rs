@@ -183,7 +183,10 @@ impl ComposioTool {
         // rather than giving up when multiple accounts exist — giving up was
         // the root cause of the "cannot find connected account" loop reported
         // in issue #959.
-        let Some(first) = accounts.into_iter().find(|acct| acct.is_usable()) else {
+        let Some(first) = accounts
+            .into_iter()
+            .find(ComposioConnectedAccount::is_usable)
+        else {
             return Ok(None);
         };
 
@@ -1831,7 +1834,10 @@ mod tests {
             },
         ];
         // Simulate what resolve_connected_account_ref does: find first usable.
-        let resolved = accounts.into_iter().find(|a| a.is_usable()).map(|a| a.id);
+        let resolved = accounts
+            .into_iter()
+            .find(super::ComposioConnectedAccount::is_usable)
+            .map(|a| a.id);
         assert_eq!(resolved.as_deref(), Some("ca_old"));
     }
 
@@ -1849,7 +1855,10 @@ mod tests {
                 toolkit: None,
             },
         ];
-        let resolved = accounts.into_iter().find(|a| a.is_usable()).map(|a| a.id);
+        let resolved = accounts
+            .into_iter()
+            .find(super::ComposioConnectedAccount::is_usable)
+            .map(|a| a.id);
         assert_eq!(resolved.as_deref(), Some("ca_live"));
     }
 
@@ -1860,14 +1869,20 @@ mod tests {
             status: "DISCONNECTED".to_string(),
             toolkit: None,
         }];
-        let resolved = accounts.into_iter().find(|a| a.is_usable()).map(|a| a.id);
+        let resolved = accounts
+            .into_iter()
+            .find(super::ComposioConnectedAccount::is_usable)
+            .map(|a| a.id);
         assert!(resolved.is_none());
     }
 
     #[test]
     fn resolve_returns_none_for_empty_accounts() {
         let accounts: Vec<ComposioConnectedAccount> = vec![];
-        let resolved = accounts.into_iter().find(|a| a.is_usable()).map(|a| a.id);
+        let resolved = accounts
+            .into_iter()
+            .find(super::ComposioConnectedAccount::is_usable)
+            .map(|a| a.id);
         assert!(resolved.is_none());
     }
 

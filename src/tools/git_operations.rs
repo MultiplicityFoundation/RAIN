@@ -135,7 +135,7 @@ impl GitOperationsTool {
         let files = args.get("files").and_then(|v| v.as_str()).unwrap_or(".");
         let cached = args
             .get("cached")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         // Validate files argument against injection patterns
@@ -211,7 +211,10 @@ impl GitOperationsTool {
     }
 
     async fn git_log(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let limit_raw = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10);
+        let limit_raw = args
+            .get("limit")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(10);
         let limit = usize::try_from(limit_raw).unwrap_or(usize::MAX).min(1000);
         let limit_str = limit.to_string();
 
@@ -296,7 +299,7 @@ impl GitOperationsTool {
         // Sanitize commit message
         let sanitized = message
             .lines()
-            .map(|l| l.trim())
+            .map(str::trim)
             .filter(|l| !l.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
@@ -399,7 +402,10 @@ impl GitOperationsTool {
             "pop" => self.run_git_command(&["stash", "pop"]).await,
             "list" => self.run_git_command(&["stash", "list"]).await,
             "drop" => {
-                let index_raw = args.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
+                let index_raw = args
+                    .get("index")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
                 let index = i32::try_from(index_raw)
                     .map_err(|_| anyhow::anyhow!("stash index too large: {index_raw}"))?;
                 self.run_git_command(&["stash", "drop", &format!("stash@{{{index}}}")])
@@ -481,15 +487,12 @@ impl Tool for GitOperationsTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let operation = match args.get("operation").and_then(|v| v.as_str()) {
-            Some(op) => op,
-            None => {
-                return Ok(ToolResult {
-                    success: false,
-                    output: String::new(),
-                    error: Some("Missing 'operation' parameter".into()),
-                });
-            }
+        let Some(operation) = args.get("operation").and_then(|v| v.as_str()) else {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("Missing 'operation' parameter".into()),
+            });
         };
 
         // Check if we're in a git repository
