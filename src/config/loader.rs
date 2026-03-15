@@ -75,11 +75,11 @@ pub(crate) fn default_config_and_workspace_dirs() -> Result<(PathBuf, PathBuf)> 
     Ok((config_dir.clone(), config_dir.join("workspace")))
 }
 
-const ACTIVE_WORKSPACE_STATE_FILE: &str = "active_workspace.toml";
+pub(crate) const ACTIVE_WORKSPACE_STATE_FILE: &str = "active_workspace.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ActiveWorkspaceState {
-    config_dir: String,
+pub(crate) struct ActiveWorkspaceState {
+    pub(crate) config_dir: String,
 }
 
 fn default_config_dir() -> Result<PathBuf> {
@@ -268,7 +268,7 @@ pub(crate) async fn resolve_runtime_dirs_for_onboarding() -> Result<(PathBuf, Pa
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ConfigResolutionSource {
+pub(crate) enum ConfigResolutionSource {
     EnvConfigDir,
     EnvWorkspace,
     ActiveWorkspaceMarker,
@@ -286,7 +286,7 @@ impl ConfigResolutionSource {
     }
 }
 
-async fn resolve_runtime_config_dirs(
+pub(crate) async fn resolve_runtime_config_dirs(
     default_zeroclaw_dir: &Path,
     default_workspace_dir: &Path,
 ) -> Result<(PathBuf, PathBuf, ConfigResolutionSource)> {

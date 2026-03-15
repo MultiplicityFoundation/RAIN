@@ -3125,9 +3125,10 @@ mod tests {
     use crate::config::proxy::*;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     #[cfg(unix)]
     use tempfile::TempDir;
+    use tokio::fs;
     use tokio::sync::{Mutex, MutexGuard};
     use tokio::test;
     use tokio_stream::wrappers::ReadDirStream;

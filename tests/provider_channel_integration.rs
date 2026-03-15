@@ -5,8 +5,6 @@
 
 use async_trait::async_trait;
 use zeroclaw::channels::traits::{Channel, ChannelMessage, SendMessage};
-use zeroclaw::providers::traits::Provider;
-use zeroclaw::providers::{create_provider, ChatMessage, ChatRequest};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Channel for integration testing
@@ -15,14 +13,12 @@ use zeroclaw::providers::{create_provider, ChatMessage, ChatRequest};
 #[derive(Debug, Clone)]
 struct MockChannel {
     name: String,
-    received_messages: Vec<ChannelMessage>,
 }
 
 impl MockChannel {
     fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            received_messages: Vec::new(),
         }
     }
 }
@@ -33,17 +29,20 @@ impl Channel for MockChannel {
         &self.name
     }
 
-    async fn send(&self, msg: SendMessage) -> Result<(), String> {
+    async fn send(&self, msg: &SendMessage) -> anyhow::Result<()> {
         println!("[{}] Sending: {}", self.name, msg.content);
         Ok(())
     }
 
-    async fn listen(&self) -> Result<ChannelMessage, String> {
-        Err("Mock channel listen not implemented".to_string())
+    async fn listen(
+        &self,
+        _tx: tokio::sync::mpsc::Sender<ChannelMessage>,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!("Mock channel listen not implemented")
     }
 
-    async fn health_check(&self) -> Result<(), String> {
-        Ok(())
+    async fn health_check(&self) -> bool {
+        true
     }
 }
 
@@ -61,7 +60,7 @@ fn provider_response_to_channel_message_format() {
         reply_target: "".into(),
         content: response_content.into(),
         channel: "test_channel".into(),
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         thread_ts: None,
     };
 
@@ -74,7 +73,6 @@ fn provider_response_to_channel_message_format() {
 #[test]
 fn provider_channel_message_round_trip() {
     // Simulate provider generating response that becomes a channel message
-    let original_request = "What is the weather?";
     let provider_response = "The weather is sunny.";
 
     // Wrap provider response in channel message format
@@ -84,7 +82,7 @@ fn provider_channel_message_round_trip() {
         reply_target: "user_query_001".into(),
         content: provider_response.into(),
         channel: "telegram".into(),
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         thread_ts: None,
     };
 
@@ -100,12 +98,12 @@ fn multi_provider_channel_routing() {
 
     for provider_name in providers {
         let msg = ChannelMessage {
-            id: format!("msg_{}", provider_name),
+            id: format!("msg_{provider_name}"),
             sender: provider_name.into(),
             reply_target: "".into(),
-            content: format!("Response from {}", provider_name).into(),
+            content: format!("Response from {provider_name}"),
             channel: "unified".into(),
-            timestamp: 1700000000,
+            timestamp: 1_700_000_000,
             thread_ts: None,
         };
 
@@ -118,7 +116,7 @@ fn multi_provider_channel_routing() {
 #[test]
 fn channel_message_timestamp_propagation() {
     // Test that timestamps are correctly propagated through provider-channel chain
-    let test_timestamp = 1700000000i64;
+    let test_timestamp: u64 = 1_700_000_000;
 
     let msg = ChannelMessage {
         id: "ts_test_001".into(),
@@ -143,9 +141,9 @@ fn provider_error_to_channel_error_message() {
         id: "error_001".into(),
         sender: "system".into(),
         reply_target: "".into(),
-        content: format!("Error: {}", error_msg).into(),
+        content: format!("Error: {error_msg}"),
         channel: "error_channel".into(),
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         thread_ts: None,
     };
 

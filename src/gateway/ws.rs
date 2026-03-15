@@ -25,6 +25,27 @@ pub struct WsQuery {
     pub token: Option<String>,
 }
 
+/// Parse incoming WebSocket text and return the user content if valid, or an
+/// error JSON string for invalid input.  Factored out of `handle_socket` so the
+/// protocol parsing logic is directly unit-testable.
+fn parse_ws_message(raw: &str) -> Result<String, String> {
+    let parsed: serde_json::Value = serde_json::from_str(raw).map_err(|_| {
+        serde_json::json!({"type": "error", "message": "Invalid JSON"}).to_string()
+    })?;
+
+    let msg_type = parsed["type"].as_str().unwrap_or("");
+    if msg_type != "message" {
+        return Err(String::new()); // silently skip
+    }
+
+    let content = parsed["content"].as_str().unwrap_or("").to_string();
+    if content.is_empty() {
+        return Err(String::new()); // silently skip
+    }
+
+    Ok(content)
+}
+
 /// GET /ws/chat — WebSocket upgrade for agent chat
 pub async fn handle_ws_chat(
     State(state): State<AppState>,
@@ -58,25 +79,15 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
             _ => continue,
         };
 
-        // Parse incoming message
-        let parsed: serde_json::Value = match serde_json::from_str(&msg) {
-            Ok(v) => v,
-            Err(_) => {
-                let err = serde_json::json!({"type": "error", "message": "Invalid JSON"});
-                let _ = sender.send(Message::Text(err.to_string().into())).await;
+        let content = match parse_ws_message(&msg) {
+            Ok(c) => c,
+            Err(err_json) => {
+                if !err_json.is_empty() {
+                    let _ = sender.send(Message::Text(err_json.into())).await;
+                }
                 continue;
             }
         };
-
-        let msg_type = parsed["type"].as_str().unwrap_or("");
-        if msg_type != "message" {
-            continue;
-        }
-
-        let content = parsed["content"].as_str().unwrap_or("").to_string();
-        if content.is_empty() {
-            continue;
-        }
 
         // Process message with the LLM provider
         let provider_label = state
@@ -163,5 +174,88 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                 }));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ws_query_token_is_optional() {
+        let q: WsQuery = serde_json::from_str("{}").unwrap();
+        assert!(q.token.is_none());
+
+        let q: WsQuery = serde_json::from_str(r#"{"token":"abc"}"#).unwrap();
+        assert_eq!(q.token.as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn parse_ws_message_rejects_invalid_json() {
+        let result = parse_ws_message("not json");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Invalid JSON"));
+    }
+
+    #[test]
+    fn parse_ws_message_skips_non_message_types() {
+        let result = parse_ws_message(r#"{"type":"ping","content":"hello"}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().is_empty(), "non-message types should be silently skipped");
+    }
+
+    #[test]
+    fn parse_ws_message_skips_missing_type() {
+        let result = parse_ws_message(r#"{"content":"hello"}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().is_empty());
+    }
+
+    #[test]
+    fn parse_ws_message_skips_empty_content() {
+        let result = parse_ws_message(r#"{"type":"message","content":""}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().is_empty());
+    }
+
+    #[test]
+    fn parse_ws_message_skips_missing_content() {
+        let result = parse_ws_message(r#"{"type":"message"}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().is_empty());
+    }
+
+    #[test]
+    fn parse_ws_message_extracts_valid_content() {
+        let result = parse_ws_message(r#"{"type":"message","content":"Hello world"}"#);
+        assert_eq!(result.unwrap(), "Hello world");
+    }
+
+    #[test]
+    fn parse_ws_message_handles_unicode_content() {
+        let result = parse_ws_message(r#"{"type":"message","content":"resonance \u00e9tude"}"#);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn protocol_done_response_has_expected_shape() {
+        let response = "mock response";
+        let done = serde_json::json!({
+            "type": "done",
+            "full_response": response,
+        });
+        assert_eq!(done["type"], "done");
+        assert_eq!(done["full_response"], "mock response");
+    }
+
+    #[test]
+    fn protocol_error_response_has_expected_shape() {
+        let err = serde_json::json!({
+            "type": "error",
+            "message": "something went wrong",
+        });
+        assert_eq!(err["type"], "error");
+        assert!(err["message"].as_str().unwrap().contains("something went wrong"));
     }
 }

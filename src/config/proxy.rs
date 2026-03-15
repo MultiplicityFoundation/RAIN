@@ -322,7 +322,7 @@ fn runtime_proxy_state() -> &'static RwLock<ProxyConfig> {
     RUNTIME_PROXY_CONFIG.get_or_init(|| RwLock::new(ProxyConfig::default()))
 }
 
-fn runtime_proxy_client_cache() -> &'static RwLock<HashMap<String, reqwest::Client>> {
+pub(crate) fn runtime_proxy_client_cache() -> &'static RwLock<HashMap<String, reqwest::Client>> {
     RUNTIME_PROXY_CLIENT_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
@@ -337,7 +337,7 @@ pub(crate) fn clear_runtime_proxy_client_cache() {
     }
 }
 
-fn runtime_proxy_cache_key(
+pub(crate) fn runtime_proxy_cache_key(
     service_key: &str,
     timeout_secs: Option<u64>,
     connect_timeout_secs: Option<u64>,
