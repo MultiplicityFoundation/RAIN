@@ -120,6 +120,9 @@ const MEMORY_CONTEXT_ENTRY_MAX_CHARS: usize = 800;
 const MEMORY_CONTEXT_MAX_CHARS: usize = 4_000;
 const CHANNEL_HISTORY_COMPACT_KEEP_MESSAGES: usize = 12;
 const CHANNEL_HISTORY_COMPACT_CONTENT_CHARS: usize = 600;
+/// Proactive context budget (~100k tokens) to prevent context-window-exceeded
+/// errors on long-running channel sessions.
+const PROACTIVE_CONTEXT_BUDGET_CHARS: usize = 400_000;
 /// Guardrail for hook-modified outbound channel content.
 const CHANNEL_HOOK_MAX_OUTBOUND_CHARS: usize = 20_000;
 
@@ -475,6 +478,31 @@ fn normalize_cached_channel_turns(turns: Vec<ChatMessage>) -> Vec<ChatMessage> {
     }
 
     normalized
+}
+
+/// Drop oldest turns (preserving the most recent) until total character count
+/// fits within [`PROACTIVE_CONTEXT_BUDGET_CHARS`]. Prevents context-window-exceeded
+/// errors on long-running channel sessions.
+fn proactive_trim_turns(turns: &mut Vec<ChatMessage>) {
+    let total: usize = turns.iter().map(|t| t.content.len()).sum();
+    if total <= PROACTIVE_CONTEXT_BUDGET_CHARS || turns.len() <= 1 {
+        return;
+    }
+    let mut current = total;
+    let mut drop_count = 0;
+    // Always preserve the last turn (most recent user message).
+    while current > PROACTIVE_CONTEXT_BUDGET_CHARS && drop_count < turns.len() - 1 {
+        current -= turns[drop_count].content.len();
+        drop_count += 1;
+    }
+    if drop_count > 0 {
+        tracing::info!(
+            dropped = drop_count,
+            remaining = turns.len() - drop_count,
+            "proactive context trim: dropped oldest turns to fit budget"
+        );
+        turns.drain(..drop_count);
+    }
 }
 
 fn supports_runtime_model_switch(channel_name: &str) -> bool {
@@ -1626,6 +1654,9 @@ async fn process_channel_message(
             }
         }
     }
+
+    // Proactively trim oldest turns to prevent context-window-exceeded errors.
+    proactive_trim_turns(&mut prior_turns);
 
     let system_prompt =
         build_channel_system_prompt(ctx.system_prompt.as_str(), &msg.channel, &msg.reply_target);

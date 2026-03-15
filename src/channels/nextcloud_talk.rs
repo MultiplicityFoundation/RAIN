@@ -70,7 +70,9 @@ impl NextcloudTalkChannel {
         let mut messages = Vec::new();
 
         if let Some(event_type) = payload.get("type").and_then(|v| v.as_str()) {
-            if !event_type.eq_ignore_ascii_case("message") {
+            let is_message_event = event_type.eq_ignore_ascii_case("message")
+                || event_type.eq_ignore_ascii_case("Create");
+            if !is_message_event {
                 tracing::debug!("Nextcloud Talk: skipping non-message event: {event_type}");
                 return messages;
             }

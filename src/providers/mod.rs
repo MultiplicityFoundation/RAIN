@@ -1208,6 +1208,69 @@ fn create_provider_with_url_and_options(
             key,
         ))),
 
+        // ── Fast inference providers ──────────────────────────
+        "cerebras" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Cerebras", "https://api.cerebras.ai/v1", key, AuthStyle::Bearer,
+        ))),
+        "sambanova" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "SambaNova", "https://api.sambanova.ai/v1", key, AuthStyle::Bearer,
+        ))),
+        "hyperbolic" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Hyperbolic", "https://api.hyperbolic.xyz/v1", key, AuthStyle::Bearer,
+        ))),
+
+        // ── Model hosting providers ─────────────────────────
+        "deepinfra" | "deep-infra" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "DeepInfra", "https://api.deepinfra.com/v1/openai", key, AuthStyle::Bearer,
+        ))),
+        "huggingface" | "hf" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Hugging Face", "https://api-inference.huggingface.co/v1", key, AuthStyle::Bearer,
+        ))),
+        "ai21" | "ai21-labs" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "AI21 Labs", "https://api.ai21.com/studio/v1", key, AuthStyle::Bearer,
+        ))),
+        "reka" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Reka", "https://api.reka.ai/v1", key, AuthStyle::Bearer,
+        ))),
+        "baseten" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Baseten", "https://bridge.baseten.co/v1", key, AuthStyle::Bearer,
+        ))),
+        "nscale" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Nscale", "https://inference.nscale.com/v1", key, AuthStyle::Bearer,
+        ))),
+        "anyscale" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Anyscale", "https://api.endpoints.anyscale.com/v1", key, AuthStyle::Bearer,
+        ))),
+        "nebius" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Nebius", "https://api.studio.nebius.ai/v1", key, AuthStyle::Bearer,
+        ))),
+        "friendli" | "friendliai" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "FriendliAI", "https://inference.friendli.ai/v1", key, AuthStyle::Bearer,
+        ))),
+        "lepton" | "lepton-ai" => {
+            let base_url = api_url
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("https://llama3-1-405b.lepton.run/api/v1");
+            Ok(Box::new(OpenAiCompatibleProvider::new(
+                "Lepton AI", base_url, key, AuthStyle::Bearer,
+            )))
+        }
+
+        // ── Chinese AI providers ────────────────────────────
+        "stepfun" | "step" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "StepFun", "https://api.stepfun.com/v1", key, AuthStyle::Bearer,
+        ))),
+        "baichuan" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Baichuan", "https://api.baichuan-ai.com/v1", key, AuthStyle::Bearer,
+        ))),
+        "yi" | "01ai" | "lingyiwanwu" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Yi (01.AI)", "https://api.lingyiwanwu.com/v1", key, AuthStyle::Bearer,
+        ))),
+        "hunyuan" | "tencent" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "Tencent Hunyuan", "https://api.hunyuan.cloud.tencent.com/v1", key, AuthStyle::Bearer,
+        ))),
+
         // ── Bring Your Own Provider (custom URL) ───────────
         // Format: "custom:https://your-api.com" or "custom:http://localhost:1234"
         name if name.starts_with("custom:") => {
@@ -1703,6 +1766,124 @@ pub fn list_providers() -> Vec<ProviderInfo> {
             name: "ovhcloud",
             display_name: "OVHcloud AI Endpoints",
             aliases: &["ovh"],
+            local: false,
+        },
+        // ── Fast inference ──
+        ProviderInfo {
+            name: "cerebras",
+            display_name: "Cerebras",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "sambanova",
+            display_name: "SambaNova",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "hyperbolic",
+            display_name: "Hyperbolic",
+            aliases: &[],
+            local: false,
+        },
+        // ── Model hosting ──
+        ProviderInfo {
+            name: "deepinfra",
+            display_name: "DeepInfra",
+            aliases: &["deep-infra"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "huggingface",
+            display_name: "Hugging Face",
+            aliases: &["hf"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "ai21",
+            display_name: "AI21 Labs",
+            aliases: &["ai21-labs"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "reka",
+            display_name: "Reka",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "baseten",
+            display_name: "Baseten",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "nscale",
+            display_name: "Nscale",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "anyscale",
+            display_name: "Anyscale",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "nebius",
+            display_name: "Nebius",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "friendli",
+            display_name: "FriendliAI",
+            aliases: &["friendliai"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "lepton",
+            display_name: "Lepton AI",
+            aliases: &["lepton-ai"],
+            local: false,
+        },
+        // ── Chinese AI ──
+        ProviderInfo {
+            name: "stepfun",
+            display_name: "StepFun",
+            aliases: &["step"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "baichuan",
+            display_name: "Baichuan",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "yi",
+            display_name: "Yi (01.AI)",
+            aliases: &["01ai", "lingyiwanwu"],
+            local: false,
+        },
+        ProviderInfo {
+            name: "hunyuan",
+            display_name: "Tencent Hunyuan",
+            aliases: &["tencent"],
+            local: false,
+        },
+        // ── Missing entries ──
+        ProviderInfo {
+            name: "telnyx",
+            display_name: "Telnyx",
+            aliases: &[],
+            local: false,
+        },
+        ProviderInfo {
+            name: "azure_openai",
+            display_name: "Azure OpenAI",
+            aliases: &[],
             local: false,
         },
     ]

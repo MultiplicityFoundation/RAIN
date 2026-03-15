@@ -308,7 +308,7 @@ impl AnthropicProvider {
                             role: "assistant".to_string(),
                             content: blocks,
                         });
-                    } else {
+                    } else if !msg.content.trim().is_empty() {
                         native_messages.push(NativeMessage {
                             role: "assistant".to_string(),
                             content: vec![NativeContentOut::Text {
@@ -319,26 +319,55 @@ impl AnthropicProvider {
                     }
                 }
                 "tool" => {
-                    if let Some(tool_result) = Self::parse_tool_result_message(&msg.content) {
-                        native_messages.push(tool_result);
+                    let tool_msg = if let Some(tr) = Self::parse_tool_result_message(&msg.content) {
+                        tr
+                    } else if msg.content.trim().is_empty() {
+                        continue;
                     } else {
-                        native_messages.push(NativeMessage {
+                        NativeMessage {
                             role: "user".to_string(),
                             content: vec![NativeContentOut::Text {
                                 text: msg.content.clone(),
                                 cache_control: None,
                             }],
-                        });
+                        }
+                    };
+                    // Tool results map to role "user"; merge consecutive ones
+                    // into a single message so Anthropic doesn't reject the
+                    // request for having adjacent same-role messages.
+                    if native_messages
+                        .last()
+                        .is_some_and(|m| m.role == tool_msg.role)
+                    {
+                        native_messages
+                            .last_mut()
+                            .unwrap()
+                            .content
+                            .extend(tool_msg.content);
+                    } else {
+                        native_messages.push(tool_msg);
                     }
                 }
                 _ => {
-                    native_messages.push(NativeMessage {
-                        role: "user".to_string(),
-                        content: vec![NativeContentOut::Text {
-                            text: msg.content.clone(),
-                            cache_control: None,
-                        }],
-                    });
+                    let content_blocks = vec![NativeContentOut::Text {
+                        text: msg.content.clone(),
+                        cache_control: None,
+                    }];
+                    // Merge into previous user message if present (e.g.
+                    // when a user message immediately follows tool results
+                    // which are also role "user" in Anthropic's format).
+                    if native_messages.last().is_some_and(|m| m.role == "user") {
+                        native_messages
+                            .last_mut()
+                            .unwrap()
+                            .content
+                            .extend(content_blocks);
+                    } else {
+                        native_messages.push(NativeMessage {
+                            role: "user".to_string(),
+                            content: content_blocks,
+                        });
+                    }
                 }
             }
         }
