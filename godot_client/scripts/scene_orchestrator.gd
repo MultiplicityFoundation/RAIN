@@ -84,6 +84,8 @@ func _on_event_received(event_payload: Dictionary) -> void:
 			_handle_agent_chunk(event_payload)
 		"theme_changed":
 			_handle_theme_changed(event_payload)
+		"resonance_state":
+			_handle_resonance_state(event_payload)
 		"conversation_ended":
 			_handle_conversation_ended()
 		"conversation_reset":
@@ -135,6 +137,13 @@ func _handle_theme_changed(event_payload: Dictionary) -> void:
 	var requested_theme := str(event_payload.get("theme_id", "")).strip_edges()
 	if requested_theme != "":
 		_theme_manager.apply_theme(requested_theme)
+
+
+func _handle_resonance_state(event_payload: Dictionary) -> void:
+	var freq := float(event_payload.get("target_frequency", 0.0))
+	var amp := clampf(float(event_payload.get("amplitude", 0.0)), 0.0, 1.0)
+	var stability := clampf(float(event_payload.get("consensus_stability", 0.0)), 0.0, 1.0)
+	_background_layer.apply_resonance(freq, amp, stability)
 
 
 func _handle_conversation_ended() -> void:
