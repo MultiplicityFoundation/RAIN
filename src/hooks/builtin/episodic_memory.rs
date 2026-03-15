@@ -132,8 +132,8 @@ fn translate_tool_call(agent: &str, tool: &str, args: &Value) -> String {
         }
         _ => {
             let args_str = serde_json::to_string(args).unwrap_or_default();
-            let short_args = if args_str.len() > 120 {
-                format!("{}...", &args_str[..120])
+            let short_args = if args_str.chars().count() > 120 {
+                format!("{}...", args_str.chars().take(120).collect::<String>())
             } else {
                 args_str
             };
