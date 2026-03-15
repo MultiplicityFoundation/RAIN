@@ -46,7 +46,7 @@ STAGE_CONFIGS: dict[MeetingStage, StageConfig] = {
             "Run simulation checks against the current hypothesis.\n"
             "Trigger Godot visualization and capture raw outputs."
         ),
-        required_tools=["godot_event_bridge", "physics_tools"],
+        required_tools=["physics_tools"],
     ),
     MeetingStage.SYNTHESIS: StageConfig(
         name="Stage 3: Synthesis",

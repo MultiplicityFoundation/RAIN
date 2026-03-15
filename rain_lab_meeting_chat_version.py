@@ -26,6 +26,8 @@ import shutil
 
 import sys
 
+import threading
+
 import time
 
 import uuid
@@ -415,6 +417,12 @@ class Config:
     # Presentation/Event Layer Settings
 
     emit_visual_events: bool = os.environ.get("RAIN_VISUAL_EVENTS", "0") == "1"
+
+    visual_events_host: str = os.environ.get("RAIN_VISUAL_EVENTS_HOST", "127.0.0.1")
+
+    visual_events_port: int = int(os.environ.get("RAIN_VISUAL_EVENTS_PORT", "8765"))
+
+    log_visual_events: bool = os.environ.get("RAIN_LOG_VISUAL_EVENTS", "0") == "1"
 
     visual_events_log: str = os.environ.get("RAIN_VISUAL_EVENTS_LOG", "meeting_archives/godot_events.jsonl")
 
@@ -1381,46 +1389,140 @@ SESSION ENDED
             print(f"⚠️  Logging error: {e}")
 
 
-class VisualEventLogger:
-    """Writes theme-agnostic conversation events for a Godot client bridge."""
+class VisualEventServer:
+    """Streams theme-agnostic conversation events to Godot clients over WebSocket.
+
+    Runs a websockets server in a background daemon thread.  The public
+    ``emit()`` method is safe to call from any thread — it enqueues the
+    event and the background loop broadcasts it to every connected client.
+
+    Optionally logs events to a JSONL file when *log_path* is set (enabled
+    via ``--log-visual-events``).
+    """
 
     def __init__(self, config: Config):
-
         self.enabled = bool(config.emit_visual_events)
-        self.path = self._resolve_path(config.library_path, config.visual_events_log)
+        self._host: str = str(getattr(config, "visual_events_host", "127.0.0.1"))
+        self._port: int = int(getattr(config, "visual_events_port", 8765))
+
+        # Optional JSONL debug log
+        self._log_path: Optional[Path] = None
+        if getattr(config, "log_visual_events", False):
+            self._log_path = self._resolve_path(
+                config.library_path, config.visual_events_log
+            )
+            try:
+                self._log_path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"\u26a0\ufe0f  Visual event log unavailable: {e}")
+                self._log_path = None
+
+        self._loop = None
+        self._queue = None
+        self._thread: Optional[threading.Thread] = None
+        self._clients: set = set()
 
         if self.enabled:
-            try:
-                self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._start_server()
 
-            except Exception as e:
-                print(f"âš ï¸  Visual event logger unavailable: {e}")
-
-                self.enabled = False
+    # -- path helper (kept for log-file resolution) --
 
     @staticmethod
     def _resolve_path(library_path: str, configured_path: str) -> Path:
-
         raw = Path(configured_path).expanduser()
         if raw.is_absolute():
             return raw
         return Path(library_path) / raw
 
-    def emit(self, payload: Dict):
+    # -- public API --
 
+    def emit(self, payload: Dict):
         if not self.enabled:
             return
 
         event = dict(payload)
         event.setdefault("timestamp", datetime.utcnow().isoformat() + "Z")
 
+        # Write to debug log if enabled
+        if self._log_path is not None:
+            try:
+                with open(self._log_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(event, ensure_ascii=False) + "\n")
+            except Exception as e:
+                print(f"\u26a0\ufe0f  Visual event log write failed: {e}")
+
+        # Push to WebSocket broadcast queue (thread-safe)
+        if self._loop is not None and self._queue is not None:
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, event)
+
+    def shutdown(self):
+        """Stop the background server gracefully."""
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        if self._thread is not None:
+            self._thread.join(timeout=3)
+
+    # -- internals --
+
+    def _start_server(self):
         try:
-            with open(self.path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event, ensure_ascii=False) + "\n")
+            import asyncio as _asyncio
+            import websockets as _ws
+        except ImportError:
+            print("\u26a0\ufe0f  websockets package not installed \u2014 visual event server disabled")
+            self.enabled = False
+            return
 
-        except Exception as e:
-            print(f"âš ï¸  Visual event write failed: {e}")
+        ready = threading.Event()
 
+        def _run():
+            loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(loop)
+            self._loop = loop
+            self._queue = _asyncio.Queue()
+
+            async def _handler(websocket):
+                self._clients.add(websocket)
+                try:
+                    async for raw in websocket:
+                        if isinstance(raw, str):
+                            try:
+                                msg = json.loads(raw)
+                            except json.JSONDecodeError:
+                                continue
+                            if isinstance(msg, dict) and msg.get("type") == "ping":
+                                await websocket.send(json.dumps({"type": "pong"}))
+                except Exception:
+                    pass
+                finally:
+                    self._clients.discard(websocket)
+
+            async def _broadcaster():
+                while True:
+                    event = await self._queue.get()
+                    if not self._clients:
+                        continue
+                    data = json.dumps(event, ensure_ascii=False)
+                    stale = []
+                    for client in list(self._clients):
+                        try:
+                            await client.send(data)
+                        except Exception:
+                            stale.append(client)
+                    for client in stale:
+                        self._clients.discard(client)
+
+            async def _serve():
+                async with _ws.serve(_handler, self._host, self._port):
+                    print(f"[visual-events] ws://{self._host}:{self._port}")
+                    ready.set()
+                    await _broadcaster()
+
+            loop.run_until_complete(_serve())
+
+        self._thread = threading.Thread(target=_run, daemon=True, name="visual-event-server")
+        self._thread.start()
+        ready.wait(timeout=5)
 
 class Diplomat:
     """Simple file-based mailbox for external messages."""
@@ -1552,7 +1654,7 @@ class RainLabOrchestrator:
 
         self.voice_engine = VoiceEngine()
 
-        self.visual_event_logger = VisualEventLogger(config)
+        self.visual_event_server = VisualEventServer(config)
         self.visual_conversation_id: Optional[str] = None
         self.visual_conversation_active = False
         self.tts_audio_dir = Path(config.library_path) / config.tts_audio_dir
@@ -1604,7 +1706,7 @@ class RainLabOrchestrator:
 
     def _emit_visual_event(self, payload: Dict):
 
-        self.visual_event_logger.emit(payload)
+        self.visual_event_server.emit(payload)
 
     def _start_visual_conversation(self, topic: str):
 
@@ -2911,20 +3013,40 @@ Examples:
     parser.add_argument(
         "--emit-visual-events",
         action="store_true",
-        help="Write neutral conversation events for Godot/WebSocket bridge clients",
+        help="Stream neutral conversation events to Godot clients via embedded WebSocket server",
     )
 
     parser.add_argument(
         "--no-emit-visual-events",
         action="store_true",
-        help="Disable neutral visual event output even if env enables it",
+        help="Disable visual event streaming even if env enables it",
+    )
+
+    parser.add_argument(
+        "--visual-events-host",
+        type=str,
+        default=os.environ.get("RAIN_VISUAL_EVENTS_HOST", "127.0.0.1"),
+        help="WebSocket host for visual event server (default: 127.0.0.1)",
+    )
+
+    parser.add_argument(
+        "--visual-events-port",
+        type=int,
+        default=int(os.environ.get("RAIN_VISUAL_EVENTS_PORT", "8765")),
+        help="WebSocket port for visual event server (default: 8765)",
+    )
+
+    parser.add_argument(
+        "--log-visual-events",
+        action="store_true",
+        help="Also write visual events to a JSONL file for debugging",
     )
 
     parser.add_argument(
         "--visual-events-log",
         type=str,
         default=os.environ.get("RAIN_VISUAL_EVENTS_LOG", "meeting_archives/godot_events.jsonl"),
-        help="Path (relative to --library or absolute) for JSONL event output",
+        help="Path (relative to --library or absolute) for JSONL debug log (requires --log-visual-events)",
     )
 
     parser.add_argument(
@@ -2970,6 +3092,10 @@ def main():
     if args.no_emit_visual_events:
         emit_visual_events = False
 
+    log_visual_events = os.environ.get("RAIN_LOG_VISUAL_EVENTS", "0") == "1"
+    if getattr(args, "log_visual_events", False):
+        log_visual_events = True
+
     export_tts_audio = os.environ.get("RAIN_EXPORT_TTS_AUDIO", "1") != "0"
     if args.no_export_tts_audio:
         export_tts_audio = False
@@ -2990,6 +3116,9 @@ def main():
         recursive_intellect=not args.no_recursive_intellect,
         recursive_library_scan=recursive_library_scan,
         emit_visual_events=emit_visual_events,
+        visual_events_host=args.visual_events_host,
+        visual_events_port=args.visual_events_port,
+        log_visual_events=log_visual_events,
         visual_events_log=args.visual_events_log,
         export_tts_audio=export_tts_audio,
         tts_audio_dir=args.tts_audio_dir,

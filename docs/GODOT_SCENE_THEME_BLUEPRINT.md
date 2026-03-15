@@ -99,10 +99,9 @@ Included themes:
 4. `theme_changed` (optional): apply theme config live.
 5. `conversation_ended`: stop talking/audio, keep scene visible.
 
-Bridge option in this repo:
+Bridge (embedded in backend):
 
-- Backend writes JSONL events to `meeting_archives/godot_events.jsonl`.
-- `godot_event_bridge.py` tails that file and relays events over WebSocket.
+- When `--emit-visual-events` is enabled, the backend starts an embedded WebSocket server (default `ws://127.0.0.1:8765`) and streams events directly to connected Godot clients.
 
 ## Audio/Animation Sync (MVP)
 

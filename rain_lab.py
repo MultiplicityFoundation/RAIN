@@ -270,20 +270,9 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help="Godot mode: bridge WebSocket port.",
     )
     parser.add_argument(
-        "--godot-bridge-poll-interval",
-        type=float,
-        default=0.1,
-        help="Godot mode: JSONL tail polling interval in seconds.",
-    )
-    parser.add_argument(
-        "--godot-replay-existing",
-        action="store_true",
-        help="Godot mode: bridge replays existing event log contents on startup.",
-    )
-    parser.add_argument(
         "--no-godot-bridge",
         action="store_true",
-        help="Godot mode: do not auto-launch godot_event_bridge.py.",
+        help="Godot mode: deprecated (bridge is now embedded). Kept for CLI compatibility.",
     )
     parser.add_argument(
         "--no-godot-client",
@@ -400,8 +389,10 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
             cmd.extend(
                 [
                     "--emit-visual-events",
-                    "--visual-events-log",
-                    args.godot_events_log,
+                    "--visual-events-host",
+                    args.godot_ws_host,
+                    "--visual-events-port",
+                    str(args.godot_ws_port),
                     "--tts-audio-dir",
                     args.godot_tts_audio_dir,
                 ]
@@ -422,25 +413,9 @@ def build_command(args: argparse.Namespace, passthrough: list[str], repo_root: P
         return cmd
 
 
-def build_godot_bridge_command(args: argparse.Namespace, repo_root: Path) -> list[str]:
-    target = repo_root / "godot_event_bridge.py"
-    if not target.exists():
-        raise FileNotFoundError("Godot mode bridge requires godot_event_bridge.py")
-    cmd = [
-        sys.executable,
-        str(target),
-        "--events-file",
-        args.godot_events_log,
-        "--host",
-        args.godot_ws_host,
-        "--port",
-        str(args.godot_ws_port),
-        "--poll-interval",
-        str(args.godot_bridge_poll_interval),
-    ]
-    if args.godot_replay_existing:
-        cmd.append("--replay-existing")
-    return cmd
+def build_godot_bridge_command(args: argparse.Namespace, repo_root: Path) -> list[str] | None:
+    """Deprecated: bridge is now embedded in the main process. Returns None."""
+    return None
 
 
 def _resolve_executable(candidate: str) -> str | None:
@@ -484,7 +459,7 @@ def build_godot_client_command(args: argparse.Namespace, repo_root: Path) -> lis
 @dataclass(frozen=True)
 class LaunchPlan:
     effective_mode: str
-    launch_bridge: bool = False
+    launch_bridge: bool = False  # Deprecated: bridge is now embedded; kept for API compat
     launch_godot_client: bool = False
     godot_client_cmd: list[str] | None = None
 
@@ -635,10 +610,8 @@ def _supervise_sidecars(
 
 def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan:
     visual_runtime_exists = (repo_root / "rain_lab_meeting_chat_version.py").exists()
-    bridge_exists = (repo_root / "godot_event_bridge.py").exists()
     godot_client_cmd = build_godot_client_command(args, repo_root)
 
-    wants_bridge = not args.no_godot_bridge
     wants_client = not args.no_godot_client
 
     if args.mode == "chat":
@@ -649,8 +622,6 @@ def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan
             missing: list[str] = []
             if not visual_runtime_exists:
                 missing.append("rain_lab_meeting_chat_version.py")
-            if wants_bridge and not bridge_exists:
-                missing.append("godot_event_bridge.py")
             if wants_client and godot_client_cmd is None:
                 missing.append("Godot executable + godot_client/project.godot")
             if missing:
@@ -658,7 +629,6 @@ def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan
                 raise RuntimeError(f"UI mode 'on' requires: {missing_str}")
             return LaunchPlan(
                 effective_mode="godot",
-                launch_bridge=wants_bridge,
                 launch_godot_client=wants_client and godot_client_cmd is not None,
                 godot_client_cmd=godot_client_cmd,
             )
@@ -666,13 +636,10 @@ def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan
         # ui=auto: prefer avatars only when the full stack is available.
         if not visual_runtime_exists:
             return LaunchPlan(effective_mode="chat")
-        if wants_bridge and not bridge_exists:
-            return LaunchPlan(effective_mode="chat")
         if wants_client and godot_client_cmd is None:
             return LaunchPlan(effective_mode="chat")
         return LaunchPlan(
             effective_mode="godot",
-            launch_bridge=wants_bridge,
             launch_godot_client=wants_client and godot_client_cmd is not None,
             godot_client_cmd=godot_client_cmd,
         )
@@ -680,13 +647,10 @@ def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan
     if args.mode == "godot":
         if not visual_runtime_exists:
             raise FileNotFoundError("Godot mode requires rain_lab_meeting_chat_version.py")
-        if wants_bridge and not bridge_exists:
-            raise FileNotFoundError("Godot mode bridge requires godot_event_bridge.py")
 
         launch_client = args.ui != "off" and wants_client and godot_client_cmd is not None
         return LaunchPlan(
             effective_mode="godot",
-            launch_bridge=wants_bridge,
             launch_godot_client=launch_client,
             godot_client_cmd=godot_client_cmd if launch_client else None,
         )
@@ -697,13 +661,10 @@ def resolve_launch_plan(args: argparse.Namespace, repo_root: Path) -> LaunchPlan
 def _build_sidecar_specs(
     args: argparse.Namespace,
     launch_plan: LaunchPlan,
-    bridge_cmd: list[str] | None,
+    bridge_cmd: list[str] | None = None,
 ) -> list[SidecarSpec]:
     strict_ui = args.ui == "on"
     specs: list[SidecarSpec] = []
-
-    if bridge_cmd is not None:
-        specs.append(SidecarSpec(name="Godot event bridge", command=bridge_cmd, critical=strict_ui))
 
     if launch_plan.launch_godot_client and launch_plan.godot_client_cmd is not None:
         specs.append(
@@ -880,10 +841,7 @@ def main(argv: list[str] | None = None) -> int:
     effective_args = _copy_args_with_mode(args, launch_plan.effective_mode)
     cmd = build_command(effective_args, passthrough, repo_root)
 
-    bridge_cmd: list[str] | None = None
-    if launch_plan.launch_bridge:
-        bridge_cmd = build_godot_bridge_command(effective_args, repo_root)
-    sidecar_specs = _build_sidecar_specs(args, launch_plan, bridge_cmd)
+    sidecar_specs = _build_sidecar_specs(args, launch_plan)
 
     child_env = None
     if args.library:

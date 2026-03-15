@@ -264,15 +264,12 @@ def _check_ui_stack(repo_root: Path) -> CheckResult:
         project_root = (repo_root / project_root).resolve()
 
     visual_runtime = repo_root / "rain_lab_meeting_chat_version.py"
-    bridge = repo_root / "godot_event_bridge.py"
     project_file = project_root / "project.godot"
     godot_bin = _resolve_godot_executable()
 
     details = {
         "visual_runtime": str(visual_runtime),
         "visual_runtime_exists": visual_runtime.exists(),
-        "bridge_script": str(bridge),
-        "bridge_exists": bridge.exists(),
         "godot_project": str(project_file),
         "project_exists": project_file.exists(),
         "godot_executable": godot_bin,
@@ -281,8 +278,6 @@ def _check_ui_stack(repo_root: Path) -> CheckResult:
     missing: list[str] = []
     if not visual_runtime.exists():
         missing.append("rain_lab_meeting_chat_version.py")
-    if not bridge.exists():
-        missing.append("godot_event_bridge.py")
     if not project_file.exists():
         missing.append("godot_client/project.godot")
     if not godot_bin:

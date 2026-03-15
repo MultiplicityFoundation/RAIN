@@ -134,37 +134,29 @@ def test_build_command_godot(repo_root):
     cmd = build_command(args, pt, repo_root)
     assert "rain_lab_meeting_chat_version.py" in cmd[1]
     assert "--emit-visual-events" in cmd
-    assert "--visual-events-log" in cmd
+    assert "--visual-events-host" in cmd
+    assert "--visual-events-port" in cmd
     assert "--tts-audio-dir" in cmd
     assert "--max-turns" in cmd and "2" in cmd
     assert "--timeout" in cmd and "30.0" in cmd
 
 
-def test_build_godot_bridge_command(repo_root):
+def test_build_godot_bridge_command_returns_none(repo_root):
+    """Bridge is now embedded in the main process; function returns None."""
     args, _ = parse_args(
         [
             "--mode",
             "godot",
             "--topic",
             "x",
-            "--godot-events-log",
-            "meeting_archives/custom_events.jsonl",
             "--godot-ws-host",
             "0.0.0.0",
             "--godot-ws-port",
             "9000",
-            "--godot-bridge-poll-interval",
-            "0.25",
-            "--godot-replay-existing",
         ]
     )
-    cmd = build_godot_bridge_command(args, repo_root)
-    assert "godot_event_bridge.py" in cmd[1]
-    assert "--events-file" in cmd and "meeting_archives/custom_events.jsonl" in cmd
-    assert "--host" in cmd and "0.0.0.0" in cmd
-    assert "--port" in cmd and "9000" in cmd
-    assert "--poll-interval" in cmd and "0.25" in cmd
-    assert "--replay-existing" in cmd
+    result = build_godot_bridge_command(args, repo_root)
+    assert result is None
 
 
 def test_build_godot_client_command(repo_root, monkeypatch):
@@ -194,7 +186,6 @@ def test_resolve_launch_plan_chat_auto_prefers_godot(repo_root, monkeypatch):
 
     plan = resolve_launch_plan(args, repo_root)
     assert plan.effective_mode == "godot"
-    assert plan.launch_bridge is True
     assert plan.launch_godot_client is True
     assert plan.godot_client_cmd == expected_client_cmd
 
@@ -204,7 +195,6 @@ def test_resolve_launch_plan_chat_auto_falls_back_without_client(repo_root, monk
     monkeypatch.setattr(rain_launcher, "build_godot_client_command", lambda _args, _root: None)
     plan = resolve_launch_plan(args, repo_root)
     assert plan.effective_mode == "chat"
-    assert plan.launch_bridge is False
     assert plan.launch_godot_client is False
     assert plan.godot_client_cmd is None
 
@@ -224,7 +214,6 @@ def test_resolve_launch_plan_chat_ui_off_forces_cli(repo_root):
     args, _ = parse_args(["--mode", "chat", "--topic", "x", "--ui", "off"])
     plan = resolve_launch_plan(args, repo_root)
     assert plan.effective_mode == "chat"
-    assert plan.launch_bridge is False
     assert plan.launch_godot_client is False
 
 
@@ -232,13 +221,13 @@ def test_build_sidecar_specs_strict_ui(repo_root):
     args, _ = parse_args(["--mode", "chat", "--topic", "x", "--ui", "on"])
     plan = rain_launcher.LaunchPlan(
         effective_mode="godot",
-        launch_bridge=True,
         launch_godot_client=True,
         godot_client_cmd=["godot4", "--path", str(repo_root / "godot_client")],
     )
-    specs = _build_sidecar_specs(args, plan, ["python", "godot_event_bridge.py"])
-    assert len(specs) == 2
-    assert all(spec.critical for spec in specs)
+    specs = _build_sidecar_specs(args, plan)
+    assert len(specs) == 1
+    assert specs[0].name == "Godot avatar client"
+    assert specs[0].critical is True
 
 
 def test_build_command_rlm(repo_root):

@@ -39,8 +39,7 @@ godot_client/
 - Consume backend events by setting:
   - `use_demo_events = false`
   - `backend_ws_url = ws://...`
-- Bridge helper (in repo root): `python godot_event_bridge.py --events-file meeting_archives/godot_events.jsonl`
-- Backend emitter hook: `rain_lab_meeting_chat_version.py --emit-visual-events`
+- Backend emitter hook: `rain_lab_meeting_chat_version.py --emit-visual-events` (starts embedded WS server on `ws://127.0.0.1:8765`)
 - Per-turn audio files in payload: enable `--tts-audio-dir` (default `meeting_archives/tts_audio`)
 - The orchestrator listens for:
   - `conversation_started`
