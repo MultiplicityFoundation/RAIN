@@ -89,11 +89,17 @@ impl HookRunner {
         join_all(futs).await;
     }
 
-    pub async fn fire_after_tool_call(&self, tool: &str, result: &ToolResult, duration: Duration) {
+    pub async fn fire_after_tool_call(
+        &self,
+        tool: &str,
+        args: &Value,
+        result: &ToolResult,
+        duration: Duration,
+    ) {
         let futs: Vec<_> = self
             .handlers
             .iter()
-            .map(|h| h.on_after_tool_call(tool, result, duration))
+            .map(|h| h.on_after_tool_call(tool, args, result, duration))
             .collect();
         join_all(futs).await;
     }

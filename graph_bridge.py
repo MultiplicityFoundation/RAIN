@@ -223,3 +223,35 @@ class HypergraphManager:
     def _query_graph_r1_placeholder(self, topic: str, max_links: int = 5) -> str:
         """Placeholder query hook for future Graph-R1 integration."""
         return self._query_native(topic=topic, max_links=max_links)
+
+    # ── Episodic Memory ────────────────────────────────────────────
+
+    def query_episodic(self, topic: str, max_results: int = 10) -> str:
+        """Return episodic memory sentences related to *topic*.
+
+        Searches ``episodic`` nodes in the graph whose sentence or tool-arg
+        keywords overlap with the given topic.
+        """
+        topic_lower = topic.strip().lower()
+        if not topic_lower:
+            return "No topic provided for episodic query."
+
+        episodic_nodes = [
+            (n, attrs)
+            for n, attrs in self.graph.nodes(data=True)
+            if attrs.get("node_type") == "episodic"
+        ]
+        if not episodic_nodes:
+            return "No episodic memories recorded yet."
+
+        hits: List[str] = []
+        for _node_id, attrs in episodic_nodes:
+            sentence = attrs.get("sentence", "")
+            if topic_lower in sentence.lower():
+                hits.append(f"[{attrs.get('timestamp', '?')}] {sentence}")
+                if len(hits) >= max_results:
+                    break
+
+        if hits:
+            return "\n".join(hits)
+        return f"No episodic memories found matching '{topic}'."
