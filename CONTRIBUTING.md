@@ -18,7 +18,7 @@ contributor—human or bot—must follow before code lands on `main`.
 
 ### Human PRs
 
-- One approval required before merging to `main`.
+- One approval required before merging to `dev`.
 - Squash-merge preferred.
 - Keep PR descriptions concise: state *what* changed, *why*, and link any
   relevant issue.
