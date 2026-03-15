@@ -21,7 +21,7 @@ hero:
 </p>
 
 <p align="center">
-  <strong>Your personal AI research assistant — talk about ideas, verify discoveries, and organize your work.</strong>
+  <strong>Your personal AI research assistants — talk about ideas, verify discoveries, and organize your work.</strong>
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ hero:
 
 ## What is R.A.I.N. Lab?
 
-R.A.I.N. Lab is an AI-powered research assistant that helps you explore ideas and make real discoveries. Unlike a regular chatbot that might "discover" things you already know, R.A.I.N. Lab cross-checks your internal knowledge and online sources to make sure you are exploring genuinely new territory.
+R.A.I.N. Lab are recursive AI research assistants that helps you explore ideas and make real discoveries. Unlike a regular chatbot that might "discover" things you already know, R.A.I.N. Lab cross-checks your internal knowledge and online sources to make sure you are exploring genuinely new territory.
 
 **What you can do with it:**
 
