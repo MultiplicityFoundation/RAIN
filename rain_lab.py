@@ -43,12 +43,12 @@ BANNER_LINES = [
     "                 V E R S 3 D Y N A M I C S                   ",
 ]
 ASCII_ART_LINES = [
-    "\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2557   \u2588\u2588\u2557    \u2588\u2588\u2557      \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 ",
-    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",
-    "\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2554\u2588\u2588\u2557 \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",
-    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551\u255a\u2588\u2588\u2557\u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",
-    "\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2588\u2551    \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",
-    "\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u2550\u2550\u255d    \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u255d ",
+    "\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2557   \u2588\u2588\u2557    \u2588\u2588\u2557      \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 ",  # noqa: E501
+    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",  # noqa: E501
+    "\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2554\u2588\u2588\u2557 \u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",  # noqa: E501
+    "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551\u255a\u2588\u2588\u2557\u2588\u2588\u2551    \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557",  # noqa: E501
+    "\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2588\u2551    \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d",  # noqa: E501
+    "\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u2550\u2550\u255d    \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d  \u255a\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u255d ",  # noqa: E501
     "\u2593" * 55,
     ("\u2592" * 18) + " V E R S 3 D Y N A M I C S " + ("\u2592" * 12),
 ]
@@ -160,14 +160,33 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         default_ui_mode = "off"
     default_restart_sidecars = _env_bool("RAIN_RESTART_SIDECARS", True)
 
-    parser = argparse.ArgumentParser(
-        description="Unified launcher for rain_lab_meeting modes"
-    )
+    parser = argparse.ArgumentParser(description="Unified launcher for rain_lab_meeting modes")
     parser.add_argument(
         "--mode",
-        choices=["rlm", "chat", "godot", "hello-os", "compile", "preflight", "backup", "first-run", "wizard", "start", "validate", "models", "onboard", "status"],
+        choices=[
+            "rlm",
+            "chat",
+            "godot",
+            "hello-os",
+            "compile",
+            "preflight",
+            "backup",
+            "first-run",
+            "wizard",
+            "start",
+            "validate",
+            "models",
+            "onboard",
+            "status",
+        ],
         default="chat",
-        help="Which engine to run: wizard (guided help), start (same as wizard), chat (talk to AI), validate (check system), models (list AI models), status (show status), onboard (first-time setup), rlm (tool-exec), godot (chat + visual), hello-os (executable), compile (build knowledge), preflight (env checks), backup (snapshot), first-run (onboarding)",
+        help=(
+            "Which engine to run: wizard (guided help), start (same as wizard),"
+            " chat (talk to AI), validate (check system), models (list AI models),"
+            " status (show status), onboard (first-time setup), rlm (tool-exec),"
+            " godot (chat + visual), hello-os (executable), compile (build knowledge),"
+            " preflight (env checks), backup (snapshot), first-run (onboarding)"
+        ),
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
     parser.add_argument(
@@ -209,7 +228,10 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--ui",
         choices=sorted(VALID_UI_MODES),
         default=default_ui_mode,
-        help="Chat/Godot UI behavior: auto launches avatars when available, on requires UI stack, off (default) forces CLI-only.",
+        help=(
+            "Chat/Godot UI behavior: auto launches avatars when available,"
+            " on requires UI stack, off (default) forces CLI-only."
+        ),
     )
     parser.add_argument(
         "--godot-client-bin",
@@ -566,10 +588,7 @@ def _supervise_sidecars(
             flush=True,
         )
 
-        should_restart = (
-            args.restart_sidecars
-            and sidecar.restart_count < max(0, int(args.max_sidecar_restarts))
-        )
+        should_restart = args.restart_sidecars and sidecar.restart_count < max(0, int(args.max_sidecar_restarts))
         if should_restart:
             sidecar.restart_count += 1
             backoff = max(0.0, float(args.sidecar_restart_backoff))
@@ -609,9 +628,7 @@ def _supervise_sidecars(
 
         sidecar.active = False
         if sidecar.spec.critical:
-            return (
-                f"{sidecar.spec.name} stopped (exit {exit_code}) and restart budget is exhausted."
-            )
+            return f"{sidecar.spec.name} stopped (exit {exit_code}) and restart budget is exhausted."
 
     return None
 
@@ -821,7 +838,12 @@ def main(argv: list[str] | None = None) -> int:
     _print_banner()
 
     # Interactive prompt if topic is missing (and not asking for help)
-    if args.mode not in {"hello-os", "compile", "preflight", "backup", "first-run", "wizard"} and not args.topic and "-h" not in passthrough and "--help" not in passthrough:
+    if (
+        args.mode not in {"hello-os", "compile", "preflight", "backup", "first-run", "wizard"}
+        and not args.topic
+        and "-h" not in passthrough
+        and "--help" not in passthrough
+    ):
         print(f"\n{ANSI_YELLOW}Research Topic needed.{ANSI_RESET}")
         print(f"{ANSI_DIM}Example: 'Guarino paper', 'Quantum Resonance', 'The nature of time'{ANSI_RESET}")
         try:

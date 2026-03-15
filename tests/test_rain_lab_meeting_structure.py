@@ -16,7 +16,7 @@ def test_rain_lab_meeting_has_no_duplicate_host_helpers():
 def test_rain_lab_meeting_validates_external_setup_code():
     source = (Path(__file__).resolve().parent.parent / "rain_lab_meeting.py").read_text(encoding="utf-8")
     assert "def _resolve_setup_code" in source
-    assert "compile(candidate, \"<tools_setup_code>\", \"exec\")" in source
+    assert 'compile(candidate, "<tools_setup_code>", "exec")' in source
 
 
 def test_rain_lab_meeting_caps_model_calls_per_turn():

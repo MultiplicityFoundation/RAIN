@@ -24,6 +24,7 @@ try:
     import matplotlib.pyplot as plt
     from matplotlib.patches import FancyArrowPatch
     import matplotlib.animation as animation
+
     MPL_AVAILABLE = True
 except ImportError:  # pragma: no cover
     plt = None  # type: ignore[assignment]

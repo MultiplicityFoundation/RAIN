@@ -14,13 +14,13 @@ class LogManager:
 
     def initialize(self, topic: str):
         header = f"""
-{'='*70}
+{"=" * 70}
 R.A.I.N. LAB RESEARCH
-{'='*70}
+{"=" * 70}
 TOPIC: {topic}
-DATE: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+DATE: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 MODE: Recursive Language Model - Code Execution Enabled
-{'='*70}
+{"=" * 70}
 
 """
         self._write(header)
@@ -29,8 +29,8 @@ MODE: Recursive Language Model - Code Execution Enabled
         self._write(f"**{agent_name}:** {content}\n\n")
 
     def finalize(self):
-        self._write(f"\n{'='*70}\nSESSION ENDED\n{'='*70}\n")
+        self._write(f"\n{'=' * 70}\nSESSION ENDED\n{'=' * 70}\n")
 
     def _write(self, text: str):
-        with open(self.log_path, 'a', encoding='utf-8') as f:
+        with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(text)

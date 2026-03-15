@@ -11,6 +11,7 @@ except ImportError as e:
     print(f"Error: Could not import rain_lab_meeting_chat_version. Ensure you are running from repo root. Details: {e}")
     sys.exit(1)
 
+
 def run_benchmark():
     # Setup ContextManager with many dummy papers
     print("Setting up benchmark environment...")
@@ -68,7 +69,7 @@ def run_benchmark():
 
     print(f"Completed {iterations} iterations.")
     print(f"Total time: {duration:.4f} seconds")
-    print(f"Average time per call: {duration/iterations*1000:.4f} ms")
+    print(f"Average time per call: {duration / iterations * 1000:.4f} ms")
     print(f"Found matches: {found_count}/{iterations}")
 
     # Verify negative case
@@ -79,6 +80,7 @@ def run_benchmark():
         print("✓ correctly returned None for missing quote")
     else:
         print(f"✗ incorrect result for missing quote: {result_missing}")
+
 
 if __name__ == "__main__":
     run_benchmark()

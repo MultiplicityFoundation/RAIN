@@ -42,9 +42,7 @@ def _read_hello_os() -> str:
                 parts.append(mod_path.read_text(encoding="utf-8", errors="ignore"))
         if parts:
             return "\n".join(parts)
-    raise FileNotFoundError(
-        f"Neither {HELLO_OS_PATH} flat file nor {HELLO_OS_PKG} package found"
-    )
+    raise FileNotFoundError(f"Neither {HELLO_OS_PATH} flat file nor {HELLO_OS_PKG} package found")
 
 
 def inspect_hello_os() -> dict[str, int]:
@@ -57,16 +55,9 @@ def inspect_hello_os() -> dict[str, int]:
         "dataclasses": sum(1 for line in lines if "@dataclass" in line),
         "main_blocks": sum(1 for line in lines if "__main__" in line),
         "shell_magic_lines": sum(
-            1
-            for line in lines
-            if line.strip().startswith("!")
-            or line.strip().startswith("# AUTO-SYNTAX-FIX: !")
+            1 for line in lines if line.strip().startswith("!") or line.strip().startswith("# AUTO-SYNTAX-FIX: !")
         ),
-        "import_lines": sum(
-            1
-            for line in lines
-            if re.match(r"\s*(from\s+\S+\s+import|import\s+\S+)", line)
-        ),
+        "import_lines": sum(1 for line in lines if re.match(r"\s*(from\s+\S+\s+import|import\s+\S+)", line)),
     }
 
 

@@ -51,10 +51,7 @@ STAGE_CONFIGS: dict[MeetingStage, StageConfig] = {
     MeetingStage.SYNTHESIS: StageConfig(
         name="Stage 3: Synthesis",
         description="Compile raw outputs into a structured research summary.",
-        prompt_template=(
-            "STAGE 3 — SYNTHESIS\n"
-            "Summarize method, observations, quantitative outputs, and limitations."
-        ),
+        prompt_template=("STAGE 3 — SYNTHESIS\nSummarize method, observations, quantitative outputs, and limitations."),
     ),
     MeetingStage.PEER_CRITIQUE: StageConfig(
         name="Stage 4: Peer Critique",

@@ -38,9 +38,7 @@ class Neo4JStorage(BaseGraphStorage):
         URI = os.environ["NEO4J_URI"]
         USERNAME = os.environ["NEO4J_USERNAME"]
         PASSWORD = os.environ["NEO4J_PASSWORD"]
-        self._driver: AsyncDriver = AsyncGraphDatabase.driver(
-            URI, auth=(USERNAME, PASSWORD)
-        )
+        self._driver: AsyncDriver = AsyncGraphDatabase.driver(URI, auth=(USERNAME, PASSWORD))
         return None
 
     def __post_init__(self):
@@ -64,14 +62,10 @@ class Neo4JStorage(BaseGraphStorage):
         entity_name_label = node_id.strip('"')
 
         async with self._driver.session() as session:
-            query = (
-                f"MATCH (n:`{entity_name_label}`) RETURN count(n) > 0 AS node_exists"
-            )
+            query = f"MATCH (n:`{entity_name_label}`) RETURN count(n) > 0 AS node_exists"
             result = await session.run(query)
             single_result = await result.single()
-            logger.debug(
-                f'{inspect.currentframe().f_code.co_name}:query:{query}:result:{single_result["node_exists"]}'
-            )
+            logger.debug(f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{single_result['node_exists']}")
             return single_result["node_exists"]
 
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
@@ -85,9 +79,7 @@ class Neo4JStorage(BaseGraphStorage):
             )
             result = await session.run(query)
             single_result = await result.single()
-            logger.debug(
-                f'{inspect.currentframe().f_code.co_name}:query:{query}:result:{single_result["edgeExists"]}'
-            )
+            logger.debug(f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{single_result['edgeExists']}")
             return single_result["edgeExists"]
 
     async def get_node(self, node_id: str) -> Union[dict, None]:
@@ -99,9 +91,7 @@ class Neo4JStorage(BaseGraphStorage):
             if record:
                 node = record["n"]
                 node_dict = dict(node)
-                logger.debug(
-                    f"{inspect.currentframe().f_code.co_name}: query: {query}, result: {node_dict}"
-                )
+                logger.debug(f"{inspect.currentframe().f_code.co_name}: query: {query}, result: {node_dict}")
                 return node_dict
             return None
 
@@ -117,9 +107,7 @@ class Neo4JStorage(BaseGraphStorage):
             record = await result.single()
             if record:
                 edge_count = record["totalEdgeCount"]
-                logger.debug(
-                    f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{edge_count}"
-                )
+                logger.debug(f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{edge_count}")
                 return edge_count
             else:
                 return None
@@ -135,14 +123,10 @@ class Neo4JStorage(BaseGraphStorage):
         trg_degree = 0 if trg_degree is None else trg_degree
 
         degrees = int(src_degree) + int(trg_degree)
-        logger.debug(
-            f"{inspect.currentframe().f_code.co_name}:query:src_Degree+trg_degree:result:{degrees}"
-        )
+        logger.debug(f"{inspect.currentframe().f_code.co_name}:query:src_Degree+trg_degree:result:{degrees}")
         return degrees
 
-    async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> Union[dict, None]:
+    async def get_edge(self, source_node_id: str, target_node_id: str) -> Union[dict, None]:
         entity_name_label_source = source_node_id.strip('"')
         entity_name_label_target = target_node_id.strip('"')
         """
@@ -169,9 +153,7 @@ class Neo4JStorage(BaseGraphStorage):
             record = await result.single()
             if record:
                 result = dict(record["edge_properties"])
-                logger.debug(
-                    f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{result}"
-                )
+                logger.debug(f"{inspect.currentframe().f_code.co_name}:query:{query}:result:{result}")
                 return result
             else:
                 return None
@@ -193,14 +175,8 @@ class Neo4JStorage(BaseGraphStorage):
                 source_node = record["n"]
                 connected_node = record["connected"]
 
-                source_label = (
-                    list(source_node.labels)[0] if source_node.labels else None
-                )
-                target_label = (
-                    list(connected_node.labels)[0]
-                    if connected_node and connected_node.labels
-                    else None
-                )
+                source_label = list(source_node.labels)[0] if source_node.labels else None
+                target_label = list(connected_node.labels)[0] if connected_node and connected_node.labels else None
 
                 if source_label and target_label:
                     edges.append((source_label, target_label))
@@ -236,9 +212,7 @@ class Neo4JStorage(BaseGraphStorage):
             SET n += $properties
             """
             await tx.run(query, properties=properties)
-            logger.debug(
-                f"Upserted node with label '{label}' and properties: {properties}"
-            )
+            logger.debug(f"Upserted node with label '{label}' and properties: {properties}")
 
         try:
             async with self._driver.session() as session:
@@ -258,9 +232,7 @@ class Neo4JStorage(BaseGraphStorage):
             )
         ),
     )
-    async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]
-    ):
+    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: Dict[str, Any]):
         """
         Upsert an edge and its properties between two nodes identified by their labels.
 

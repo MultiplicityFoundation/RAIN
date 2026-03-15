@@ -40,11 +40,11 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _CLAIM_PATTERN = re.compile(
-    r"(?:^|\.\s+)"           # start of text or sentence boundary
+    r"(?:^|\.\s+)"  # start of text or sentence boundary
     r"("
-    r"[A-Z][^.!?]*?"         # sentence starting with uppercase
+    r"[A-Z][^.!?]*?"  # sentence starting with uppercase
     r"(?:"
-    r"scales?\s+as"          # "scales as X^3"
+    r"scales?\s+as"  # "scales as X^3"
     r"|implies?\b"
     r"|predicts?\b"
     r"|suggests?\b"
@@ -59,7 +59,7 @@ _CLAIM_PATTERN = re.compile(
     r"|is\s+proportional"
     r"|demonstrates?\b"
     r")"
-    r"[^.!?]+"               # rest of the sentence
+    r"[^.!?]+"  # rest of the sentence
     r"[.!?]"
     r")",
     re.MULTILINE,
@@ -189,11 +189,7 @@ def compute_critique_change_rate(
     """
     if not critique_pairs:
         return 0.0
-    changed = sum(
-        1
-        for pre, post in critique_pairs
-        if (1.0 - _similarity(pre, post)) >= change_threshold
-    )
+    changed = sum(1 for pre, post in critique_pairs if (1.0 - _similarity(pre, post)) >= change_threshold)
     return round(changed / len(critique_pairs), 2)
 
 
@@ -255,15 +251,9 @@ class MetricsTracker:
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "topic": self.topic,
             "turns": self._turn_count,
-            "citation_accuracy": compute_citation_accuracy(
-                self._all_quotes, self._corpus_texts
-            ),
-            "novel_claim_density": compute_novel_claim_density(
-                self._all_claims, self._corpus_texts
-            ),
-            "critique_change_rate": compute_critique_change_rate(
-                self._critique_pairs
-            ),
+            "citation_accuracy": compute_citation_accuracy(self._all_quotes, self._corpus_texts),
+            "novel_claim_density": compute_novel_claim_density(self._all_claims, self._corpus_texts),
+            "critique_change_rate": compute_critique_change_rate(self._critique_pairs),
             "model": self.model,
             "recursive_depth": self.recursive_depth,
         }

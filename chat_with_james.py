@@ -12,13 +12,14 @@ def sanitize_text(text: str) -> str:
     text = text.replace("[SEARCH:", "[SEARCH;")
     return text.strip()
 
+
 # Add the RLM library to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "rlm-main", "rlm-main"))
 
 from rlm import RLM
 
 # --- 1. FORCE UTF-8 ---
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # --- CONFIGURATION ---
 LIBRARY_PATH = os.environ.get("JAMES_LIBRARY_PATH", os.path.dirname(__file__))
@@ -29,20 +30,13 @@ MAX_PAPER_CHARS = 6000  # Limits paper size to fit in context
 # --- INITIALIZE RLM ---
 james_rlm = RLM(
     backend="openai",
-    backend_kwargs={
-        "model_name": MODEL_NAME,
-        "base_url": BASE_URL
-    },
+    backend_kwargs={"model_name": MODEL_NAME, "base_url": BASE_URL},
     environment="local",  # Allows code execution on your machine
     verbose=True,  # Shows chain-of-thought and code execution
 )
 
 # --- LOCATE THE SOUL ---
-soul_paths = [
-    os.path.join(LIBRARY_PATH, "JAMES_SOUL.md"),
-    r"james_library\JAMES_SOUL.md",
-    r"JAMES_SOUL.md"
-]
+soul_paths = [os.path.join(LIBRARY_PATH, "JAMES_SOUL.md"), r"james_library\JAMES_SOUL.md", r"JAMES_SOUL.md"]
 
 james_personality = "You are James, a visionary scientist at Vers3Dynamics. You are intense, curious, and precise."
 
@@ -89,11 +83,11 @@ def list_papers():
 def read_paper(keyword):
     if not os.path.exists(LIBRARY_PATH):
         return None, "Library not found."
-    
+
     files = [f for f in os.listdir(LIBRARY_PATH) if f.endswith((".md", ".txt"))]
     # Find best match
     match = next((f for f in files if keyword.lower() in f.lower()), None)
-    
+
     if match:
         with open(os.path.join(LIBRARY_PATH, match), "r", encoding="utf-8") as f:
             content = f.read()[:MAX_PAPER_CHARS]  # Truncate to fit context
@@ -104,24 +98,24 @@ def read_paper(keyword):
 def build_prompt(user_message):
     """Build the full prompt including context, papers, and conversation history."""
     prompt_parts = [base_context]
-    
+
     # Add loaded papers
     if loaded_papers:
         prompt_parts.append("\n--- LOADED RESEARCH PAPERS ---")
         for paper_name, paper_content in loaded_papers:
             prompt_parts.append(f"\n[{paper_name}]:\n{paper_content}\n")
-    
+
     # Add recent conversation history (limit to last 10 exchanges to manage context)
     if conversation_history:
         prompt_parts.append("\n--- CONVERSATION HISTORY ---")
         for role, content in conversation_history[-20:]:  # Last 10 exchanges (20 messages)
             prefix = "Christopher" if role == "user" else "James"
             prompt_parts.append(f"\n{prefix}: {content}")
-    
+
     # Add current user message
     prompt_parts.append(f"\nChristopher: {user_message}")
     prompt_parts.append("\nJames:")
-    
+
     return "\n".join(prompt_parts)
 
 
@@ -130,7 +124,7 @@ while True:
         user_input = input("\n👤 Christopher: ")
         if user_input.lower() in ["quit", "exit"]:
             break
-        
+
         # --- COMMAND HANDLING ---
         if user_input.lower() == "/list":
             print(f"\n📚 Library Contents:\n{list_papers()}")
@@ -141,7 +135,7 @@ while True:
             if not keyword:
                 print("⚠️ Please specify a name (e.g., '/read friction')")
                 continue
-            
+
             fname, content = read_paper(keyword)
             if fname:
                 print(f"📖 Reading '{fname}' into memory...", end="", flush=True)
@@ -155,20 +149,20 @@ while True:
 
         # --- NORMAL CHAT WITH RLM ---
         conversation_history.append(("user", user_input))
-        
+
         print("⚡ James: ", end="", flush=True)
-        
+
         # Build the full prompt and send to RLM
         full_prompt = build_prompt(user_input)
         result = james_rlm.completion(full_prompt)
-        
+
         # Get the response
-        response = result.response if hasattr(result, 'response') else str(result)
-        
+        response = result.response if hasattr(result, "response") else str(result)
+
         print(response)
-        
+
         conversation_history.append(("assistant", response))
-        
+
     except KeyboardInterrupt:
         break
 

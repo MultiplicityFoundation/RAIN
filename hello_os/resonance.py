@@ -51,7 +51,7 @@ def core_loss_factor(freq, flux_density, steinmetz_k=0.05, alpha=1.6, beta=2.0):
     """Core losses in magnetic materials (Steinmetz equation)."""
     if freq < 1:
         return 0
-    return steinmetz_k * (freq / 1000) ** alpha * flux_density ** beta
+    return steinmetz_k * (freq / 1000) ** alpha * flux_density**beta
 
 
 def nonlinear_inductance(i, L0, Isat):
@@ -62,7 +62,7 @@ def nonlinear_inductance(i, L0, Isat):
 def dL_di(i, L0, Isat):
     """Derivative of nonlinear inductance for numerical solver."""
     denom = 1.0 + (i / Isat) ** 2
-    return -2.0 * L0 * i / (Isat ** 2 * denom ** 2)
+    return -2.0 * L0 * i / (Isat**2 * denom**2)
 
 
 def parasitic_capacitance(L, wire_turns=10):
@@ -82,7 +82,7 @@ def calculate_poles(C, L, R_total):
     """
     alpha = R_total / (2.0 * L)
     omega0 = 1.0 / np.sqrt(L * C)
-    disc = alpha ** 2 - omega0 ** 2
+    disc = alpha**2 - omega0**2
     if disc >= 0:
         s1 = -alpha + np.sqrt(disc)
         s2 = -alpha - np.sqrt(disc)
@@ -98,9 +98,7 @@ def calculate_poles(C, L, R_total):
 # ============================================================================
 
 
-def enhanced_rk4_solution(
-    C, L0, R_dc, V0, t, Isat, enable_realism, ESR, proximity_factor=1.0
-):
+def enhanced_rk4_solution(C, L0, R_dc, V0, t, Isat, enable_realism, ESR, proximity_factor=1.0):
     """RK4 solver with optional real-world effects.
 
     Parameters
@@ -121,9 +119,7 @@ def enhanced_rk4_solution(
         vk, ik = v[k], i_arr[k]
 
         if k > 2:
-            freq_est = (
-                abs(ik - i_arr[k - 1]) / (dt * max(abs(ik), 1e-6)) / (2 * np.pi)
-            )
+            freq_est = abs(ik - i_arr[k - 1]) / (dt * max(abs(ik), 1e-6)) / (2 * np.pi)
         else:
             freq_est = 1.0 / (2 * np.pi * np.sqrt(L0 * C_total))
 
@@ -177,18 +173,16 @@ def analytic_solution(C, L, R_total, V0, t):
     """Closed-form RLC solution.  Returns ``(v, i, regime_str)``."""
     alpha = R_total / (2.0 * L)
     omega0 = 1.0 / np.sqrt(L * C)
-    disc = omega0 ** 2 - alpha ** 2
+    disc = omega0**2 - alpha**2
 
     if disc > 1e-9:
         omegad = np.sqrt(disc)
         i_arr = (V0 / (L * omegad)) * np.exp(-alpha * t) * np.sin(omegad * t)
-        v = V0 * np.exp(-alpha * t) * (
-            np.cos(omegad * t) + (alpha / omegad) * np.sin(omegad * t)
-        )
+        v = V0 * np.exp(-alpha * t) * (np.cos(omegad * t) + (alpha / omegad) * np.sin(omegad * t))
         regime = "Underdamped"
     elif disc < -1e-9:
-        s1 = -alpha + np.sqrt(alpha ** 2 - omega0 ** 2)
-        s2 = -alpha - np.sqrt(alpha ** 2 - omega0 ** 2)
+        s1 = -alpha + np.sqrt(alpha**2 - omega0**2)
+        s2 = -alpha - np.sqrt(alpha**2 - omega0**2)
         A = V0 / (L * (s1 - s2))
         i_arr = A * (np.exp(s1 * t) - np.exp(s2 * t))
         di_dt = A * (s1 * np.exp(s1 * t) - s2 * np.exp(s2 * t))
@@ -225,23 +219,43 @@ def auto_time_scale(C, L):
 
 RLC_PRESETS = {
     "Camera Flash": {
-        "C": 330e-6, "L": 0.5e-3, "R": 5, "ESR": 0.2, "V0": 300,
+        "C": 330e-6,
+        "L": 0.5e-3,
+        "R": 5,
+        "ESR": 0.2,
+        "V0": 300,
         "Proximity": 1.2,
     },
     "Spark-Gap Radio": {
-        "C": 1e-9, "L": 10e-6, "R": 50, "ESR": 0.01, "V0": 1000,
+        "C": 1e-9,
+        "L": 10e-6,
+        "R": 50,
+        "ESR": 0.01,
+        "V0": 1000,
         "Proximity": 1.5,
     },
     "Tesla Primary": {
-        "C": 20e-9, "L": 50e-6, "R": 1, "ESR": 0.01, "V0": 10000,
+        "C": 20e-9,
+        "L": 50e-6,
+        "R": 1,
+        "ESR": 0.01,
+        "V0": 10000,
         "Proximity": 1.8,
     },
     "LC Tank (HF)": {
-        "C": 100e-12, "L": 1e-6, "R": 10, "ESR": 0.0, "V0": 5,
+        "C": 100e-12,
+        "L": 1e-6,
+        "R": 10,
+        "ESR": 0.0,
+        "V0": 5,
         "Proximity": 2.0,
     },
     "Power Supply": {
-        "C": 1000e-6, "L": 5e-3, "R": 1, "ESR": 0.5, "V0": 50,
+        "C": 1000e-6,
+        "L": 5e-3,
+        "R": 1,
+        "ESR": 0.5,
+        "V0": 50,
         "Proximity": 1.1,
     },
 }

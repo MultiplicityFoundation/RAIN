@@ -71,9 +71,7 @@ class BaseKVStorage(Generic[T], StorageNameSpace):
     async def get_by_id(self, id: str) -> Union[T, None]:
         raise NotImplementedError
 
-    async def get_by_ids(
-        self, ids: list[str], fields: Union[set[str], None] = None
-    ) -> list[Union[T, None]]:
+    async def get_by_ids(self, ids: list[str], fields: Union[set[str], None] = None) -> list[Union[T, None]]:
         raise NotImplementedError
 
     async def filter_keys(self, data: list[str]) -> set[str]:
@@ -106,22 +104,16 @@ class BaseGraphStorage(StorageNameSpace):
     async def get_node(self, node_id: str) -> Union[dict, None]:
         raise NotImplementedError
 
-    async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> Union[dict, None]:
+    async def get_edge(self, source_node_id: str, target_node_id: str) -> Union[dict, None]:
         raise NotImplementedError
 
-    async def get_node_edges(
-        self, source_node_id: str
-    ) -> Union[list[tuple[str, str]], None]:
+    async def get_node_edges(self, source_node_id: str) -> Union[list[tuple[str, str]], None]:
         raise NotImplementedError
 
     async def upsert_node(self, node_id: str, node_data: dict[str, str]):
         raise NotImplementedError
 
-    async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]
-    ):
+    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]):
         raise NotImplementedError
 
     async def delete_node(self, node_id: str):

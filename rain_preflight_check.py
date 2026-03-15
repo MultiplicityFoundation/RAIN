@@ -6,12 +6,11 @@ Verifies all prerequisites before running rain_lab_meeting.py
 import sys
 import os
 import glob
-from pathlib import Path
 import io
 
 # Force UTF-8 for Windows consoles
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # ANSI color codes
 GREEN = "\033[92m"
@@ -21,22 +20,28 @@ BLUE = "\033[94m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
+
 def print_header(text):
-    print(f"\n{BOLD}{BLUE}{'='*70}{RESET}")
+    print(f"\n{BOLD}{BLUE}{'=' * 70}{RESET}")
     print(f"{BOLD}{BLUE}{text.center(70)}{RESET}")
-    print(f"{BOLD}{BLUE}{'='*70}{RESET}\n")
+    print(f"{BOLD}{BLUE}{'=' * 70}{RESET}\n")
+
 
 def print_success(text):
     print(f"{GREEN}✓ {text}{RESET}")
 
+
 def print_warning(text):
     print(f"{YELLOW}⚠ {text}{RESET}")
+
 
 def print_error(text):
     print(f"{RED}✗ {text}{RESET}")
 
+
 def print_info(text):
     print(f"{BLUE}ℹ {text}{RESET}")
+
 
 # Target library path — honour the env-var, then fall back to the repo root.
 LIBRARY_PATH = os.environ.get(
@@ -87,10 +92,7 @@ md_files = glob.glob(os.path.join(LIBRARY_PATH, "*.md"))
 txt_files = glob.glob(os.path.join(LIBRARY_PATH, "*.txt"))
 
 # Filter out soul files and log files
-research_papers = [
-    f for f in (md_files + txt_files)
-    if "SOUL" not in f.upper() and "LOG" not in f.upper()
-]
+research_papers = [f for f in (md_files + txt_files) if "SOUL" not in f.upper() and "LOG" not in f.upper()]
 
 if research_papers:
     print_success(f"Found {len(research_papers)} research paper(s):")
@@ -98,7 +100,7 @@ if research_papers:
         print(f"  • {os.path.basename(paper)}")
     if len(research_papers) > 5:
         print(f"  • ... and {len(research_papers) - 5} more")
-    
+
     # Check specifically for Guarino papers
     guarino_papers = [p for p in research_papers if "guarino" in p.lower()]
     if guarino_papers:
@@ -132,7 +134,8 @@ for rlm_path in rlm_paths:
         # Check if we can actually import it
         sys.path.insert(0, rlm_path)
         try:
-            from rlm import RLM
+            from rlm import RLM  # noqa: F401 — intentional import probe
+
             print_success(f"RLM module imports successfully (via: {rlm_path})")
             rlm_imported = True
             break
@@ -183,15 +186,15 @@ print(f"\n{BOLD}[6/7] Checking LM Studio API...{RESET}")
 try:
     import requests
     import json
-    
+
     api_url = "http://127.0.0.1:1234/v1/models"
-    
+
     try:
         response = requests.get(api_url, timeout=5)
-        
+
         if response.status_code == 200:
             print_success("LM Studio API is running")
-            
+
             try:
                 data = response.json()
                 if "data" in data and len(data["data"]) > 0:
@@ -205,12 +208,12 @@ try:
         else:
             print_error(f"LM Studio API returned status {response.status_code}")
             all_checks_passed = False
-    
+
     except requests.exceptions.ConnectionError:
         print_error("Cannot connect to LM Studio at http://127.0.0.1:1234")
         print_info("Start LM Studio and ensure it's running on port 1234")
         all_checks_passed = False
-    
+
     except requests.exceptions.Timeout:
         print_error("LM Studio API request timed out")
         all_checks_passed = False
@@ -241,9 +244,9 @@ print_header("PRE-FLIGHT SUMMARY")
 if all_checks_passed:
     print(f"{GREEN}{BOLD}✓ ALL SYSTEMS GO{RESET}")
     print(f"\n{BLUE}Ready to launch R.A.I.N. Lab:{RESET}")
-    print(f"  cd \"{LIBRARY_PATH}\"")
-    print("  python rain_lab.py --mode chat --topic \"your first research question\"")
-    print("  python rain_lab.py --mode rlm --topic \"your first research question\"")
+    print(f'  cd "{LIBRARY_PATH}"')
+    print('  python rain_lab.py --mode chat --topic "your first research question"')
+    print('  python rain_lab.py --mode rlm --topic "your first research question"')
 else:
     print(f"{RED}{BOLD}✗ PRE-FLIGHT FAILED{RESET}")
     print(f"\n{YELLOW}Fix the issues above before running the meeting.{RESET}")

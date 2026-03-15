@@ -1,10 +1,8 @@
 import asyncio
-import json
 import re
 from tqdm.asyncio import tqdm as tqdm_async
 from typing import Union
 from collections import Counter, defaultdict
-import warnings
 from .utils import (
     logger,
     clean_str,
@@ -12,15 +10,10 @@ from .utils import (
     decode_tokens_by_tiktoken,
     encode_string_by_tiktoken,
     is_float_regex,
-    list_of_list_to_csv,
     pack_user_ass_to_openai_messages,
     split_string_by_multi_markers,
     truncate_list_by_token_size,
     process_combine_contexts,
-    compute_args_hash,
-    handle_cache,
-    save_to_cache,
-    CacheData,
 )
 from .base import (
     BaseGraphStorage,
@@ -32,17 +25,11 @@ from .base import (
 from .prompt import GRAPH_FIELD_SEP, PROMPTS
 
 
-def chunking_by_token_size(
-    content: str, overlap_token_size=128, max_token_size=1024, tiktoken_model="gpt-4o"
-):
+def chunking_by_token_size(content: str, overlap_token_size=128, max_token_size=1024, tiktoken_model="gpt-4o"):
     tokens = encode_string_by_tiktoken(content, model_name=tiktoken_model)
     results = []
-    for index, start in enumerate(
-        range(0, len(tokens), max_token_size - overlap_token_size)
-    ):
-        chunk_content = decode_tokens_by_tiktoken(
-            tokens[start : start + max_token_size], model_name=tiktoken_model
-        )
+    for index, start in enumerate(range(0, len(tokens), max_token_size - overlap_token_size)):
+        chunk_content = decode_tokens_by_tiktoken(tokens[start : start + max_token_size], model_name=tiktoken_model)
         results.append(
             {
                 "tokens": min(max_token_size, len(tokens) - start),
@@ -62,17 +49,13 @@ async def _handle_entity_relation_summary(
     llm_max_tokens = global_config["llm_model_max_token_size"]
     tiktoken_model_name = global_config["tiktoken_model_name"]
     summary_max_tokens = global_config["entity_summary_to_max_tokens"]
-    language = global_config["addon_params"].get(
-        "language", PROMPTS["DEFAULT_LANGUAGE"]
-    )
+    language = global_config["addon_params"].get("language", PROMPTS["DEFAULT_LANGUAGE"])
 
     tokens = encode_string_by_tiktoken(description, model_name=tiktoken_model_name)
     if len(tokens) < summary_max_tokens:  # No need for summary
         return description
     prompt_template = PROMPTS["summarize_entity_descriptions"]
-    use_description = decode_tokens_by_tiktoken(
-        tokens[:llm_max_tokens], model_name=tiktoken_model_name
-    )
+    use_description = decode_tokens_by_tiktoken(tokens[:llm_max_tokens], model_name=tiktoken_model_name)
     context_base = dict(
         entity_name=entity_or_relation_name,
         description_list=use_description.split(GRAPH_FIELD_SEP),
@@ -97,9 +80,7 @@ async def _handle_single_entity_extraction(
         return None
     entity_type = clean_str(record_attributes[2].upper())
     entity_description = clean_str(record_attributes[3])
-    weight = (
-        float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 50.0
-    )
+    weight = float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 50.0
     hyper_relation = now_hyper_relation
     entity_source_id = chunk_key
     return dict(
@@ -121,15 +102,13 @@ async def _handle_single_hyperrelation_extraction(
     # add this record as edge
     knowledge_fragment = clean_str(record_attributes[1])
     edge_source_id = chunk_key
-    weight = (
-        float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 1.0
-    )
+    weight = float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 1.0
     return dict(
-        hyper_relation="<hyperedge>"+knowledge_fragment,
+        hyper_relation="<hyperedge>" + knowledge_fragment,
         weight=weight,
         source_id=edge_source_id,
     )
-    
+
 
 async def _merge_hyperedges_then_upsert(
     hyperedge_name: str,
@@ -143,16 +122,12 @@ async def _merge_hyperedges_then_upsert(
     already_hyperedge = await knowledge_graph_inst.get_node(hyperedge_name)
     if already_hyperedge is not None:
         already_weights.append(already_hyperedge["weight"])
-        already_source_ids.extend(
-            split_string_by_multi_markers(already_hyperedge["source_id"], [GRAPH_FIELD_SEP])
-        )
+        already_source_ids.extend(split_string_by_multi_markers(already_hyperedge["source_id"], [GRAPH_FIELD_SEP]))
 
     weight = sum([dp["weight"] for dp in nodes_data] + already_weights)
-    source_id = GRAPH_FIELD_SEP.join(
-        set([dp["source_id"] for dp in nodes_data] + already_source_ids)
-    )
+    source_id = GRAPH_FIELD_SEP.join(set([dp["source_id"] for dp in nodes_data] + already_source_ids))
     node_data = dict(
-        role = "hyperedge",
+        role="hyperedge",
         weight=weight,
         source_id=source_id,
     )
@@ -177,27 +152,17 @@ async def _merge_nodes_then_upsert(
     already_node = await knowledge_graph_inst.get_node(entity_name)
     if already_node is not None:
         already_entity_types.append(already_node["entity_type"])
-        already_source_ids.extend(
-            split_string_by_multi_markers(already_node["source_id"], [GRAPH_FIELD_SEP])
-        )
+        already_source_ids.extend(split_string_by_multi_markers(already_node["source_id"], [GRAPH_FIELD_SEP]))
         already_description.append(already_node["description"])
 
     entity_type = sorted(
-        Counter(
-            [dp["entity_type"] for dp in nodes_data] + already_entity_types
-        ).items(),
+        Counter([dp["entity_type"] for dp in nodes_data] + already_entity_types).items(),
         key=lambda x: x[1],
         reverse=True,
     )[0][0]
-    description = GRAPH_FIELD_SEP.join(
-        sorted(set([dp["description"] for dp in nodes_data] + already_description))
-    )
-    source_id = GRAPH_FIELD_SEP.join(
-        set([dp["source_id"] for dp in nodes_data] + already_source_ids)
-    )
-    description = await _handle_entity_relation_summary(
-        entity_name, description, global_config
-    )
+    description = GRAPH_FIELD_SEP.join(sorted(set([dp["description"] for dp in nodes_data] + already_description)))
+    source_id = GRAPH_FIELD_SEP.join(set([dp["source_id"] for dp in nodes_data] + already_source_ids))
+    description = await _handle_entity_relation_summary(entity_name, description, global_config)
     node_data = dict(
         role="entity",
         entity_type=entity_type,
@@ -219,26 +184,22 @@ async def _merge_edges_then_upsert(
     global_config: dict,
 ):
     edge_data = []
-    
+
     for node in nodes_data:
         source_id = node["source_id"]
         hyper_relation = node["hyper_relation"]
         weight = node["weight"]
-        
+
         already_weights = []
         already_source_ids = []
-        
+
         if await knowledge_graph_inst.has_edge(hyper_relation, entity_name):
             already_edge = await knowledge_graph_inst.get_edge(hyper_relation, entity_name)
             already_weights.append(already_edge["weight"])
-            already_source_ids.extend(
-                split_string_by_multi_markers(already_edge["source_id"], [GRAPH_FIELD_SEP])
-            )
-        
+            already_source_ids.extend(split_string_by_multi_markers(already_edge["source_id"], [GRAPH_FIELD_SEP]))
+
         weight = sum([weight] + already_weights)
-        source_id = GRAPH_FIELD_SEP.join(
-            set([source_id] + already_source_ids)
-        )
+        source_id = GRAPH_FIELD_SEP.join(set([source_id] + already_source_ids))
 
         await knowledge_graph_inst.upsert_edge(
             hyper_relation,
@@ -249,11 +210,13 @@ async def _merge_edges_then_upsert(
             ),
         )
 
-        edge_data.append(dict(
-            src_id=hyper_relation,
-            tgt_id=entity_name,
-            weight=weight,
-        ))
+        edge_data.append(
+            dict(
+                src_id=hyper_relation,
+                tgt_id=entity_name,
+                weight=weight,
+            )
+        )
 
     return edge_data
 
@@ -270,17 +233,11 @@ async def extract_entities(
 
     ordered_chunks = list(chunks.items())
     # add language and example number params to prompt
-    language = global_config["addon_params"].get(
-        "language", PROMPTS["DEFAULT_LANGUAGE"]
-    )
-    entity_types = global_config["addon_params"].get(
-        "entity_types", PROMPTS["DEFAULT_ENTITY_TYPES"]
-    )
+    language = global_config["addon_params"].get("language", PROMPTS["DEFAULT_LANGUAGE"])
+    entity_types = global_config["addon_params"].get("entity_types", PROMPTS["DEFAULT_ENTITY_TYPES"])
     example_number = global_config["addon_params"].get("example_number", None)
     if example_number and example_number < len(PROMPTS["entity_extraction_examples"]):
-        examples = "\n".join(
-            PROMPTS["entity_extraction_examples"][: int(example_number)]
-        )
+        examples = "\n".join(PROMPTS["entity_extraction_examples"][: int(example_number)])
     else:
         examples = "\n".join(PROMPTS["entity_extraction_examples"])
 
@@ -317,9 +274,9 @@ async def extract_entities(
         chunk_dp = chunk_key_dp[1]
         content = chunk_dp["content"]
         # hint_prompt = entity_extract_prompt.format(**context_base, input_text=content)
-        hint_prompt = entity_extract_prompt.format(
-            **context_base, input_text="{input_text}"
-        ).format(**context_base, input_text=content)
+        hint_prompt = entity_extract_prompt.format(**context_base, input_text="{input_text}").format(
+            **context_base, input_text=content
+        )
 
         final_result = await use_llm_func(hint_prompt)
         history = pack_user_ass_to_openai_messages(hint_prompt, final_result)
@@ -331,9 +288,7 @@ async def extract_entities(
             if now_glean_index == entity_extract_max_gleaning - 1:
                 break
 
-            if_loop_result: str = await use_llm_func(
-                if_loop_prompt, history_messages=history
-            )
+            if_loop_result: str = await use_llm_func(if_loop_prompt, history_messages=history)
             if_loop_result = if_loop_result.strip().strip('"').strip("'").lower()
             if if_loop_result != "yes":
                 break
@@ -345,39 +300,31 @@ async def extract_entities(
 
         maybe_nodes = defaultdict(list)
         maybe_edges = defaultdict(list)
-        now_hyper_relation=""
+        now_hyper_relation = ""
         for record in records:
             record = re.search(r"\((.*)\)", record)
             if record is None:
                 continue
             record = record.group(1)
-            record_attributes = split_string_by_multi_markers(
-                record, [context_base["tuple_delimiter"]]
-            )
-            if_relation = await _handle_single_hyperrelation_extraction(
-                record_attributes, chunk_key
-            )
+            record_attributes = split_string_by_multi_markers(record, [context_base["tuple_delimiter"]])
+            if_relation = await _handle_single_hyperrelation_extraction(record_attributes, chunk_key)
             if if_relation is not None:
-                maybe_edges[if_relation["hyper_relation"]].append(
-                    if_relation
-                )
+                maybe_edges[if_relation["hyper_relation"]].append(if_relation)
                 now_hyper_relation = if_relation["hyper_relation"]
-                
-            if_entities = await _handle_single_entity_extraction(
-                record_attributes, chunk_key, now_hyper_relation
-            )
+
+            if_entities = await _handle_single_entity_extraction(record_attributes, chunk_key, now_hyper_relation)
             if if_entities is not None:
                 maybe_nodes[if_entities["entity_name"]].append(if_entities)
                 continue
-            
+
         already_processed += 1
         already_entities += len(maybe_nodes)
         already_relations += len(maybe_edges)
-        now_ticks = PROMPTS["process_tickers"][
-            already_processed % len(PROMPTS["process_tickers"])
-        ]
+        now_ticks = PROMPTS["process_tickers"][already_processed % len(PROMPTS["process_tickers"])]
         print(
-            f"{now_ticks} Processed {already_processed} chunks, {already_entities} entities(duplicated), {already_relations} relations(duplicated)\r",
+            f"{now_ticks} Processed {already_processed} chunks, "
+            f"{already_entities} entities(duplicated), "
+            f"{already_relations} relations(duplicated)\r",
             end="",
             flush=True,
         )
@@ -399,30 +346,24 @@ async def extract_entities(
             maybe_nodes[k].extend(v)
         for k, v in m_edges.items():
             maybe_edges[k].extend(v)
-            
+
     logger.info("Inserting hyperedges into storage...")
     all_hyperedges_data = []
     for result in tqdm_async(
         asyncio.as_completed(
-            [
-                _merge_hyperedges_then_upsert(k, v, knowledge_graph_inst, global_config)
-                for k, v in maybe_edges.items()
-            ]
+            [_merge_hyperedges_then_upsert(k, v, knowledge_graph_inst, global_config) for k, v in maybe_edges.items()]
         ),
         total=len(maybe_edges),
         desc="Inserting hyperedges",
         unit="entity",
     ):
         all_hyperedges_data.append(await result)
-            
+
     logger.info("Inserting entities into storage...")
     all_entities_data = []
     for result in tqdm_async(
         asyncio.as_completed(
-            [
-                _merge_nodes_then_upsert(k, v, knowledge_graph_inst, global_config)
-                for k, v in maybe_nodes.items()
-            ]
+            [_merge_nodes_then_upsert(k, v, knowledge_graph_inst, global_config) for k, v in maybe_nodes.items()]
         ),
         total=len(maybe_nodes),
         desc="Inserting entities",
@@ -434,10 +375,7 @@ async def extract_entities(
     all_relationships_data = []
     for result in tqdm_async(
         asyncio.as_completed(
-            [
-                _merge_edges_then_upsert(k, v, knowledge_graph_inst, global_config)
-                for k, v in maybe_nodes.items()
-            ]
+            [_merge_edges_then_upsert(k, v, knowledge_graph_inst, global_config) for k, v in maybe_nodes.items()]
         ),
         total=len(maybe_nodes),
         desc="Inserting relationships",
@@ -446,9 +384,7 @@ async def extract_entities(
         all_relationships_data.append(await result)
 
     if not len(all_hyperedges_data) and not len(all_entities_data) and not len(all_relationships_data):
-        logger.warning(
-            "Didn't extract any hyperedges and entities, maybe your LLM is not working"
-        )
+        logger.warning("Didn't extract any hyperedges and entities, maybe your LLM is not working")
         return None
 
     if not len(all_hyperedges_data):
@@ -491,7 +427,7 @@ async def kg_query(
     global_config: dict,
     hashing_kv: BaseKVStorage = None,
 ) -> str:
-    
+
     hl_keywords = query
     ll_keywords = query
     keywords = [ll_keywords, hl_keywords]
@@ -503,9 +439,8 @@ async def kg_query(
         text_chunks_db,
         query_param,
     )
-    
-    return context
 
+    return context
 
 
 async def _build_query_context(
@@ -534,22 +469,22 @@ async def _build_query_context(
         text_chunks_db,
         query_param,
     )
-    
+
     know_score = dict()
     for i, k in enumerate(knowledge_list_1):
         if k not in know_score:
             know_score[k] = 0
-        score = 1/(i+1)
+        score = 1 / (i + 1)
         know_score[k] += score
     for i, k in enumerate(knowledge_list_2):
         if k not in know_score:
             know_score[k] = 0
-        score = 1/(i+1)
+        score = 1 / (i + 1)
         know_score[k] += score
-    knowledge_list = sorted(know_score.items(), key=lambda x: x[1], reverse=True)[:query_param.top_k]
-    knowledge=[]
+    knowledge_list = sorted(know_score.items(), key=lambda x: x[1], reverse=True)[: query_param.top_k]
+    knowledge = []
     for k in knowledge_list:
-        knowledge.append({"<knowledge>": k[0], "<coherence>": round(k[1],3)})
+        knowledge.append({"<knowledge>": k[0], "<coherence>": round(k[1], 3)})
     return knowledge
 
 
@@ -559,30 +494,22 @@ async def _get_node_data(
     entities_vdb: BaseVectorStorage,
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     query_param: QueryParam,
-):  
+):
     results = entities_vdb
     if not len(results):
         return "", "", ""
     # get entity information
-    node_datas = await asyncio.gather(
-        *[knowledge_graph_inst.get_node(r) for r in results]
-    )
+    node_datas = await asyncio.gather(*[knowledge_graph_inst.get_node(r) for r in results])
     if not all([n is not None for n in node_datas]):
         logger.warning("Some nodes are missing, maybe the storage is damaged")
 
     # get entity degree
-    node_degrees = await asyncio.gather(
-        *[knowledge_graph_inst.node_degree(r) for r in results]
-    )
+    node_degrees = await asyncio.gather(*[knowledge_graph_inst.node_degree(r) for r in results])
     node_datas = [
-        {**n, "entity_name": k, "rank": d}
-        for k, n, d in zip(results, node_datas, node_degrees)
-        if n is not None
-    ]  
-    use_relations = await _find_most_related_edges_from_entities(
-        node_datas, query_param, knowledge_graph_inst
-    )
-    knowledge_list = [s["description"].replace("<hyperedge>","") for s in use_relations]
+        {**n, "entity_name": k, "rank": d} for k, n, d in zip(results, node_datas, node_degrees) if n is not None
+    ]
+    use_relations = await _find_most_related_edges_from_entities(node_datas, query_param, knowledge_graph_inst)
+    knowledge_list = [s["description"].replace("<hyperedge>", "") for s in use_relations]
     # s_ids = []
     # for r in use_relations:
     #     s_ids.extend(r["source_id"].split(GRAPH_FIELD_SEP))
@@ -596,13 +523,8 @@ async def _find_most_related_text_unit_from_entities(
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     knowledge_graph_inst: BaseGraphStorage,
 ):
-    text_units = [
-        split_string_by_multi_markers(dp["source_id"], [GRAPH_FIELD_SEP])
-        for dp in node_datas
-    ]
-    edges = await asyncio.gather(
-        *[knowledge_graph_inst.get_node_edges(dp["entity_name"]) for dp in node_datas]
-    )
+    text_units = [split_string_by_multi_markers(dp["source_id"], [GRAPH_FIELD_SEP]) for dp in node_datas]
+    edges = await asyncio.gather(*[knowledge_graph_inst.get_node_edges(dp["entity_name"]) for dp in node_datas])
     all_one_hop_nodes = set()
     for this_edges in edges:
         if not this_edges:
@@ -610,9 +532,7 @@ async def _find_most_related_text_unit_from_entities(
         all_one_hop_nodes.update([e[1] for e in this_edges])
 
     all_one_hop_nodes = list(all_one_hop_nodes)
-    all_one_hop_nodes_data = await asyncio.gather(
-        *[knowledge_graph_inst.get_node(e) for e in all_one_hop_nodes]
-    )
+    all_one_hop_nodes_data = await asyncio.gather(*[knowledge_graph_inst.get_node(e) for e in all_one_hop_nodes])
 
     # Add null check for node data
     all_one_hop_text_units_lookup = {
@@ -633,10 +553,7 @@ async def _find_most_related_text_unit_from_entities(
 
             if this_edges:
                 for e in this_edges:
-                    if (
-                        e[1] in all_one_hop_text_units_lookup
-                        and c_id in all_one_hop_text_units_lookup[e[1]]
-                    ):
+                    if e[1] in all_one_hop_text_units_lookup and c_id in all_one_hop_text_units_lookup[e[1]]:
                         all_text_units_lookup[c_id]["relation_counts"] += 1
 
     # Filter out None values and ensure data has content
@@ -650,9 +567,7 @@ async def _find_most_related_text_unit_from_entities(
         logger.warning("No valid text units found")
         return []
 
-    all_text_units = sorted(
-        all_text_units, key=lambda x: (x["order"], -x["relation_counts"])
-    )
+    all_text_units = sorted(all_text_units, key=lambda x: (x["order"], -x["relation_counts"]))
 
     all_text_units = truncate_list_by_token_size(
         all_text_units,
@@ -682,20 +597,14 @@ async def _find_most_related_edges_from_entities(
                 seen.add(sorted_edge)
                 all_edges.append(sorted_edge)
 
-    all_edges_pack = await asyncio.gather(
-        *[knowledge_graph_inst.get_edge(e[0], e[1]) for e in all_edges]
-    )
-    all_edges_degree = await asyncio.gather(
-        *[knowledge_graph_inst.edge_degree(e[0], e[1]) for e in all_edges]
-    )
+    all_edges_pack = await asyncio.gather(*[knowledge_graph_inst.get_edge(e[0], e[1]) for e in all_edges])
+    all_edges_degree = await asyncio.gather(*[knowledge_graph_inst.edge_degree(e[0], e[1]) for e in all_edges])
     all_edges_data = [
         {"src_tgt": k, "rank": d, "description": k[1], **v}
         for k, v, d in zip(all_edges, all_edges_pack, all_edges_degree)
         if v is not None
     ]
-    all_edges_data = sorted(
-        all_edges_data, key=lambda x: (x["rank"], x["weight"]), reverse=True
-    )
+    all_edges_data = sorted(all_edges_data, key=lambda x: (x["rank"], x["weight"]), reverse=True)
     return all_edges_data
 
 
@@ -705,30 +614,22 @@ async def _get_edge_data(
     hyperedges_vdb: BaseVectorStorage,
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     query_param: QueryParam,
-):  
+):
     results = hyperedges_vdb
 
     if not len(results):
         return "", "", ""
 
-    edge_datas = await asyncio.gather(
-        *[knowledge_graph_inst.get_node(r) for r in results]
-    )
+    edge_datas = await asyncio.gather(*[knowledge_graph_inst.get_node(r) for r in results])
 
     if not all([n is not None for n in edge_datas]):
         logger.warning("Some edges are missing, maybe the storage is damaged")
     # edge_degree = await asyncio.gather(
     #     *[knowledge_graph_inst.node_degree(r["hyperedge_name"]) for r in results]
     # )
-    edge_datas = [
-        {"hyperedge": k, "rank": v["weight"], **v}
-        for k, v in zip(results, edge_datas)
-        if v is not None
-    ]
-    edge_datas = sorted(
-        edge_datas, key=lambda x: (x["rank"], x["weight"]), reverse=True
-    )
-    knowledge_list = [s["hyperedge"].replace("<hyperedge>","") for s in edge_datas]
+    edge_datas = [{"hyperedge": k, "rank": v["weight"], **v} for k, v in zip(results, edge_datas) if v is not None]
+    edge_datas = sorted(edge_datas, key=lambda x: (x["rank"], x["weight"]), reverse=True)
+    knowledge_list = [s["hyperedge"].replace("<hyperedge>", "") for s in edge_datas]
     # s_ids = []
     # for r in edge_datas:
     #     s_ids.extend(r["source_id"].split(GRAPH_FIELD_SEP))
@@ -741,11 +642,9 @@ async def _find_most_related_entities_from_relationships(
     query_param: QueryParam,
     knowledge_graph_inst: BaseGraphStorage,
 ):
-    
-    node_datas = await asyncio.gather(
-        *[knowledge_graph_inst.get_node_edges(edge["hyperedge"]) for edge in edge_datas]
-    )
-    
+
+    node_datas = await asyncio.gather(*[knowledge_graph_inst.get_node_edges(edge["hyperedge"]) for edge in edge_datas])
+
     entity_names = []
     seen = set()
 
@@ -755,17 +654,12 @@ async def _find_most_related_entities_from_relationships(
                 entity_names.append(e[1])
                 seen.add(e[1])
 
-    node_datas = await asyncio.gather(
-        *[knowledge_graph_inst.get_node(entity_name) for entity_name in entity_names]
-    )
+    node_datas = await asyncio.gather(*[knowledge_graph_inst.get_node(entity_name) for entity_name in entity_names])
 
     node_degrees = await asyncio.gather(
         *[knowledge_graph_inst.node_degree(entity_name) for entity_name in entity_names]
     )
-    node_datas = [
-        {**n, "entity_name": k, "rank": d}
-        for k, n, d in zip(entity_names, node_datas, node_degrees)
-    ]
+    node_datas = [{**n, "entity_name": k, "rank": d} for k, n, d in zip(entity_names, node_datas, node_degrees)]
 
     node_datas = truncate_list_by_token_size(
         node_datas,
@@ -782,10 +676,7 @@ async def _find_related_text_unit_from_relationships(
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     knowledge_graph_inst: BaseGraphStorage,
 ):
-    text_units = [
-        split_string_by_multi_markers(dp["source_id"], [GRAPH_FIELD_SEP])
-        for dp in edge_datas
-    ]
+    text_units = [split_string_by_multi_markers(dp["source_id"], [GRAPH_FIELD_SEP]) for dp in edge_datas]
     all_text_units_lookup = {}
 
     for index, unit_list in enumerate(text_units):
@@ -807,9 +698,7 @@ async def _find_related_text_unit_from_relationships(
     all_text_units = sorted(all_text_units, key=lambda x: x["order"])
 
     # Ensure all text chunks have content
-    valid_text_units = [
-        t for t in all_text_units if t["data"] is not None and "content" in t["data"]
-    ]
+    valid_text_units = [t for t in all_text_units if t["data"] is not None and "content" in t["data"]]
 
     if not valid_text_units:
         logger.warning("No valid text chunks after filtering")
@@ -834,9 +723,6 @@ def combine_contexts(entities, relationships, sources):
     combined_entities = process_combine_contexts(hl_entities, ll_entities)
 
     # Combine and deduplicate the relationships
-    combined_relationships = process_combine_contexts(
-        hl_relationships, ll_relationships
-    )
+    combined_relationships = process_combine_contexts(hl_relationships, ll_relationships)
 
     return combined_entities, combined_relationships, ""
-

@@ -3,8 +3,7 @@ import os
 import unittest
 import tempfile
 import shutil
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Mock dependencies to avoid ImportErrors and side effects
 sys.modules["openai"] = MagicMock()
@@ -27,6 +26,7 @@ except ImportError:
     import rain_lab_meeting_chat_version
     from rain_lab_meeting_chat_version import Diplomat, ContextManager, Config, WebSearchManager
 
+
 class TestInputSanitization(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
@@ -40,7 +40,9 @@ class TestInputSanitization(unittest.TestCase):
 
     def test_sanitize_text_function_exists(self):
         """Test that sanitize_text is defined globally."""
-        self.assertTrue(hasattr(rain_lab_meeting_chat_version, "sanitize_text"), "sanitize_text function not found in module")
+        self.assertTrue(
+            hasattr(rain_lab_meeting_chat_version, "sanitize_text"), "sanitize_text function not found in module"
+        )
 
     def test_sanitize_text_logic(self):
         """Test the sanitization logic directly."""
@@ -97,6 +99,7 @@ class TestInputSanitization(unittest.TestCase):
         sanitized = manager._sanitize_text(input_text)
         self.assertIn("[TOKEN_REMOVED]", sanitized)
         self.assertNotIn("<|endoftext|>", sanitized)
+
 
 if __name__ == "__main__":
     unittest.main()

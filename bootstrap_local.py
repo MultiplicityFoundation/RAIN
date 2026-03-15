@@ -103,8 +103,7 @@ def _build_rust_agent_registry() -> dict:
             "name": "James",
             "role": "Lead Scientist/Technician",
             "system_prompt": (
-                f"{base_prompt}\n\n"
-                "Primary objective: coordinate hypotheses, simulation framing, and synthesis quality."
+                f"{base_prompt}\n\nPrimary objective: coordinate hypotheses, simulation framing, and synthesis quality."
             ),
             "skills": ["web-search"],
         },
@@ -165,9 +164,7 @@ def _register_rust_agents(repo_root: Path, rust_api_url: str, output_path: Path)
             print("[bootstrap] rust agent registration: success")
     except Exception as exc:
         print(f"[bootstrap] rust agent registration skipped/failed: {exc}")
-        print(
-            "[bootstrap] You can import the generated snapshot manually into the Rust daemon registry."
-        )
+        print("[bootstrap] You can import the generated snapshot manually into the Rust daemon registry.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -208,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n[bootstrap] done")
     print(f"[bootstrap] activate env: {venv_dir}")
-    print("[bootstrap] run chat: python rain_lab.py --mode chat --topic \"your topic\"")
+    print('[bootstrap] run chat: python rain_lab.py --mode chat --topic "your topic"')
     return 0
 
 

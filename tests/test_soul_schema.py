@@ -65,9 +65,7 @@ def test_word_limit_is_pair(soul_files):
     for sf in soul_files:
         meta = _parse_frontmatter(sf.read_text(encoding="utf-8"))
         wl = meta["word_limit"]
-        assert isinstance(wl, list) and len(wl) == 2, (
-            f"{sf.name}: word_limit must be [min, max]"
-        )
+        assert isinstance(wl, list) and len(wl) == 2, f"{sf.name}: word_limit must be [min, max]"
         assert wl[0] < wl[1], f"{sf.name}: word_limit min >= max"
 
 

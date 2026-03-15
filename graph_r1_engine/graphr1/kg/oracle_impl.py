@@ -121,9 +121,7 @@ class OracleDB:
 
         logger.info("Finished check all tables in Oracle database")
 
-    async def query(
-        self, sql: str, params: dict = None, multirows: bool = False
-    ) -> Union[dict, None]:
+    async def query(self, sql: str, params: dict = None, multirows: bool = False) -> Union[dict, None]:
         async with self.pool.acquire() as connection:
             connection.inputtypehandler = self.input_type_handler
             connection.outputtypehandler = self.output_type_handler
@@ -196,9 +194,7 @@ class OracleKVStorage(BaseKVStorage):
     # Query by id
     async def get_by_ids(self, ids: list[str], fields=None) -> Union[list[dict], None]:
         """根据 id 获取 doc_chunks 数据"""
-        SQL = SQL_TEMPLATES["get_by_ids_" + self.namespace].format(
-            ids=",".join([f"'{id}'" for id in ids])
-        )
+        SQL = SQL_TEMPLATES["get_by_ids_" + self.namespace].format(ids=",".join([f"'{id}'" for id in ids]))
         params = {"workspace": self.db.workspace}
         # print("get_by_ids:"+SQL)
         # print(params)
@@ -247,13 +243,8 @@ class OracleKVStorage(BaseKVStorage):
                 for k, v in data.items()
             ]
             contents = [v["content"] for v in data.values()]
-            batches = [
-                contents[i : i + self._max_batch_size]
-                for i in range(0, len(contents), self._max_batch_size)
-            ]
-            embeddings_list = await asyncio.gather(
-                *[self.embedding_func(batch) for batch in batches]
-            )
+            batches = [contents[i : i + self._max_batch_size] for i in range(0, len(contents), self._max_batch_size)]
+            embeddings_list = await asyncio.gather(*[self.embedding_func(batch) for batch in batches])
             embeddings = np.concatenate(embeddings_list)
             for i, d in enumerate(list_data):
                 d["__vector__"] = embeddings[i]
@@ -350,13 +341,8 @@ class OracleGraphStorage(BaseGraphStorage):
 
         content = entity_name + description
         contents = [content]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-        embeddings_list = await asyncio.gather(
-            *[self.embedding_func(batch) for batch in batches]
-        )
+        batches = [contents[i : i + self._max_batch_size] for i in range(0, len(contents), self._max_batch_size)]
+        embeddings_list = await asyncio.gather(*[self.embedding_func(batch) for batch in batches])
         embeddings = np.concatenate(embeddings_list)
         content_vector = embeddings[0]
         merge_sql = SQL_TEMPLATES["merge_node"]
@@ -373,9 +359,7 @@ class OracleGraphStorage(BaseGraphStorage):
         await self.db.execute(merge_sql, data)
         # self._graph.add_node(node_id, **node_data)
 
-    async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]
-    ):
+    async def upsert_edge(self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]):
         """插入或更新边"""
         # print("go into upsert edge method")
         source_name = source_node_id
@@ -384,19 +368,12 @@ class OracleGraphStorage(BaseGraphStorage):
         keywords = edge_data["keywords"]
         description = edge_data["description"]
         source_chunk_id = edge_data["source_id"]
-        logger.debug(
-            f"source_name:{source_name}, target_name:{target_name}, keywords: {keywords}"
-        )
+        logger.debug(f"source_name:{source_name}, target_name:{target_name}, keywords: {keywords}")
 
         content = keywords + source_name + target_name + description
         contents = [content]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-        embeddings_list = await asyncio.gather(
-            *[self.embedding_func(batch) for batch in batches]
-        )
+        batches = [contents[i : i + self._max_batch_size] for i in range(0, len(contents), self._max_batch_size)]
+        embeddings_list = await asyncio.gather(*[self.embedding_func(batch) for batch in batches])
         embeddings = np.concatenate(embeddings_list)
         content_vector = embeddings[0]
         merge_sql = SQL_TEMPLATES["merge_edge"]
@@ -435,9 +412,7 @@ class OracleGraphStorage(BaseGraphStorage):
 
     async def index_done_callback(self):
         """写入graphhml图文件"""
-        logger.info(
-            "Node and edge data had been saved into oracle db already, so nothing to do here!"
-        )
+        logger.info("Node and edge data had been saved into oracle db already, so nothing to do here!")
 
     #################### query method #################
     async def has_node(self, node_id: str) -> bool:
@@ -504,9 +479,7 @@ class OracleGraphStorage(BaseGraphStorage):
             # print("Can't get node!",self.db.workspace, node_id)
             return None
 
-    async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> Union[dict, None]:
+    async def get_edge(self, source_node_id: str, target_node_id: str) -> Union[dict, None]:
         """根据源和目标节点id获取边"""
         SQL = SQL_TEMPLATES["get_edge"]
         params = {
@@ -645,7 +618,8 @@ TABLES = {
                         SOURCE KEY (source_name) REFERENCES graphr1_graph_nodes(name)
                         DESTINATION KEY (target_name) REFERENCES graphr1_graph_nodes(name)
                         LABEL  has_relation
-                        PROPERTIES (id,workspace,source_name,target_name) -- ,weight, keywords,description,source_chunk_id)
+                        PROPERTIES (id,workspace,source_name,target_name)
+                        -- ,weight, keywords,description,source_chunk_id)
                 ) OPTIONS(ALLOW MIXED PROPERTY TYPES)"""
     },
 }
@@ -653,10 +627,10 @@ TABLES = {
 
 SQL_TEMPLATES = {
     # SQL for KVStorage
-    "get_by_id_full_docs": "select ID,NVL(content,'') as content from HYPERGRAPHRAG_DOC_FULL where workspace=:workspace and ID=:id",
-    "get_by_id_text_chunks": "select ID,TOKENS,NVL(content,'') as content,CHUNK_ORDER_INDEX,FULL_DOC_ID from HYPERGRAPHRAG_DOC_CHUNKS where workspace=:workspace and ID=:id",
-    "get_by_ids_full_docs": "select ID,NVL(content,'') as content from HYPERGRAPHRAG_DOC_FULL where workspace=:workspace and ID in ({ids})",
-    "get_by_ids_text_chunks": "select ID,TOKENS,NVL(content,'') as content,CHUNK_ORDER_INDEX,FULL_DOC_ID  from HYPERGRAPHRAG_DOC_CHUNKS where workspace=:workspace and ID in ({ids})",
+    "get_by_id_full_docs": "select ID,NVL(content,'') as content from HYPERGRAPHRAG_DOC_FULL where workspace=:workspace and ID=:id",  # noqa: E501
+    "get_by_id_text_chunks": "select ID,TOKENS,NVL(content,'') as content,CHUNK_ORDER_INDEX,FULL_DOC_ID from HYPERGRAPHRAG_DOC_CHUNKS where workspace=:workspace and ID=:id",  # noqa: E501
+    "get_by_ids_full_docs": "select ID,NVL(content,'') as content from HYPERGRAPHRAG_DOC_FULL where workspace=:workspace and ID in ({ids})",  # noqa: E501
+    "get_by_ids_text_chunks": "select ID,TOKENS,NVL(content,'') as content,CHUNK_ORDER_INDEX,FULL_DOC_ID  from HYPERGRAPHRAG_DOC_CHUNKS where workspace=:workspace and ID in ({ids})",  # noqa: E501
     "filter_keys": "select id from {table_name} where workspace=:workspace and id in ({ids})",
     "merge_doc_full": """ MERGE INTO HYPERGRAPHRAG_DOC_FULL a
                     USING DUAL
@@ -676,7 +650,8 @@ SQL_TEMPLATES = {
         FROM HYPERGRAPHRAG_GRAPH_NODES WHERE workspace=:workspace)
         WHERE distance>:better_than_threshold ORDER BY distance ASC FETCH FIRST :top_k ROWS ONLY""",
     "relationships": """SELECT source_name as src_id, target_name as tgt_id FROM
-        (SELECT id,source_name,target_name,VECTOR_DISTANCE(content_vector,vector(:embedding_string,{dimension},{dtype}),COSINE) as distance
+        (SELECT id,source_name,target_name,
+        VECTOR_DISTANCE(content_vector,vector(:embedding_string,{dimension},{dtype}),COSINE) as distance
         FROM HYPERGRAPHRAG_GRAPH_EDGES WHERE workspace=:workspace)
         WHERE distance>:better_than_threshold ORDER BY distance ASC FETCH FIRST :top_k ROWS ONLY""",
     "chunks": """SELECT id FROM
@@ -727,10 +702,15 @@ SQL_TEMPLATES = {
                     values (:workspace,:name,:entity_type,:description,:source_chunk_id,:content,:content_vector) """,
     "merge_edge": """MERGE INTO HYPERGRAPHRAG_GRAPH_EDGES a
                     USING DUAL
-                    ON (a.workspace = :workspace and a.source_name=:source_name and a.target_name=:target_name and a.source_chunk_id=:source_chunk_id)
+                    ON (a.workspace = :workspace
+                        and a.source_name=:source_name
+                        and a.target_name=:target_name
+                        and a.source_chunk_id=:source_chunk_id)
                 WHEN NOT MATCHED THEN
-                    INSERT(workspace,source_name,target_name,weight,keywords,description,source_chunk_id,content,content_vector)
-                    values (:workspace,:source_name,:target_name,:weight,:keywords,:description,:source_chunk_id,:content,:content_vector) """,
+                    INSERT(workspace,source_name,target_name,weight,keywords,
+                        description,source_chunk_id,content,content_vector)
+                    values (:workspace,:source_name,:target_name,:weight,:keywords,
+                        :description,:source_chunk_id,:content,:content_vector) """,
     "get_all_nodes": """WITH t0 AS (
                         SELECT name AS id, entity_type AS label, entity_type, description,
                             '["' || replace(source_chunk_id, '<SEP>', '","') || '"]'     source_chunk_ids
@@ -745,9 +725,11 @@ SQL_TEMPLATES = {
                         FROM t1 LEFT JOIN graphr1_doc_chunks t2 ON t1.source_chunk_id = t2.id
                         GROUP BY t1.id
                     )
-                    SELECT t0.id, label, entity_type, description, t2.content
+                    SELECT t0.id, label, entity_type, description,
+                        t2.content
                     FROM t0 LEFT JOIN t2 ON t0.id = t2.id""",
-    "get_all_edges": """SELECT t1.id,t1.keywords as label,t1.keywords, t1.source_name as source, t1.target_name as target,
+    "get_all_edges": """SELECT t1.id,t1.keywords as label,t1.keywords,
+                t1.source_name as source, t1.target_name as target,
                 t1.weight,t1.DESCRIPTION,t2.content
                 FROM HYPERGRAPHRAG_GRAPH_EDGES t1
                 LEFT JOIN HYPERGRAPHRAG_DOC_CHUNKS t2 on t1.source_chunk_id=t2.id

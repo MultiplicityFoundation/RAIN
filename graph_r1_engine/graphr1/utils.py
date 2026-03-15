@@ -39,9 +39,7 @@ def set_logger(log_file: str):
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(formatter)
 
     if not logger.handlers:
@@ -173,9 +171,7 @@ def decode_tokens_by_tiktoken(tokens: list[int], model_name: str = "gpt-4o"):
 
 def pack_user_ass_to_openai_messages(*args: str):
     roles = ["user", "assistant"]
-    return [
-        {"role": roles[i % 2], "content": content} for i, content in enumerate(args)
-    ]
+    return [{"role": roles[i % 2], "content": content} for i, content in enumerate(args)]
 
 
 def split_string_by_multi_markers(content: str, markers: list[str]) -> list[str]:
@@ -355,9 +351,9 @@ async def get_best_cached_response(
             continue
 
         # Convert cached embedding list to ndarray
-        cached_quantized = np.frombuffer(
-            bytes.fromhex(cache_data["embedding"]), dtype=np.uint8
-        ).reshape(cache_data["embedding_shape"])
+        cached_quantized = np.frombuffer(bytes.fromhex(cache_data["embedding"]), dtype=np.uint8).reshape(
+            cache_data["embedding_shape"]
+        )
         cached_embedding = dequantize_embedding(
             cached_quantized,
             cache_data["embedding_min"],
@@ -391,9 +387,7 @@ async def get_best_cached_response(
                         "original_question": original_prompt[:100] + "..."
                         if len(original_prompt) > 100
                         else original_prompt,
-                        "cached_question": best_prompt[:100] + "..."
-                        if len(best_prompt) > 100
-                        else best_prompt,
+                        "cached_question": best_prompt[:100] + "..." if len(best_prompt) > 100 else best_prompt,
                         "similarity_score": round(best_similarity, 4),
                         "threshold": similarity_threshold,
                     }
@@ -403,9 +397,7 @@ async def get_best_cached_response(
                 logger.warning(f"LLM similarity check failed: {e}")
                 return None  # Return None directly when LLM check fails
 
-        prompt_display = (
-            best_prompt[:50] + "..." if len(best_prompt) > 50 else best_prompt
-        )
+        prompt_display = best_prompt[:50] + "..." if len(best_prompt) > 50 else best_prompt
         log_data = {
             "event": "cache_hit",
             "mode": mode,
@@ -439,9 +431,7 @@ def quantize_embedding(embedding: np.ndarray, bits=8) -> tuple:
     return quantized, min_val, max_val
 
 
-def dequantize_embedding(
-    quantized: np.ndarray, min_val: float, max_val: float, bits=8
-) -> np.ndarray:
+def dequantize_embedding(quantized: np.ndarray, min_val: float, max_val: float, bits=8) -> np.ndarray:
     """Restore quantized embedding"""
     scale = (max_val - min_val) / (2**bits - 1)
     return (quantized * scale + min_val).astype(np.float32)
@@ -514,12 +504,8 @@ async def save_to_cache(hashing_kv, cache_data: CacheData):
 
     mode_cache[cache_data.args_hash] = {
         "return": cache_data.content,
-        "embedding": cache_data.quantized.tobytes().hex()
-        if cache_data.quantized is not None
-        else None,
-        "embedding_shape": cache_data.quantized.shape
-        if cache_data.quantized is not None
-        else None,
+        "embedding": cache_data.quantized.tobytes().hex() if cache_data.quantized is not None else None,
+        "embedding_shape": cache_data.quantized.shape if cache_data.quantized is not None else None,
         "embedding_min": cache_data.min_val,
         "embedding_max": cache_data.max_val,
         "original_prompt": cache_data.prompt,
@@ -538,8 +524,6 @@ def safe_unicode_decode(content):
         return chr(int(match.group(1), 16))
 
     # Perform the substitution
-    decoded_content = unicode_escape_pattern.sub(
-        replace_unicode_escape, content.decode("utf-8")
-    )
+    decoded_content = unicode_escape_pattern.sub(replace_unicode_escape, content.decode("utf-8"))
 
     return decoded_content

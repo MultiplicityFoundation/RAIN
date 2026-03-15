@@ -1,9 +1,9 @@
-
 import os
 import tempfile
 from pathlib import Path
 import pytest
 from rain_lab_meeting_chat_version import ContextManager, Config
+
 
 @pytest.fixture
 def temp_library():
@@ -31,6 +31,7 @@ def temp_library():
 
         yield base
 
+
 def test_discovery_recursive(temp_library):
     config = Config(library_path=str(temp_library), recursive_library_scan=True)
     cm = ContextManager(config)
@@ -52,6 +53,7 @@ def test_discovery_recursive(temp_library):
     assert "ignored.bin" not in rel_paths
     assert os.path.join("node_modules", "should_be_ignored.md") not in rel_paths
     assert os.path.join(".git", "config.txt") not in rel_paths
+
 
 def test_discovery_non_recursive(temp_library):
     config = Config(library_path=str(temp_library), recursive_library_scan=False)

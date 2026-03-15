@@ -9,7 +9,6 @@ Also confirms JSONL persistence and edge-case behaviour.
 """
 
 import json
-from pathlib import Path
 
 from rain_metrics import (
     MetricsTracker,
@@ -37,7 +36,7 @@ SAMPLE_CORPUS = {
 }
 
 AGENT_RESPONSE_WITH_CITATIONS = (
-    'James, that\'s fascinating. The DRR paper says "heat flux scales as '
+    "James, that's fascinating. The DRR paper says \"heat flux scales as "
     'U-cubed at high frequencies" which implies the thermal ceiling is '
     "real. But Elena, the energy density you'd need suggests this is "
     "impractical at scale."

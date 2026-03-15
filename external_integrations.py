@@ -8,7 +8,6 @@ import re
 import urllib.request
 import urllib.parse
 import json
-import os
 
 
 def search_arxiv(query: str, max_results: int = 5) -> str:
@@ -29,22 +28,23 @@ def search_arxiv(query: str, max_results: int = 5) -> str:
             "search_query": f"all:{query}",
             "max_results": max_results,
             "sortBy": "relevance",
-            "sortOrder": "descending"
+            "sortOrder": "descending",
         }
 
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
 
         with urllib.request.urlopen(url, timeout=10) as response:
             import xml.etree.ElementTree as ET
-            xml_data = response.read().decode('utf-8')
+
+            xml_data = response.read().decode("utf-8")
 
         # Parse XML response
         root = ET.fromstring(xml_data)
 
         # ArXiv namespace
-        ns = {'atom': 'http://www.w3.org/2005/Atom'}
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
 
-        entries = root.findall('.//atom:entry', ns)
+        entries = root.findall(".//atom:entry", ns)
 
         if not entries:
             return f"No ArXiv results found for: {query}"
@@ -52,22 +52,22 @@ def search_arxiv(query: str, max_results: int = 5) -> str:
         results = [f"ArXiv Results for: {query}", "=" * 40]
 
         for i, entry in enumerate(entries, 1):
-            title = entry.find('atom:title', ns).text.strip().replace('\n', ' ')
-            summary = entry.find('atom:summary', ns).text.strip()[:200].replace('\n', ' ')
-            author_elem = entry.findall('atom:author/atom:name', ns)
+            title = entry.find("atom:title", ns).text.strip().replace("\n", " ")
+            summary = entry.find("atom:summary", ns).text.strip()[:200].replace("\n", " ")
+            author_elem = entry.findall("atom:author/atom:name", ns)
             authors = ", ".join([a.text for a in author_elem[:3]])
             if len(author_elem) > 3:
                 authors += " et al."
 
             # Get PDF link
-            links = entry.findall('atom:link', ns)
+            links = entry.findall("atom:link", ns)
             pdf_link = ""
             for link in links:
-                if link.get('title') == 'pdf':
-                    pdf_link = link.get('href', '')
+                if link.get("title") == "pdf":
+                    pdf_link = link.get("href", "")
                     break
 
-            arxiv_id = entry.find('atom:id', ns).text.split('/')[-1]
+            arxiv_id = entry.find("atom:id", ns).text.split("/")[-1]
 
             results.append(f"""
 {i}. {title}
@@ -106,32 +106,32 @@ def lookup_doi(doi: str) -> str:
         url = f"https://api.crossref.org/works/{urllib.parse.quote(doi)}"
 
         with urllib.request.urlopen(url, timeout=10) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
 
-        work = data.get('message', {})
+        work = data.get("message", {})
 
-        title = work.get('title', ['No title'])[0]
-        authors = work.get('author', [])
+        title = work.get("title", ["No title"])[0]
+        authors = work.get("author", [])
         author_names = []
         for a in authors[:5]:
-            given = a.get('given', '')
-            family = a.get('family', '')
+            given = a.get("given", "")
+            family = a.get("family", "")
             author_names.append(f"{given} {family}".strip())
         author_str = ", ".join(author_names)
         if len(authors) > 5:
             author_str += " et al."
 
         # Get publication info
-        published = work.get('published', work.get('published-print', {}))
-        year = published.get('date-parts', [[None]])[0][0] if published else "Unknown"
+        published = work.get("published", work.get("published-print", {}))
+        year = published.get("date-parts", [[None]])[0][0] if published else "Unknown"
 
-        container = work.get('container-title', ['Unknown journal'])[0]
+        container = work.get("container-title", ["Unknown journal"])[0]
 
         # Get abstract if available
-        abstract = work.get('abstract', '')
+        abstract = work.get("abstract", "")
         if abstract:
             # Clean HTML tags
-            abstract = re.sub(r'<[^>]+>', '', abstract)[:300]
+            abstract = re.sub(r"<[^>]+>", "", abstract)[:300]
 
         result = f"""DOI: {doi}
 Title: {title}
@@ -150,9 +150,9 @@ Journal: {container}"""
         return f"DOI lookup error: {e}"
 
 
-def generate_bibtex(paper_title: str, authors: str, year: str = None,
-                    journal: str = None, doi: str = None,
-                    arxiv_id: str = None) -> str:
+def generate_bibtex(
+    paper_title: str, authors: str, year: str = None, journal: str = None, doi: str = None, arxiv_id: str = None
+) -> str:
     """Generate BibTeX entry from paper info.
 
     Args:
@@ -167,7 +167,7 @@ def generate_bibtex(paper_title: str, authors: str, year: str = None,
         BibTeX formatted entry
     """
     # Generate citation key
-    first_author = authors.split(',')[0].split()[0] if authors else "Unknown"
+    first_author = authors.split(",")[0].split()[0] if authors else "Unknown"
     key_year = year if year else "unknown"
     cite_key = f"{first_author}{key_year}"
 
@@ -207,11 +207,11 @@ def get_paper_metadata(query: str) -> str:
         Paper metadata
     """
     # Check if it's an ArXiv ID
-    if re.match(r'\d{4}\.\d{4,5}', query):
+    if re.match(r"\d{4}\.\d{4,5}", query):
         return search_arxiv(f"id:{query}", max_results=1)
 
     # Check if it's a DOI
-    if '10.' in query and '/' in query:
+    if "10." in query and "/" in query:
         return lookup_doi(query)
 
     # Otherwise, search ArXiv

@@ -143,10 +143,7 @@ def _build_entity_graph(doc_entities: dict[str, set[str]]) -> dict[str, Any]:
                 edges[(a, b)] += 1
     return {
         "nodes": [{"name": n, "count": c} for n, c in nodes.most_common(300)],
-        "edges": [
-            {"source": a, "target": b, "weight": w}
-            for (a, b), w in edges.most_common(600)
-        ],
+        "edges": [{"source": a, "target": b, "weight": w} for (a, b), w in edges.most_common(600)],
     }
 
 
@@ -160,7 +157,14 @@ def _sentence_claims(doc: SourceDoc) -> list[dict[str, Any]]:
         if not any(x in low for x in (" is ", " are ", " must ", " cannot ", " never ", " always ")):
             continue
         subject = " ".join(_tokenize(s)[:5])
-        claims.append({"source": doc.path.name, "subject": subject, "text": s, "negated": any(x in low for x in (" not ", " never ", " cannot "))})
+        claims.append(
+            {
+                "source": doc.path.name,
+                "subject": subject,
+                "text": s,
+                "negated": any(x in low for x in (" not ", " never ", " cannot ")),
+            }
+        )
     return claims
 
 
@@ -237,7 +241,19 @@ def compile_library(library_path: str, output_dir: str | None = None) -> dict[st
     }
 
     for key, path in paths.items():
-        payload = artifacts["manifest"] if key == "manifest" else artifacts[f"{key}_index"] if key in {"tfidf", "embeddings"} else artifacts["entity_graph"] if key == "entity_graph" else artifacts["equation_index"] if key == "equations" else artifacts["grounded_quote_spans"] if key == "quotes" else artifacts["contradiction_candidates"]
+        payload = (
+            artifacts["manifest"]
+            if key == "manifest"
+            else artifacts[f"{key}_index"]
+            if key in {"tfidf", "embeddings"}
+            else artifacts["entity_graph"]
+            if key == "entity_graph"
+            else artifacts["equation_index"]
+            if key == "equations"
+            else artifacts["grounded_quote_spans"]
+            if key == "quotes"
+            else artifacts["contradiction_candidates"]
+        )
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     return {

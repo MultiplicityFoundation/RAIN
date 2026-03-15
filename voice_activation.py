@@ -13,6 +13,7 @@ import queue
 # Try to import speech recognition
 try:
     import speech_recognition as sr
+
     SPEECH_RECOGNITION_AVAILABLE = True
 except ImportError:
     SPEECH_RECOGNITION_AVAILABLE = False

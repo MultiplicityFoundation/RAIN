@@ -1,21 +1,20 @@
-
 import unittest
 import sys
 import os
-import re
 from unittest.mock import MagicMock
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Mock openai
-sys.modules['openai'] = MagicMock()
+sys.modules["openai"] = MagicMock()
 
 # Mock sys.argv to prevent side effects or unexpected argument parsing
 sys.argv = ["rain_lab_meeting_chat_version.py"]
 
 # Now import the module
 import rain_lab_meeting_chat_version as rlm
+
 
 class TestRegexOptimization(unittest.TestCase):
     def test_extract_quotes(self):
@@ -24,7 +23,7 @@ class TestRegexOptimization(unittest.TestCase):
         extract = rlm.CitationAnalyzer.extract_quotes
 
         # Test 1: Quotes excluded because too short (< 3 words)
-        text = 'This is a "quoted text" and another \'single quoted text\' with enough words.'
+        text = "This is a \"quoted text\" and another 'single quoted text' with enough words."
         # "quoted text" -> 2 words -> excluded
         # "single quoted text" -> 3 words -> excluded (needs > 3, so 4+)
         expected = []
@@ -34,13 +33,13 @@ class TestRegexOptimization(unittest.TestCase):
         # Test 2: Long enough quote (4 words)
         text_long = 'This is a "very long enough quote" here.'
         # "very long enough quote" -> 4 words -> included
-        expected_long = ['very long enough quote']
+        expected_long = ["very long enough quote"]
         actual_long = extract(None, text_long)
         self.assertEqual(expected_long, actual_long, "Should include 4-word quote")
 
         # Test 3: Multiple quotes
-        text_multi = '"One two three four" and \'Five six seven eight\''
-        expected_multi = ['One two three four', 'Five six seven eight']
+        text_multi = "\"One two three four\" and 'Five six seven eight'"
+        expected_multi = ["One two three four", "Five six seven eight"]
         actual_multi = extract(None, text_multi)
         self.assertEqual(expected_multi, actual_multi)
 
@@ -94,5 +93,6 @@ class TestRegexOptimization(unittest.TestCase):
         cleaned = strip(None, text_wrong, "James")
         self.assertEqual(cleaned, "Elena: Hello world.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

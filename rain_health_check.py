@@ -6,7 +6,6 @@ import argparse
 import json
 import os
 import shutil
-import sys
 from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -332,9 +331,7 @@ def _extract_recent_launcher_errors(
         event = str(payload.get("event", ""))
         has_error_text = isinstance(payload.get("error"), str) and payload.get("error", "").strip()
         critical_nonzero_exit = (
-            event == "sidecar_exited"
-            and bool(payload.get("critical"))
-            and int(payload.get("exit_code", 0)) != 0
+            event == "sidecar_exited" and bool(payload.get("critical")) and int(payload.get("exit_code", 0)) != 0
         )
         if not (event in error_events or has_error_text or critical_nonzero_exit):
             continue
@@ -407,10 +404,7 @@ def _render_text(results: list[CheckResult], overall: str) -> str:
     ]
 
     for result in results:
-        lines.append(
-            f"[{STATUS_LABEL.get(result.status, result.status.upper())}] "
-            f"{result.name}: {result.summary}"
-        )
+        lines.append(f"[{STATUS_LABEL.get(result.status, result.status.upper())}] {result.name}: {result.summary}")
         if result.name == "Launcher Errors (Recent)":
             recent_errors = result.details.get("recent_errors", [])
             if isinstance(recent_errors, list) and recent_errors:

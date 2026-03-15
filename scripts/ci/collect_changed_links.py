@@ -92,9 +92,7 @@ def normalize_link_target(raw_target: str, source_path: str) -> str | None:
     if path_without_fragment.startswith("/"):
         resolved = path_without_fragment.lstrip("/")
     else:
-        resolved = os.path.normpath(
-            os.path.join(os.path.dirname(source_path) or ".", path_without_fragment)
-        )
+        resolved = os.path.normpath(os.path.join(os.path.dirname(source_path) or ".", path_without_fragment))
 
     if not resolved or resolved == ".":
         return None
