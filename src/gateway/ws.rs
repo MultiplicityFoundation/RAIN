@@ -29,9 +29,8 @@ pub struct WsQuery {
 /// error JSON string for invalid input.  Factored out of `handle_socket` so the
 /// protocol parsing logic is directly unit-testable.
 fn parse_ws_message(raw: &str) -> Result<String, String> {
-    let parsed: serde_json::Value = serde_json::from_str(raw).map_err(|_| {
-        serde_json::json!({"type": "error", "message": "Invalid JSON"}).to_string()
-    })?;
+    let parsed: serde_json::Value = serde_json::from_str(raw)
+        .map_err(|_| serde_json::json!({"type": "error", "message": "Invalid JSON"}).to_string())?;
 
     let msg_type = parsed["type"].as_str().unwrap_or("");
     if msg_type != "message" {
@@ -74,8 +73,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     while let Some(msg) = receiver.next().await {
         let msg = match msg {
             Ok(Message::Text(text)) => text,
-            Ok(Message::Close(_)) => break,
-            Err(_) => break,
+            Ok(Message::Close(_)) | Err(_) => break,
             _ => continue,
         };
 
@@ -202,7 +200,10 @@ mod tests {
     fn parse_ws_message_skips_non_message_types() {
         let result = parse_ws_message(r#"{"type":"ping","content":"hello"}"#);
         assert!(result.is_err());
-        assert!(result.unwrap_err().is_empty(), "non-message types should be silently skipped");
+        assert!(
+            result.unwrap_err().is_empty(),
+            "non-message types should be silently skipped"
+        );
     }
 
     #[test]
@@ -256,6 +257,9 @@ mod tests {
             "message": "something went wrong",
         });
         assert_eq!(err["type"], "error");
-        assert!(err["message"].as_str().unwrap().contains("something went wrong"));
+        assert!(err["message"]
+            .as_str()
+            .unwrap()
+            .contains("something went wrong"));
     }
 }

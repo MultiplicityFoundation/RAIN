@@ -721,7 +721,9 @@ pub(crate) fn default_param_for_tool(tool: &str) -> &'static str {
 
 // ── GLM-Style Parsing ─────────────────────────────────────────────────────
 
-pub(crate) fn parse_glm_style_tool_calls(text: &str) -> Vec<(String, serde_json::Value, Option<String>)> {
+pub(crate) fn parse_glm_style_tool_calls(
+    text: &str,
+) -> Vec<(String, serde_json::Value, Option<String>)> {
     let mut calls = Vec::new();
 
     for line in text.lines() {
@@ -1270,7 +1272,10 @@ pub(crate) fn parse_tool_calls(response: &str) -> (String, Vec<ParsedToolCall>) 
     (text_parts.join("\n"), calls)
 }
 
-pub(crate) fn detect_tool_call_parse_issue(response: &str, parsed_calls: &[ParsedToolCall]) -> Option<String> {
+pub(crate) fn detect_tool_call_parse_issue(
+    response: &str,
+    parsed_calls: &[ParsedToolCall],
+) -> Option<String> {
     if !parsed_calls.is_empty() {
         return None;
     }

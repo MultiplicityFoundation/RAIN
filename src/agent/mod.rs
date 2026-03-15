@@ -1,5 +1,5 @@
-#[allow(clippy::module_inception)]
 pub mod advisory;
+#[allow(clippy::module_inception)]
 pub mod agent;
 pub mod classifier;
 pub(crate) mod credentials;

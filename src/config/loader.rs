@@ -2,8 +2,15 @@ use super::proxy::{
     normalize_no_proxy_list, normalize_proxy_url_option, normalize_service_list,
     parse_proxy_enabled, parse_proxy_scope, set_runtime_proxy_config,
 };
-use super::schema::*;
-use super::schema::{is_valid_env_var_name, parse_skills_prompt_injection_mode};
+use super::schema::{
+    is_valid_env_var_name, parse_skills_prompt_injection_mode, AgentConfig, AutonomyConfig,
+    BrowserConfig, ChannelsConfig, ComposioConfig, Config, CostConfig, CronConfig, GatewayConfig,
+    HardwareConfig, HeartbeatConfig, HooksConfig, HttpRequestConfig, IdentityConfig, MemoryConfig,
+    ModelProviderConfig, MultimodalConfig, ObservabilityConfig, PeripheralsConfig, ProxyConfig,
+    ProxyScope, QueryClassificationConfig, ReliabilityConfig, RuntimeConfig, SchedulerConfig,
+    SecretsConfig, SecurityConfig, SkillsConfig, StorageConfig, TranscriptionConfig, TunnelConfig,
+    WebFetchConfig, WebSearchConfig,
+};
 use crate::providers::{is_glm_alias, is_zai_alias};
 use crate::security::DomainMatcher;
 use anyhow::{Context, Result};
@@ -1269,7 +1276,7 @@ pub(crate) async fn sync_directory(path: &Path) -> Result<()> {
         dir.sync_all()
             .await
             .with_context(|| format!("Failed to fsync directory metadata: {}", path.display()))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(unix))]

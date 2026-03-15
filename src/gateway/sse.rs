@@ -166,20 +166,14 @@ mod tests {
     #[test]
     fn broadcast_observer_name_is_broadcast() {
         let (tx, _rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
         assert_eq!(obs.name(), "broadcast");
     }
 
     #[test]
     fn broadcast_observer_forwards_llm_request_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::LlmRequest {
             provider: "openai".into(),
@@ -197,10 +191,7 @@ mod tests {
     #[test]
     fn broadcast_observer_forwards_tool_call_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::ToolCall {
             tool: "shell".into(),
@@ -218,12 +209,11 @@ mod tests {
     #[test]
     fn broadcast_observer_forwards_tool_call_start_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
-        obs.record_event(&ObserverEvent::ToolCallStart { tool: "web_fetch".into() });
+        obs.record_event(&ObserverEvent::ToolCallStart {
+            tool: "web_fetch".into(),
+        });
 
         let json = rx.try_recv().unwrap();
         assert_eq!(json["type"], "tool_call_start");
@@ -233,10 +223,7 @@ mod tests {
     #[test]
     fn broadcast_observer_forwards_error_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::Error {
             component: "gateway".into(),
@@ -252,10 +239,7 @@ mod tests {
     #[test]
     fn broadcast_observer_forwards_agent_start_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::AgentStart {
             provider: "anthropic".into(),
@@ -271,10 +255,7 @@ mod tests {
     #[test]
     fn broadcast_observer_forwards_agent_end_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::AgentEnd {
             provider: "anthropic".into(),
@@ -294,10 +275,7 @@ mod tests {
     #[test]
     fn broadcast_observer_skips_heartbeat_event() {
         let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         obs.record_event(&ObserverEvent::HeartbeatTick);
 
@@ -308,10 +286,7 @@ mod tests {
     #[test]
     fn broadcast_observer_delegates_flush_to_inner() {
         let (tx, _rx) = tokio::sync::broadcast::channel(16);
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
         // Flush should not panic
         obs.flush();
     }
@@ -320,10 +295,7 @@ mod tests {
     fn broadcast_observer_no_panic_when_no_subscribers() {
         let (tx, _) = tokio::sync::broadcast::channel::<serde_json::Value>(16);
         // Drop the receiver — send should silently fail
-        let obs = BroadcastObserver::new(
-            Box::new(crate::observability::NoopObserver),
-            tx,
-        );
+        let obs = BroadcastObserver::new(Box::new(crate::observability::NoopObserver), tx);
 
         // Should not panic even with no subscribers
         obs.record_event(&ObserverEvent::Error {

@@ -14,11 +14,10 @@ use super::history::{
 };
 #[allow(unused_imports)]
 use super::tool_call_parsing::{
-    default_param_for_tool, detect_tool_call_parse_issue, extract_json_values,
-    map_tool_name_alias, parse_arguments_value, parse_glm_shortened_body,
-    parse_glm_style_tool_calls, parse_perl_style_tool_calls, parse_structured_tool_calls,
-    parse_tool_call_value, parse_tool_calls, parse_tool_calls_from_json_value,
-    tool_call_signature, ParsedToolCall,
+    default_param_for_tool, detect_tool_call_parse_issue, extract_json_values, map_tool_name_alias,
+    parse_arguments_value, parse_glm_shortened_body, parse_glm_style_tool_calls,
+    parse_perl_style_tool_calls, parse_structured_tool_calls, parse_tool_call_value,
+    parse_tool_calls, parse_tool_calls_from_json_value, tool_call_signature, ParsedToolCall,
 };
 use super::tool_execution::{
     execute_tools_parallel, execute_tools_sequential, should_execute_tools_in_parallel,
@@ -138,7 +137,6 @@ pub(crate) async fn agent_turn(
     )
     .await
 }
-
 
 // ── Agent Tool-Call Loop ──────────────────────────────────────────────────
 // Core agentic iteration: send conversation to the LLM, parse any tool
@@ -699,15 +697,13 @@ pub(crate) async fn run_tool_call_loop(
             ordered_results[*idx] = Some((call.name.clone(), call.tool_call_id.clone(), outcome));
         }
 
-        for entry in ordered_results {
-            if let Some((tool_name, tool_call_id, outcome)) = entry {
-                individual_results.push((tool_call_id, outcome.output.clone()));
-                let _ = writeln!(
-                    tool_results,
-                    "<tool_result name=\"{}\">\n{}\n</tool_result>",
-                    tool_name, outcome.output
-                );
-            }
+        for (tool_name, tool_call_id, outcome) in ordered_results.into_iter().flatten() {
+            individual_results.push((tool_call_id, outcome.output.clone()));
+            let _ = writeln!(
+                tool_results,
+                "<tool_result name=\"{}\">\n{}\n</tool_result>",
+                tool_name, outcome.output
+            );
         }
 
         history.push(ChatMessage::assistant(assistant_history_content));
@@ -755,7 +751,6 @@ pub(crate) async fn run_tool_call_loop(
     );
     anyhow::bail!("Agent exceeded maximum tool iterations ({max_iterations})")
 }
-
 
 /// Build the tool instruction block for the system prompt so the LLM knows
 /// how to invoke tools.

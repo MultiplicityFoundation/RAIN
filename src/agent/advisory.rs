@@ -79,6 +79,7 @@ fn sanitize_for_p2p(response: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "p2p")]
     use super::*;
 
     #[cfg(feature = "p2p")]

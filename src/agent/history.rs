@@ -114,7 +114,11 @@ pub(crate) async fn auto_compact_history(
 /// Build context preamble by searching memory for relevant entries.
 /// Entries with a hybrid score below `min_relevance_score` are dropped to
 /// prevent unrelated memories from bleeding into the conversation.
-pub(crate) async fn build_context(mem: &dyn Memory, user_msg: &str, min_relevance_score: f64) -> String {
+pub(crate) async fn build_context(
+    mem: &dyn Memory,
+    user_msg: &str,
+    min_relevance_score: f64,
+) -> String {
     let mut context = String::new();
 
     // Pull relevant memories for this message
@@ -263,7 +267,10 @@ pub(crate) fn build_native_assistant_history_from_parsed_calls(
     Some(obj.to_string())
 }
 
-pub(crate) fn build_assistant_history_with_tool_calls(text: &str, tool_calls: &[ToolCall]) -> String {
+pub(crate) fn build_assistant_history_with_tool_calls(
+    text: &str,
+    tool_calls: &[ToolCall],
+) -> String {
     let mut parts = Vec::new();
 
     if !text.trim().is_empty() {
