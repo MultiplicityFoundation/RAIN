@@ -35,7 +35,7 @@ hero:
   <a href="https://deepwiki.com/topherchris420/james_library"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
 </p>
 
-R.A.I.N. Lab is an AI research assistant that talks with you about your ideas, checks if your discoveries are actually new, and helps organize your research. Regular AI can "discover" things you already know — R.A.I.N. Lab checks your internal knowledge and online sources to make sure you're exploring genuinely new territory.
+R.A.I.N. Lab are AI research assistants that talks with you about your ideas, checks if your discoveries are actually new, and helps organize your research. Regular AI can "discover" things you already know — R.A.I.N. Lab checks your internal knowledge and online sources to make sure you're exploring genuinely new territory.
 
 **Best for:** Researchers, students, and curious minds exploring physics, sound, resonance, or any complex topic.
 
