@@ -158,6 +158,9 @@ def generate_reviewer_personas(
         pool.append(_DOMAIN_PERSONAS["default"][0])  # Methodological Skeptic
 
     selected = pool[:count]
+    # Guarantee the cross-domain skeptic is included if we added one.
+    if domain != "default" and len(pool) > count and pool[-1] not in selected:
+        selected[-1] = pool[-1]
 
     personas: list[dict[str, str]] = []
     for idx, spec in enumerate(selected):
