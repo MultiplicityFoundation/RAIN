@@ -555,7 +555,7 @@ async def invoke_peer_review(
     logger.info("Peer review report written to %s", output_file)
 
     # Also persist the raw transcript as JSONL for auditability.
-    transcript_path = out.with_suffix(".transcript.jsonl")
+    transcript_path = out.parent / (out.stem + ".transcript.jsonl")
     with open(transcript_path, "w", encoding="utf-8") as f:
         for turn in transcript.turns:
             f.write(json.dumps(turn, ensure_ascii=False) + "\n")
