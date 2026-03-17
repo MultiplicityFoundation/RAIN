@@ -26,7 +26,13 @@ use crate::config::ObservabilityConfig;
 pub fn create_observer(config: &ObservabilityConfig) -> Box<dyn Observer> {
     match config.backend.as_str() {
         "log" => Box::new(LogObserver::new()),
-        "prometheus" => Box::new(PrometheusObserver::new()),
+        "prometheus" => match PrometheusObserver::new() {
+            Ok(obs) => Box::new(obs),
+            Err(e) => {
+                tracing::error!("Failed to create Prometheus observer: {e}. Falling back to noop.");
+                Box::new(NoopObserver)
+            }
+        },
         "otel" | "opentelemetry" | "otlp" => {
             #[cfg(feature = "observability-otel")]
             match OtelObserver::new(
