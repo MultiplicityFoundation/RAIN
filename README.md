@@ -277,7 +277,18 @@ Once installed, here are the most common things you can do:
 > **Tip:** On macOS and Linux, use `python3` instead of `python` if `python` is not recognized.
 
 ---
+## 🐙 James/R.A.I.N. Lab vs. Single-Loop Optimizers
+If you are coming from **Karpathy's `autoresearch`**, here is how R.A.I.N. Lab advances the autonomy stack:
 
+
+| Feature | Single-Loop (e.g. `autoresearch`) | R.A.I.N. Agent Ecology |
+| :--- | :--- | :--- |
+| **Logic** | Linear (Action -> Result -> Mutate) | Recursive (Debate -> Critique -> Synthesize) |
+| **Goal** | Numerical Optimization (Minimizing Loss) | Epistemic Discovery (Finding Truth) |
+| **Safety** | Metric-driven | **Truth-Layer Friction** (Refuses low-confidence answers) |
+| **Outcome** | Improved Code/Hyperparameters | **Published Research Papers** |
+
+---
 ## Connecting an AI Model
 
 R.A.I.N. Lab needs an AI model to power its conversations. The easiest option is **LM Studio**, which lets you run models locally on your own computer for free:
