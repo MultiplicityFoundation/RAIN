@@ -104,7 +104,7 @@ The R.A.I.N. Lab runs on **Windows**, **macOS**, and **Linux**. Pick your platfo
 1. Open your web browser and go to [python.org/downloads](https://www.python.org/downloads/).
 2. Click the big yellow **"Download Python 3.x.x"** button.
 3. Run the installer. **Important:** Check the box that says **"Add python.exe to PATH"** at the bottom of the first screen, then click **Install Now**.
-4. When the install finishes, close the installer.
+4. When the installation finishes, close the installer.
 
 To verify it worked, open **Command Prompt** (search for "cmd" in the Start menu) and type:
 
