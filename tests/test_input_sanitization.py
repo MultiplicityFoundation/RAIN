@@ -100,6 +100,10 @@ class TestInputSanitization(unittest.TestCase):
         self.assertIn("[TOKEN_REMOVED]", sanitized)
         self.assertNotIn("<|endoftext|>", sanitized)
 
+    def test_config_default_max_tokens_matches_cli_default(self):
+        """Test Config default max_tokens stays aligned with CLI/env default."""
+        self.assertEqual(Config().max_tokens, 320)
+
 
 if __name__ == "__main__":
     unittest.main()
