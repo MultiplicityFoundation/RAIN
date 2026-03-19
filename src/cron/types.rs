@@ -26,7 +26,8 @@ impl TryFrom<&str> for JobType {
             "shell" => Ok(JobType::Shell),
             "agent" => Ok(JobType::Agent),
             _ => Err(format!(
-                "Invalid job type '{value}'. Expected one of: 'shell', 'agent'"
+                "Invalid job type '{}'. Expected one of: 'shell', 'agent'",
+                value
             )),
         }
     }
@@ -114,6 +115,11 @@ pub struct CronJob {
     pub enabled: bool,
     pub delivery: DeliveryConfig,
     pub delete_after_run: bool,
+    /// Optional allowlist of tool names this cron job may use.
+    /// When `Some(list)`, only tools whose name is in the list are available.
+    /// When `None`, all tools are available (backward compatible default).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_tools: Option<Vec<String>>,
     pub created_at: DateTime<Utc>,
     pub next_run: DateTime<Utc>,
     pub last_run: Option<DateTime<Utc>>,
@@ -143,6 +149,7 @@ pub struct CronJobPatch {
     pub model: Option<String>,
     pub session_target: Option<SessionTarget>,
     pub delete_after_run: Option<bool>,
+    pub allowed_tools: Option<Vec<String>>,
 }
 
 #[cfg(test)]

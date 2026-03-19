@@ -24,6 +24,9 @@ pub mod uno_q_setup;
 #[cfg(all(feature = "peripheral-rpi", target_os = "linux"))]
 pub mod rpi;
 
+#[cfg(any(feature = "hardware", feature = "peripheral-rpi"))]
+pub use traits::Peripheral;
+
 use crate::config::{Config, PeripheralBoardConfig, PeripheralsConfig};
 #[cfg(feature = "hardware")]
 use crate::tools::HardwareMemoryMapTool;
@@ -74,7 +77,7 @@ pub async fn handle_command(cmd: crate::PeripheralCommands, config: &Config) -> 
                 Some(path.clone())
             };
 
-            let mut cfg = crate::config::Config::load_or_init().await?;
+            let mut cfg = Box::pin(crate::config::Config::load_or_init()).await?;
             cfg.peripherals.enabled = true;
 
             if cfg
@@ -83,7 +86,7 @@ pub async fn handle_command(cmd: crate::PeripheralCommands, config: &Config) -> 
                 .iter()
                 .any(|b| b.board == board && b.path.as_deref() == path_opt.as_deref())
             {
-                println!("Board {board} at {path_opt:?} already configured.");
+                println!("Board {} at {:?} already configured.", board, path_opt);
                 return Ok(());
             }
 
@@ -94,7 +97,7 @@ pub async fn handle_command(cmd: crate::PeripheralCommands, config: &Config) -> 
                 baud: 115_200,
             });
             cfg.save().await?;
-            println!("Added {board} at {path}. Restart daemon to apply.");
+            println!("Added {} at {}. Restart daemon to apply.", board, path);
         }
         #[cfg(feature = "hardware")]
         crate::PeripheralCommands::Flash { port } => {

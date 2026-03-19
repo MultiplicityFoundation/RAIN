@@ -120,7 +120,7 @@ pub fn handle_command(cmd: crate::HardwareCommands, _config: &Config) -> Result<
         let _ = &cmd;
         println!("Hardware USB discovery is not supported on this platform.");
         println!("Supported platforms: Linux, macOS, Windows.");
-        Ok(())
+        return Ok(());
     }
 
     #[cfg(all(

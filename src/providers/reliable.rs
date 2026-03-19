@@ -15,7 +15,7 @@ use std::time::Duration;
 // immediately — avoiding wasted latency on errors that cannot self-heal.
 
 /// Check if an error is non-retryable (client errors that won't resolve with retries).
-fn is_non_retryable(err: &anyhow::Error) -> bool {
+pub fn is_non_retryable(err: &anyhow::Error) -> bool {
     if is_context_window_exceeded(err) {
         return true;
     }
@@ -265,7 +265,7 @@ impl ReliableProvider {
     fn model_chain<'a>(&'a self, model: &'a str) -> Vec<&'a str> {
         let mut chain = vec![model];
         if let Some(fallbacks) = self.model_fallbacks.get(model) {
-            chain.extend(fallbacks.iter().map(std::string::String::as_str));
+            chain.extend(fallbacks.iter().map(|s| s.as_str()));
         }
         chain
     }
@@ -916,7 +916,7 @@ mod tests {
             self.calls.fetch_add(1, Ordering::SeqCst);
             self.models_seen.lock().push(model.to_string());
             if self.fail_models.contains(&model) {
-                anyhow::bail!("500 model {model} unavailable");
+                anyhow::bail!("500 model {} unavailable", model);
             }
             Ok(self.response.to_string())
         }
@@ -1857,7 +1857,7 @@ mod tests {
             self.calls.fetch_add(1, Ordering::SeqCst);
             self.models_seen.lock().push(model.to_string());
             if self.fail_models.contains(&model) {
-                anyhow::bail!("500 model {model} unavailable");
+                anyhow::bail!("500 model {} unavailable", model);
             }
             Ok(ChatResponse {
                 text: Some(self.response_text.to_string()),

@@ -8,12 +8,17 @@
 //! - Header sanitization (handled by axum/hyper)
 
 pub mod api;
+pub mod api_pairing;
+#[cfg(feature = "plugins-wasm")]
+pub mod api_plugins;
+pub mod nodes;
 pub mod sse;
 pub mod static_files;
 pub mod ws;
 
 use crate::channels::{
-    Channel, LinqChannel, NextcloudTalkChannel, SendMessage, WatiChannel, WhatsAppChannel,
+    session_backend::SessionBackend, session_sqlite::SqliteSessionBackend, Channel, LinqChannel,
+    NextcloudTalkChannel, SendMessage, WatiChannel, WhatsAppChannel,
 };
 use crate::config::Config;
 use crate::cost::CostTracker;
@@ -35,7 +40,7 @@ use axum::{
     Router,
 };
 use parking_lot::Mutex;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -74,6 +79,22 @@ fn nextcloud_talk_memory_key(msg: &crate::channels::traits::ChannelMessage) -> S
     format!("nextcloud_talk_{}_{}", msg.sender, msg.id)
 }
 
+fn sender_session_id(channel: &str, msg: &crate::channels::traits::ChannelMessage) -> String {
+    match &msg.thread_ts {
+        Some(thread_id) => format!("{channel}_{thread_id}_{}", msg.sender),
+        None => format!("{channel}_{}", msg.sender),
+    }
+}
+
+fn webhook_session_id(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("X-Session-Id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 fn hash_webhook_secret(value: &str) -> String {
     use sha2::{Digest, Sha256};
 
@@ -83,17 +104,13 @@ fn hash_webhook_secret(value: &str) -> String {
 
 /// How often the rate limiter sweeps stale IP entries from its map.
 const RATE_LIMITER_SWEEP_INTERVAL_SECS: u64 = 300; // 5 minutes
-/// Lower bound for idempotency stale-key sweeps.
-const IDEMPOTENCY_SWEEP_MIN_MILLIS: u64 = 250;
-/// Upper bound for idempotency stale-key sweeps.
-const IDEMPOTENCY_SWEEP_MAX_SECS: u64 = 30;
 
 #[derive(Debug)]
 struct SlidingWindowRateLimiter {
     limit_per_window: u32,
     window: Duration,
     max_keys: usize,
-    requests: Mutex<(HashMap<String, VecDeque<Instant>>, Instant)>,
+    requests: Mutex<(HashMap<String, Vec<Instant>>, Instant)>,
 }
 
 impl SlidingWindowRateLimiter {
@@ -106,15 +123,9 @@ impl SlidingWindowRateLimiter {
         }
     }
 
-    fn prune_timestamps(timestamps: &mut VecDeque<Instant>, cutoff: Instant) {
-        while matches!(timestamps.front(), Some(ts) if *ts <= cutoff) {
-            timestamps.pop_front();
-        }
-    }
-
-    fn prune_stale(requests: &mut HashMap<String, VecDeque<Instant>>, cutoff: Instant) {
+    fn prune_stale(requests: &mut HashMap<String, Vec<Instant>>, cutoff: Instant) {
         requests.retain(|_, timestamps| {
-            Self::prune_timestamps(timestamps, cutoff);
+            timestamps.retain(|t| *t > cutoff);
             !timestamps.is_empty()
         });
     }
@@ -144,7 +155,7 @@ impl SlidingWindowRateLimiter {
             if requests.len() >= self.max_keys {
                 let evict_key = requests
                     .iter()
-                    .min_by_key(|(_, timestamps)| timestamps.back().copied().unwrap_or(cutoff))
+                    .min_by_key(|(_, timestamps)| timestamps.last().copied().unwrap_or(cutoff))
                     .map(|(k, _)| k.clone());
                 if let Some(evict_key) = evict_key {
                     requests.remove(&evict_key);
@@ -153,13 +164,13 @@ impl SlidingWindowRateLimiter {
         }
 
         let entry = requests.entry(key.to_owned()).or_default();
-        Self::prune_timestamps(entry, cutoff);
+        entry.retain(|instant| *instant > cutoff);
 
         if entry.len() >= self.limit_per_window as usize {
             return false;
         }
 
-        entry.push_back(now);
+        entry.push(now);
         true
     }
 }
@@ -193,7 +204,6 @@ pub struct IdempotencyStore {
     ttl: Duration,
     max_keys: usize,
     keys: Mutex<HashMap<String, Instant>>,
-    last_sweep: Mutex<Instant>,
 }
 
 impl IdempotencyStore {
@@ -202,15 +212,7 @@ impl IdempotencyStore {
             ttl,
             max_keys: max_keys.max(1),
             keys: Mutex::new(HashMap::new()),
-            last_sweep: Mutex::new(Instant::now()),
         }
-    }
-
-    fn sweep_interval(&self) -> Duration {
-        self.ttl.clamp(
-            Duration::from_millis(IDEMPOTENCY_SWEEP_MIN_MILLIS),
-            Duration::from_secs(IDEMPOTENCY_SWEEP_MAX_SECS),
-        )
     }
 
     /// Returns true if this key is new and is now recorded.
@@ -218,20 +220,10 @@ impl IdempotencyStore {
         let now = Instant::now();
         let mut keys = self.keys.lock();
 
-        // Fast-path duplicate check: avoid full-map cleanup on every request.
-        if let Some(seen_at) = keys.get(key).copied() {
-            if now.duration_since(seen_at) < self.ttl {
-                return false;
-            }
-            keys.remove(key);
-        }
+        keys.retain(|_, seen_at| now.duration_since(*seen_at) < self.ttl);
 
-        {
-            let mut last_sweep = self.last_sweep.lock();
-            if last_sweep.elapsed() >= self.sweep_interval() {
-                keys.retain(|_, seen_at| now.duration_since(*seen_at) < self.ttl);
-                *last_sweep = now;
-            }
+        if keys.contains_key(key) {
+            return false;
         }
 
         if keys.len() >= self.max_keys {
@@ -339,6 +331,16 @@ pub struct AppState {
     pub cost_tracker: Option<Arc<CostTracker>>,
     /// SSE broadcast channel for real-time events
     pub event_tx: tokio::sync::broadcast::Sender<serde_json::Value>,
+    /// Shutdown signal sender for graceful shutdown
+    pub shutdown_tx: tokio::sync::watch::Sender<bool>,
+    /// Registry of dynamically connected nodes
+    pub node_registry: Arc<nodes::NodeRegistry>,
+    /// Session backend for persisting gateway WS chat sessions
+    pub session_backend: Option<Arc<dyn SessionBackend>>,
+    /// Device registry for paired device management
+    pub device_registry: Option<Arc<api_pairing::DeviceRegistry>>,
+    /// Pending pairing request store
+    pub pending_pairings: Option<Arc<api_pairing::PairingStore>>,
 }
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
@@ -378,6 +380,10 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             zeroclaw_dir: config.config_path.parent().map(std::path::PathBuf::from),
             secrets_encrypt: config.secrets.encrypt,
             reasoning_enabled: config.runtime.reasoning_enabled,
+            reasoning_effort: config.runtime.reasoning_effort.clone(),
+            provider_timeout_secs: Some(config.provider_timeout_secs),
+            extra_headers: config.extra_headers.clone(),
+            api_path: config.api_path.clone(),
         },
     )?);
     let model = config
@@ -385,8 +391,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .clone()
         .unwrap_or_else(|| "anthropic/claude-sonnet-4".into());
     let temperature = config.default_temperature;
-    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage(
+    let mem: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage_and_routes(
         &config.memory,
+        &config.embedding_routes,
         Some(&config.storage.provider.config),
         &config.workspace_dir,
         config.api_key.as_deref(),
@@ -407,7 +414,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         (None, None)
     };
 
-    let tools_registry_raw = tools::all_tools_with_runtime(
+    let (tools_registry_raw, _delegate_handle_gw) = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,
@@ -557,6 +564,29 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             })
             .map(Arc::from);
 
+    // ── Session persistence for WS chat ─────────────────────
+    let session_backend: Option<Arc<dyn SessionBackend>> = if config.gateway.session_persistence {
+        match SqliteSessionBackend::new(&config.workspace_dir) {
+            Ok(b) => {
+                tracing::info!("Gateway session persistence enabled (SQLite)");
+                if config.gateway.session_ttl_hours > 0 {
+                    if let Ok(cleaned) = b.cleanup_stale(config.gateway.session_ttl_hours) {
+                        if cleaned > 0 {
+                            tracing::info!("Cleaned up {cleaned} stale gateway sessions");
+                        }
+                    }
+                }
+                Some(Arc::new(b))
+            }
+            Err(e) => {
+                tracing::warn!("Session persistence disabled: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // ── Pairing guard ──────────────────────────────────────
     let pairing = Arc::new(PairingGuard::new(
         config.gateway.require_pairing,
@@ -621,6 +651,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
     }
     println!("  GET  /api/*     — REST API (bearer token required)");
     println!("  GET  /ws/chat   — WebSocket agent chat");
+    if config.nodes.enabled {
+        println!("  GET  /ws/nodes  — WebSocket node discovery");
+    }
     println!("  GET  /health    — health check");
     println!("  GET  /metrics   — Prometheus metrics");
     if let Some(code) = pairing.pairing_code() {
@@ -632,6 +665,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         println!("     Send: POST /pair with header X-Pairing-Code: {code}");
     } else if pairing.require_pairing() {
         println!("  🔒 Pairing: ACTIVE (bearer token required)");
+        println!("     To pair a new device: zeroclaw gateway get-paircode --new");
     } else {
         println!("  ⚠️  Pairing: DISABLED (all requests accepted)");
     }
@@ -650,6 +684,27 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             crate::observability::create_observer(&config.observability),
             event_tx.clone(),
         ));
+
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+
+    // Node registry for dynamic node discovery
+    let node_registry = Arc::new(nodes::NodeRegistry::new(config.nodes.max_nodes));
+
+    // Device registry and pairing store (only when pairing is required)
+    let device_registry = if config.gateway.require_pairing {
+        Some(Arc::new(api_pairing::DeviceRegistry::new(
+            &config.workspace_dir,
+        )))
+    } else {
+        None
+    };
+    let pending_pairings = if config.gateway.require_pairing {
+        Some(Arc::new(api_pairing::PairingStore::new(
+            config.gateway.pairing_dashboard.max_pending_codes,
+        )))
+    } else {
+        None
+    };
 
     let state = AppState {
         config: config_state,
@@ -674,6 +729,11 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         tools_registry,
         cost_tracker,
         event_tx,
+        shutdown_tx,
+        node_registry,
+        session_backend,
+        device_registry,
+        pending_pairings,
     };
 
     // Config PUT needs larger body limit (1MB)
@@ -683,6 +743,10 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
 
     // Build router with middleware
     let app = Router::new()
+        // ── Admin routes (for CLI management) ──
+        .route("/admin/shutdown", post(handle_admin_shutdown))
+        .route("/admin/paircode", get(handle_admin_paircode))
+        .route("/admin/paircode/new", post(handle_admin_paircode_new))
         // ── Existing routes ──
         .route("/health", get(handle_health))
         .route("/metrics", get(handle_metrics))
@@ -701,7 +765,12 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/cron", get(api::handle_api_cron_list))
         .route("/api/cron", post(api::handle_api_cron_add))
         .route("/api/cron/{id}", delete(api::handle_api_cron_delete))
+        .route("/api/cron/{id}/runs", get(api::handle_api_cron_runs))
         .route("/api/integrations", get(api::handle_api_integrations))
+        .route(
+            "/api/integrations/settings",
+            get(api::handle_api_integrations_settings),
+        )
         .route(
             "/api/doctor",
             get(api::handle_api_doctor).post(api::handle_api_doctor),
@@ -712,10 +781,32 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/cost", get(api::handle_api_cost))
         .route("/api/cli-tools", get(api::handle_api_cli_tools))
         .route("/api/health", get(api::handle_api_health))
+        .route("/api/sessions", get(api::handle_api_sessions_list))
+        .route("/api/sessions/{id}", delete(api::handle_api_session_delete))
+        // ── Pairing + Device management API ──
+        .route("/api/pairing/initiate", post(api_pairing::initiate_pairing))
+        .route("/api/pair", post(api_pairing::submit_pairing_enhanced))
+        .route("/api/devices", get(api_pairing::list_devices))
+        .route("/api/devices/{id}", delete(api_pairing::revoke_device))
+        .route(
+            "/api/devices/{id}/token/rotate",
+            post(api_pairing::rotate_token),
+        );
+
+    // ── Plugin management API (requires plugins-wasm feature) ──
+    #[cfg(feature = "plugins-wasm")]
+    let app = app.route(
+        "/api/plugins",
+        get(api_plugins::plugin_routes::list_plugins),
+    );
+
+    let app = app
         // ── SSE event stream ──
         .route("/api/events", get(sse::handle_sse_events))
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
+        // ── WebSocket node discovery ──
+        .route("/ws/nodes", get(nodes::handle_ws_nodes))
         // ── Static assets (web dashboard) ──
         .route("/_app/{*path}", get(static_files::handle_static))
         // ── Config PUT with larger body limit ──
@@ -729,11 +820,15 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         // ── SPA fallback: non-API GET requests serve index.html ──
         .fallback(get(static_files::handle_spa_fallback));
 
-    // Run the server
+    // Run the server with graceful shutdown
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(async move {
+        let _ = shutdown_rx.changed().await;
+        tracing::info!("🦀 ZeroClaw Gateway shutting down...");
+    })
     .await?;
 
     Ok(())
@@ -757,17 +852,31 @@ async fn handle_health(State(state): State<AppState>) -> impl IntoResponse {
 /// Prometheus content type for text exposition format.
 const PROMETHEUS_CONTENT_TYPE: &str = "text/plain; version=0.0.4; charset=utf-8";
 
+fn prometheus_disabled_hint() -> String {
+    String::from("# Prometheus backend not enabled. Set [observability] backend = \"prometheus\" in config.\n")
+}
+
 /// GET /metrics — Prometheus text exposition format
 async fn handle_metrics(State(state): State<AppState>) -> impl IntoResponse {
-    let body = if let Some(prom) = state
-        .observer
-        .as_ref()
-        .as_any()
-        .downcast_ref::<crate::observability::PrometheusObserver>()
-    {
-        prom.encode()
-    } else {
-        String::from("# Prometheus backend not enabled. Set [observability] backend = \"prometheus\" in config.\n")
+    let body = {
+        #[cfg(feature = "observability-prometheus")]
+        {
+            if let Some(prom) = state
+                .observer
+                .as_ref()
+                .as_any()
+                .downcast_ref::<crate::observability::PrometheusObserver>()
+            {
+                prom.encode()
+            } else {
+                prometheus_disabled_hint()
+            }
+        }
+        #[cfg(not(feature = "observability-prometheus"))]
+        {
+            let _ = &state;
+            prometheus_disabled_hint()
+        }
     };
 
     (
@@ -803,7 +912,9 @@ async fn handle_pair(
     match state.pairing.try_pair(code, &rate_key).await {
         Ok(Some(token)) => {
             tracing::info!("🔐 New client paired successfully");
-            if let Err(err) = persist_pairing_tokens(state.config.clone(), &state.pairing).await {
+            if let Err(err) =
+                Box::pin(persist_pairing_tokens(state.config.clone(), &state.pairing)).await
+            {
                 tracing::error!("🔐 Pairing succeeded but token persistence failed: {err:#}");
                 let body = serde_json::json!({
                     "paired": true,
@@ -889,9 +1000,13 @@ async fn run_gateway_chat_simple(state: &AppState, message: &str) -> anyhow::Res
 }
 
 /// Full-featured chat with tools for channel handlers (WhatsApp, Linq, Nextcloud Talk).
-async fn run_gateway_chat_with_tools(state: &AppState, message: &str) -> anyhow::Result<String> {
+async fn run_gateway_chat_with_tools(
+    state: &AppState,
+    message: &str,
+    session_id: Option<&str>,
+) -> anyhow::Result<String> {
     let config = state.config.lock().clone();
-    crate::agent::process_message(config, message).await
+    Box::pin(crate::agent::process_message(config, message, session_id)).await
 }
 
 /// Webhook request body
@@ -983,12 +1098,18 @@ async fn handle_webhook(
     }
 
     let message = &webhook_body.message;
+    let session_id = webhook_session_id(&headers);
 
-    if state.auto_save {
+    if state.auto_save && !memory::should_skip_autosave_content(message) {
         let key = webhook_memory_key();
         let _ = state
             .mem
-            .store(&key, message, MemoryCategory::Conversation, None)
+            .store(
+                &key,
+                message,
+                MemoryCategory::Conversation,
+                session_id.as_deref(),
+            )
             .await;
     }
 
@@ -1209,17 +1330,29 @@ async fn handle_whatsapp_message(
             msg.sender,
             truncate_with_ellipsis(&msg.content, 50)
         );
+        let session_id = sender_session_id("whatsapp", msg);
 
         // Auto-save to memory
-        if state.auto_save {
+        if state.auto_save && !memory::should_skip_autosave_content(&msg.content) {
             let key = whatsapp_memory_key(msg);
             let _ = state
                 .mem
-                .store(&key, &msg.content, MemoryCategory::Conversation, None)
+                .store(
+                    &key,
+                    &msg.content,
+                    MemoryCategory::Conversation,
+                    Some(&session_id),
+                )
                 .await;
         }
 
-        match run_gateway_chat_with_tools(&state, &msg.content).await {
+        match Box::pin(run_gateway_chat_with_tools(
+            &state,
+            &msg.content,
+            Some(&session_id),
+        ))
+        .await
+        {
             Ok(response) => {
                 // Send reply via WhatsApp
                 if let Err(e) = wa
@@ -1316,18 +1449,30 @@ async fn handle_linq_webhook(
             msg.sender,
             truncate_with_ellipsis(&msg.content, 50)
         );
+        let session_id = sender_session_id("linq", msg);
 
         // Auto-save to memory
-        if state.auto_save {
+        if state.auto_save && !memory::should_skip_autosave_content(&msg.content) {
             let key = linq_memory_key(msg);
             let _ = state
                 .mem
-                .store(&key, &msg.content, MemoryCategory::Conversation, None)
+                .store(
+                    &key,
+                    &msg.content,
+                    MemoryCategory::Conversation,
+                    Some(&session_id),
+                )
                 .await;
         }
 
         // Call the LLM
-        match run_gateway_chat_with_tools(&state, &msg.content).await {
+        match Box::pin(run_gateway_chat_with_tools(
+            &state,
+            &msg.content,
+            Some(&session_id),
+        ))
+        .await
+        {
             Ok(response) => {
                 // Send reply via Linq
                 if let Err(e) = linq
@@ -1408,18 +1553,30 @@ async fn handle_wati_webhook(State(state): State<AppState>, body: Bytes) -> impl
             msg.sender,
             truncate_with_ellipsis(&msg.content, 50)
         );
+        let session_id = sender_session_id("wati", msg);
 
         // Auto-save to memory
-        if state.auto_save {
+        if state.auto_save && !memory::should_skip_autosave_content(&msg.content) {
             let key = wati_memory_key(msg);
             let _ = state
                 .mem
-                .store(&key, &msg.content, MemoryCategory::Conversation, None)
+                .store(
+                    &key,
+                    &msg.content,
+                    MemoryCategory::Conversation,
+                    Some(&session_id),
+                )
                 .await;
         }
 
         // Call the LLM
-        match run_gateway_chat_with_tools(&state, &msg.content).await {
+        match Box::pin(run_gateway_chat_with_tools(
+            &state,
+            &msg.content,
+            Some(&session_id),
+        ))
+        .await
+        {
             Ok(response) => {
                 // Send reply via WATI
                 if let Err(e) = wati
@@ -1514,16 +1671,28 @@ async fn handle_nextcloud_talk_webhook(
             msg.sender,
             truncate_with_ellipsis(&msg.content, 50)
         );
+        let session_id = sender_session_id("nextcloud_talk", msg);
 
-        if state.auto_save {
+        if state.auto_save && !memory::should_skip_autosave_content(&msg.content) {
             let key = nextcloud_talk_memory_key(msg);
             let _ = state
                 .mem
-                .store(&key, &msg.content, MemoryCategory::Conversation, None)
+                .store(
+                    &key,
+                    &msg.content,
+                    MemoryCategory::Conversation,
+                    Some(&session_id),
+                )
                 .await;
         }
 
-        match run_gateway_chat_with_tools(&state, &msg.content).await {
+        match Box::pin(run_gateway_chat_with_tools(
+            &state,
+            &msg.content,
+            Some(&session_id),
+        ))
+        .await
+        {
             Ok(response) => {
                 if let Err(e) = nextcloud_talk
                     .send(&SendMessage::new(response, &msg.reply_target))
@@ -1545,6 +1714,109 @@ async fn handle_nextcloud_talk_webhook(
     }
 
     (StatusCode::OK, Json(serde_json::json!({"status": "ok"})))
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN HANDLERS (for CLI management)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// Response for admin endpoints
+#[derive(serde::Serialize)]
+struct AdminResponse {
+    success: bool,
+    message: String,
+}
+
+/// Reject requests that do not originate from a loopback address.
+fn require_localhost(peer: &SocketAddr) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if peer.ip().is_loopback() {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "Admin endpoints are restricted to localhost"
+            })),
+        ))
+    }
+}
+
+/// POST /admin/shutdown — graceful shutdown from CLI (localhost only)
+async fn handle_admin_shutdown(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_localhost(&peer)?;
+    tracing::info!("🔌 Admin shutdown request received — initiating graceful shutdown");
+
+    let body = AdminResponse {
+        success: true,
+        message: "Gateway shutdown initiated".to_string(),
+    };
+
+    let _ = state.shutdown_tx.send(true);
+
+    Ok((StatusCode::OK, Json(body)))
+}
+
+/// GET /admin/paircode — fetch current pairing code (localhost only)
+async fn handle_admin_paircode(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_localhost(&peer)?;
+    let code = state.pairing.pairing_code();
+
+    let body = if let Some(c) = code {
+        serde_json::json!({
+            "success": true,
+            "pairing_required": state.pairing.require_pairing(),
+            "pairing_code": c,
+            "message": "Use this one-time code to pair"
+        })
+    } else {
+        serde_json::json!({
+            "success": true,
+            "pairing_required": state.pairing.require_pairing(),
+            "pairing_code": null,
+            "message": if state.pairing.require_pairing() {
+                "Pairing is active but no new code available (already paired or code expired)"
+            } else {
+                "Pairing is disabled for this gateway"
+            }
+        })
+    };
+
+    Ok((StatusCode::OK, Json(body)))
+}
+
+/// POST /admin/paircode/new — generate a new pairing code (localhost only)
+async fn handle_admin_paircode_new(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_localhost(&peer)?;
+    match state.pairing.generate_new_pairing_code() {
+        Some(code) => {
+            tracing::info!("🔐 New pairing code generated via admin endpoint");
+            let body = serde_json::json!({
+                "success": true,
+                "pairing_required": state.pairing.require_pairing(),
+                "pairing_code": code,
+                "message": "New pairing code generated — use this one-time code to pair"
+            });
+            Ok((StatusCode::OK, Json(body)))
+        }
+        None => {
+            let body = serde_json::json!({
+                "success": false,
+                "pairing_required": false,
+                "pairing_code": null,
+                "message": "Pairing is disabled for this gateway"
+            });
+            Ok((StatusCode::BAD_REQUEST, Json(body)))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1629,6 +1901,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -1646,6 +1923,7 @@ mod tests {
         assert!(text.contains("Prometheus backend not enabled"));
     }
 
+    #[cfg(feature = "observability-prometheus")]
     #[tokio::test]
     async fn metrics_endpoint_renders_prometheus_output() {
         let prom = Arc::new(crate::observability::PrometheusObserver::new());
@@ -1678,6 +1956,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let response = handle_metrics(State(state)).await.into_response();
@@ -1840,20 +2123,28 @@ mod tests {
         assert!(guard.is_authenticated(&token));
 
         let shared_config = Arc::new(Mutex::new(config));
-        persist_pairing_tokens(shared_config.clone(), &guard)
+        Box::pin(persist_pairing_tokens(shared_config.clone(), &guard))
             .await
             .unwrap();
 
-        let saved = tokio::fs::read_to_string(config_path).await.unwrap();
-        let parsed: Config = toml::from_str(&saved).unwrap();
-        assert_eq!(parsed.gateway.paired_tokens.len(), 1);
-        let persisted = &parsed.gateway.paired_tokens[0];
-        assert_eq!(persisted.len(), 64);
-        assert!(persisted.chars().all(|c| c.is_ascii_hexdigit()));
+        // In-memory tokens should remain as plaintext 64-char hex hashes.
+        let plaintext = {
+            let in_memory = shared_config.lock();
+            assert_eq!(in_memory.gateway.paired_tokens.len(), 1);
+            in_memory.gateway.paired_tokens[0].clone()
+        };
+        assert_eq!(plaintext.len(), 64);
+        assert!(plaintext.chars().all(|c: char| c.is_ascii_hexdigit()));
 
-        let in_memory = shared_config.lock();
-        assert_eq!(in_memory.gateway.paired_tokens.len(), 1);
-        assert_eq!(&in_memory.gateway.paired_tokens[0], persisted);
+        // On disk, the token should be encrypted (secrets.encrypt defaults to true).
+        let saved = tokio::fs::read_to_string(config_path).await.unwrap();
+        let raw_parsed: Config = toml::from_str(&saved).unwrap();
+        assert_eq!(raw_parsed.gateway.paired_tokens.len(), 1);
+        let on_disk = &raw_parsed.gateway.paired_tokens[0];
+        assert!(
+            crate::security::SecretStore::is_encrypted(on_disk),
+            "paired_token should be encrypted on disk"
+        );
     }
 
     #[test]
@@ -2044,6 +2335,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2108,6 +2404,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let headers = HeaderMap::new();
@@ -2184,6 +2485,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let response = handle_webhook(
@@ -2232,6 +2538,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2285,6 +2596,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2343,13 +2659,18 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
-        let response = handle_nextcloud_talk_webhook(
+        let response = Box::pin(handle_nextcloud_talk_webhook(
             State(state),
             HeaderMap::new(),
             Bytes::from_static(br#"{"type":"message"}"#),
-        )
+        ))
         .await
         .into_response();
 
@@ -2397,6 +2718,11 @@ mod tests {
             tools_registry: Arc::new(Vec::new()),
             cost_tracker: None,
             event_tx: tokio::sync::broadcast::channel(16).0,
+            shutdown_tx: tokio::sync::watch::channel(false).0,
+            node_registry: Arc::new(nodes::NodeRegistry::new(16)),
+            session_backend: None,
+            device_registry: None,
+            pending_pairings: None,
         };
 
         let mut headers = HeaderMap::new();
@@ -2409,9 +2735,13 @@ mod tests {
             HeaderValue::from_str(invalid_signature).unwrap(),
         );
 
-        let response = handle_nextcloud_talk_webhook(State(state), headers, Bytes::from(body))
-            .await
-            .into_response();
+        let response = Box::pin(handle_nextcloud_talk_webhook(
+            State(state),
+            headers,
+            Bytes::from(body),
+        ))
+        .await
+        .into_response();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         assert_eq!(provider_impl.calls.load(Ordering::SeqCst), 0);
     }
@@ -2802,5 +3132,34 @@ mod tests {
 
         // Should be allowed again
         assert!(limiter.allow("burst-ip"));
+    }
+
+    #[test]
+    fn require_localhost_accepts_ipv4_loopback() {
+        let peer = SocketAddr::from(([127, 0, 0, 1], 12345));
+        assert!(require_localhost(&peer).is_ok());
+    }
+
+    #[test]
+    fn require_localhost_accepts_ipv6_loopback() {
+        let peer = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 12345));
+        assert!(require_localhost(&peer).is_ok());
+    }
+
+    #[test]
+    fn require_localhost_rejects_non_loopback_ipv4() {
+        let peer = SocketAddr::from(([192, 168, 1, 100], 12345));
+        let err = require_localhost(&peer).unwrap_err();
+        assert_eq!(err.0, StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn require_localhost_rejects_non_loopback_ipv6() {
+        let peer = SocketAddr::from((
+            std::net::Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1),
+            12345,
+        ));
+        let err = require_localhost(&peer).unwrap_err();
+        assert_eq!(err.0, StatusCode::FORBIDDEN);
     }
 }

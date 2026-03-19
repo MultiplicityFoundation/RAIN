@@ -28,7 +28,10 @@ impl FromStr for InitSystem {
             "auto" => Ok(Self::Auto),
             "systemd" => Ok(Self::Systemd),
             "openrc" => Ok(Self::Openrc),
-            other => bail!("Unknown init system: '{other}'. Supported: auto, systemd, openrc"),
+            other => bail!(
+                "Unknown init system: '{}'. Supported: auto, systemd, openrc",
+                other
+            ),
         }
     }
 }
@@ -267,7 +270,7 @@ fn status(config: &Config, init_system: InitSystem) -> Result<()> {
                         "❌ not running"
                     }
                 );
-                println!("Task: {task_name}");
+                println!("Task: {}", task_name);
             }
             Err(_) => {
                 println!("Service: ❌ not installed");
@@ -439,8 +442,24 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
 
     let exe = std::env::current_exe().context("Failed to resolve current executable")?;
     let unit = format!(
-        "[Unit]\nDescription=ZeroClaw daemon\nAfter=network.target\n\n[Service]\nType=simple\nExecStart={} daemon\nRestart=always\nRestartSec=3\n\n[Install]\nWantedBy=default.target\n",
-        exe.display()
+        "[Unit]\n\
+         Description=ZeroClaw daemon\n\
+         After=network.target\n\
+         \n\
+         [Service]\n\
+         Type=simple\n\
+         ExecStart={exe} daemon\n\
+         Restart=always\n\
+         RestartSec=3\n\
+         # Ensure HOME is set so headless browsers can create profile/cache dirs.\n\
+         Environment=HOME=%h\n\
+         # Allow inheriting DISPLAY and XDG_RUNTIME_DIR from the user session\n\
+         # so graphical/headless browsers can function correctly.\n\
+         PassEnvironment=DISPLAY XDG_RUNTIME_DIR\n\
+         \n\
+         [Install]\n\
+         WantedBy=default.target\n",
+        exe = exe.display()
     );
 
     fs::write(&file, unit)?;
@@ -490,21 +509,26 @@ fn check_zeroclaw_user() -> Result<()> {
 
                 if uid.parse::<u32>().unwrap_or(999) >= 1000 {
                     bail!(
-                        "User 'zeroclaw' exists but has unexpected UID {uid} (expected system UID < 1000).\n\
-                         Recreate with: sudo {del_cmd} && sudo {add_cmd}"
+                        "User 'zeroclaw' exists but has unexpected UID {} (expected system UID < 1000).\n\
+                         Recreate with: sudo {} && sudo {}",
+                        uid, del_cmd, add_cmd
                     );
                 }
 
                 if !shell.contains("nologin") && !shell.contains("false") {
                     bail!(
-                        "User 'zeroclaw' exists but has unexpected shell '{shell}'.\n\
-                         Expected nologin/false for security. Fix with: sudo {del_cmd} && sudo {add_cmd}"
+                        "User 'zeroclaw' exists but has unexpected shell '{}'.\n\
+                         Expected nologin/false for security. Fix with: sudo {} && sudo {}",
+                        shell,
+                        del_cmd,
+                        add_cmd
                     );
                 }
 
                 if home != "/var/lib/zeroclaw" && home != "/nonexistent" {
                     eprintln!(
-                        "⚠️  Warning: zeroclaw user has home directory '{home}' (expected /var/lib/zeroclaw or /nonexistent)"
+                        "⚠️  Warning: zeroclaw user has home directory '{}' (expected /var/lib/zeroclaw or /nonexistent)",
+                        home
                     );
                 }
 
@@ -818,8 +842,8 @@ fn generate_openrc_script(exe_path: &Path, config_dir: &Path) -> String {
 name="zeroclaw"
 description="ZeroClaw daemon"
 
-command="{}"
-command_args="--config-dir {} daemon"
+command="{exe}"
+command_args="--config-dir {config_dir} daemon"
 command_background="yes"
 command_user="zeroclaw:zeroclaw"
 pidfile="/run/${{RC_SVCNAME}}.pid"
@@ -827,13 +851,21 @@ umask 027
 output_log="/var/log/zeroclaw/access.log"
 error_log="/var/log/zeroclaw/error.log"
 
+# Provide HOME so headless browsers can create profile/cache directories.
+# Without this, Chromium/Firefox fail with sandbox or profile errors.
+export HOME="/var/lib/zeroclaw"
+
 depend() {{
     need net
     after firewall
 }}
+
+start_pre() {{
+    checkpath --directory --owner zeroclaw:zeroclaw --mode 0750 /var/lib/zeroclaw
+}}
 "#,
-        exe_path.display(),
-        config_dir.display()
+        exe = exe_path.display(),
+        config_dir = config_dir.display(),
     )
 }
 
@@ -1009,7 +1041,7 @@ fn install_windows(config: &Config) -> Result<()> {
         "/F",
     ]))?;
 
-    println!("✅ Installed Windows scheduled task: {task_name}");
+    println!("✅ Installed Windows scheduled task: {}", task_name);
     println!("   Wrapper: {}", wrapper.display());
     println!("   Logs: {}", logs_dir.display());
     println!("   Start with: zeroclaw service start");
@@ -1077,7 +1109,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn run_capture_reads_stdout() {
-        let out = run_capture(Command::new("sh").args(["-c", "echo hello"]))
+        let out = run_capture(Command::new("sh").args(["-lc", "echo hello"]))
             .expect("stdout capture should succeed");
         assert_eq!(out.trim(), "hello");
     }
@@ -1085,7 +1117,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn run_capture_falls_back_to_stderr() {
-        let out = run_capture(Command::new("sh").args(["-c", "echo warn 1>&2"]))
+        let out = run_capture(Command::new("sh").args(["-lc", "echo warn 1>&2"]))
             .expect("stderr capture should succeed");
         assert_eq!(out.trim(), "warn");
     }
@@ -1186,6 +1218,67 @@ mod tests {
         assert!(script.contains("depend()"));
         assert!(script.contains("need net"));
         assert!(script.contains("after firewall"));
+    }
+
+    #[test]
+    fn generate_openrc_script_sets_home_for_browser() {
+        use std::path::PathBuf;
+
+        let exe_path = PathBuf::from("/usr/local/bin/zeroclaw");
+        let script = generate_openrc_script(&exe_path, Path::new("/etc/zeroclaw"));
+
+        assert!(
+            script.contains("export HOME=\"/var/lib/zeroclaw\""),
+            "OpenRC script must set HOME for headless browser support"
+        );
+    }
+
+    #[test]
+    fn generate_openrc_script_creates_home_directory() {
+        use std::path::PathBuf;
+
+        let exe_path = PathBuf::from("/usr/local/bin/zeroclaw");
+        let script = generate_openrc_script(&exe_path, Path::new("/etc/zeroclaw"));
+
+        assert!(
+            script.contains("start_pre()"),
+            "OpenRC script must have start_pre to create HOME dir"
+        );
+        assert!(
+            script.contains("checkpath --directory --owner zeroclaw:zeroclaw"),
+            "start_pre must ensure /var/lib/zeroclaw exists with correct ownership"
+        );
+    }
+
+    #[test]
+    fn systemd_unit_contains_home_and_pass_environment() {
+        let unit = "[Unit]\n\
+             Description=ZeroClaw daemon\n\
+             After=network.target\n\
+             \n\
+             [Service]\n\
+             Type=simple\n\
+             ExecStart=/usr/local/bin/zeroclaw daemon\n\
+             Restart=always\n\
+             RestartSec=3\n\
+             # Ensure HOME is set so headless browsers can create profile/cache dirs.\n\
+             Environment=HOME=%h\n\
+             # Allow inheriting DISPLAY and XDG_RUNTIME_DIR from the user session\n\
+             # so graphical/headless browsers can function correctly.\n\
+             PassEnvironment=DISPLAY XDG_RUNTIME_DIR\n\
+             \n\
+             [Install]\n\
+             WantedBy=default.target\n"
+            .to_string();
+
+        assert!(
+            unit.contains("Environment=HOME=%h"),
+            "systemd unit must set HOME for headless browser support"
+        );
+        assert!(
+            unit.contains("PassEnvironment=DISPLAY XDG_RUNTIME_DIR"),
+            "systemd unit must pass through display/runtime env vars"
+        );
     }
 
     #[test]

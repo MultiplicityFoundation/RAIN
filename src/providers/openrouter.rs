@@ -306,6 +306,7 @@ impl Provider for OpenRouterProvider {
         ProviderCapabilities {
             native_tool_calling: true,
             vision: true,
+            prompt_caching: false,
         }
     }
 
@@ -357,10 +358,7 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
+            .header("HTTP-Referer", "https://github.com/zeroclaw-labs/zeroclaw")
             .header("X-Title", "ZeroClaw")
             .json(&request)
             .send()
@@ -407,10 +405,7 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
+            .header("HTTP-Referer", "https://github.com/zeroclaw-labs/zeroclaw")
             .header("X-Title", "ZeroClaw")
             .json(&request)
             .send()
@@ -455,10 +450,7 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
+            .header("HTTP-Referer", "https://github.com/zeroclaw-labs/zeroclaw")
             .header("X-Title", "ZeroClaw")
             .json(&native_request)
             .send()
@@ -472,6 +464,7 @@ impl Provider for OpenRouterProvider {
         let usage = native_response.usage.map(|u| TokenUsage {
             input_tokens: u.prompt_tokens,
             output_tokens: u.completion_tokens,
+            cached_input_tokens: None,
         });
         let message = native_response
             .choices
@@ -549,10 +542,7 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
+            .header("HTTP-Referer", "https://github.com/zeroclaw-labs/zeroclaw")
             .header("X-Title", "ZeroClaw")
             .json(&native_request)
             .send()
@@ -566,6 +556,7 @@ impl Provider for OpenRouterProvider {
         let usage = native_response.usage.map(|u| TokenUsage {
             input_tokens: u.prompt_tokens,
             output_tokens: u.completion_tokens,
+            cached_input_tokens: None,
         });
         let message = native_response
             .choices

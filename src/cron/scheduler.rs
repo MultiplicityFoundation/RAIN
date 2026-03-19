@@ -1,5 +1,8 @@
+#[cfg(feature = "channel-matrix")]
+use crate::channels::MatrixChannel;
 use crate::channels::{
-    Channel, DiscordChannel, MattermostChannel, SendMessage, SlackChannel, TelegramChannel,
+    Channel, DiscordChannel, MattermostChannel, SendMessage, SignalChannel, SlackChannel,
+    TelegramChannel,
 };
 use crate::config::Config;
 use crate::cron::{
@@ -10,8 +13,6 @@ use crate::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures_util::{stream, StreamExt};
-
-use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::process::Command;
@@ -52,7 +53,7 @@ pub async fn run(config: Config) -> Result<()> {
 
 pub async fn execute_job_now(config: &Config, job: &CronJob) -> (bool, String) {
     let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
-    execute_job_with_retry(config, &security, job).await
+    Box::pin(execute_job_with_retry(config, &security, job)).await
 }
 
 async fn execute_job_with_retry(
@@ -67,7 +68,7 @@ async fn execute_job_with_retry(
     for attempt in 0..=retries {
         let (success, output) = match job.job_type {
             JobType::Shell => run_job_command(config, security, job).await,
-            JobType::Agent => run_agent_job(config, security, job).await,
+            JobType::Agent => Box::pin(run_agent_job(config, security, job)).await,
         };
         last_output = output;
 
@@ -100,18 +101,21 @@ async fn process_due_jobs(
     crate::health::mark_component_ok(component);
 
     let max_concurrent = config.scheduler.max_concurrent.max(1);
-    let mut in_flight =
-        stream::iter(
-            jobs.into_iter().map(|job| {
-                let config = config.clone();
-                let security = Arc::clone(security);
-                let component = component.to_owned();
-                async move {
-                    execute_and_persist_job(&config, security.as_ref(), &job, &component).await
-                }
-            }),
-        )
-        .buffer_unordered(max_concurrent);
+    let mut in_flight = stream::iter(jobs.into_iter().map(|job| {
+        let config = config.clone();
+        let security = Arc::clone(security);
+        let component = component.to_owned();
+        async move {
+            Box::pin(execute_and_persist_job(
+                &config,
+                security.as_ref(),
+                &job,
+                &component,
+            ))
+            .await
+        }
+    }))
+    .buffer_unordered(max_concurrent);
 
     while let Some((job_id, success, output)) = in_flight.next().await {
         if !success {
@@ -130,9 +134,17 @@ async fn execute_and_persist_job(
     warn_if_high_frequency_agent_job(job);
 
     let started_at = Utc::now();
-    let (success, output) = execute_job_with_retry(config, security, job).await;
+    let (success, output) = Box::pin(execute_job_with_retry(config, security, job)).await;
     let finished_at = Utc::now();
-    let success = persist_job_result(config, job, success, &output, started_at, finished_at).await;
+    let success = Box::pin(persist_job_result(
+        config,
+        job,
+        success,
+        &output,
+        started_at,
+        finished_at,
+    ))
+    .await;
 
     (job.id.clone(), success, output)
 }
@@ -169,7 +181,7 @@ async fn run_agent_job(
 
     let run_result = match job.session_target {
         SessionTarget::Main | SessionTarget::Isolated => {
-            crate::agent::run(
+            Box::pin(crate::agent::run(
                 config.clone(),
                 Some(prefixed_prompt),
                 None,
@@ -177,7 +189,9 @@ async fn run_agent_job(
                 config.default_temperature,
                 vec![],
                 false,
-            )
+                None,
+                job.allowed_tools.clone(),
+            ))
             .await
         }
     };
@@ -283,6 +297,15 @@ fn warn_if_high_frequency_agent_job(job: &CronJob) {
     }
 }
 
+fn resolve_matrix_delivery_room(configured_room_id: &str, target: &str) -> String {
+    let target = target.trim();
+    if target.is_empty() {
+        configured_room_id.trim().to_string()
+    } else {
+        target.to_string()
+    }
+}
+
 async fn deliver_if_configured(config: &Config, job: &CronJob, output: &str) -> Result<()> {
     let delivery: &DeliveryConfig = &job.delivery;
     if !delivery.mode.eq_ignore_ascii_case("announce") {
@@ -344,9 +367,12 @@ pub(crate) async fn deliver_announcement(
                 .ok_or_else(|| anyhow::anyhow!("slack channel not configured"))?;
             let channel = SlackChannel::new(
                 sl.bot_token.clone(),
+                sl.app_token.clone(),
                 sl.channel_id.clone(),
+                Vec::new(),
                 sl.allowed_users.clone(),
-            );
+            )
+            .with_workspace_dir(config.workspace_dir.clone());
             channel.send(&SendMessage::new(output, target)).await?;
         }
         "mattermost" => {
@@ -364,6 +390,47 @@ pub(crate) async fn deliver_announcement(
                 mm.mention_only.unwrap_or(false),
             );
             channel.send(&SendMessage::new(output, target)).await?;
+        }
+        "signal" => {
+            let sg = config
+                .channels_config
+                .signal
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("signal channel not configured"))?;
+            let channel = SignalChannel::new(
+                sg.http_url.clone(),
+                sg.account.clone(),
+                sg.group_id.clone(),
+                sg.allowed_from.clone(),
+                sg.ignore_attachments,
+                sg.ignore_stories,
+            );
+            channel.send(&SendMessage::new(output, target)).await?;
+        }
+        "matrix" => {
+            #[cfg(feature = "channel-matrix")]
+            {
+                let mx = config
+                    .channels_config
+                    .matrix
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("matrix channel not configured"))?;
+                let room_id = resolve_matrix_delivery_room(&mx.room_id, target);
+                let channel = MatrixChannel::new_with_session_hint_and_zeroclaw_dir(
+                    mx.homeserver.clone(),
+                    mx.access_token.clone(),
+                    room_id,
+                    mx.allowed_users.clone(),
+                    mx.user_id.clone(),
+                    mx.device_id.clone(),
+                    config.config_path.parent().map(|path| path.to_path_buf()),
+                );
+                channel.send(&SendMessage::new(output, target)).await?;
+            }
+            #[cfg(not(feature = "channel-matrix"))]
+            {
+                anyhow::bail!("matrix delivery channel requires `channel-matrix` feature");
+            }
         }
         other => anyhow::bail!("unsupported delivery channel: {other}"),
     }
@@ -405,14 +472,15 @@ async fn run_job_command_with_timeout(
         );
     }
 
-    if !security.is_command_allowed(&job.command) {
-        return (
-            false,
-            format!(
-                "blocked by security policy: command not allowed: {}",
-                job.command
-            ),
-        );
+    // Unified command validation: allowlist + risk + path checks in one call.
+    // Jobs created via the validated helpers were already checked at creation
+    // time, but we re-validate at execution time to catch policy changes and
+    // manually-edited job stores.
+    let approved = false; // scheduler runs are never pre-approved
+    if let Err(error) =
+        crate::cron::validate_shell_command_with_security(security, &job.command, approved)
+    {
+        return (false, error.to_string());
     }
 
     if let Some(path) = security.forbidden_path_argument(&job.command) {
@@ -429,13 +497,16 @@ async fn run_job_command_with_timeout(
         );
     }
 
-    let mut shell = build_shell_command(&job.command, &config.workspace_dir);
-    shell
+    let child = match Command::new("sh")
+        .arg("-lc")
+        .arg(&job.command)
+        .current_dir(&config.workspace_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let child = match shell.spawn() {
+        .kill_on_drop(true)
+        .spawn()
+    {
         Ok(child) => child,
         Err(e) => return (false, format!("spawn error: {e}")),
     };
@@ -458,26 +529,6 @@ async fn run_job_command_with_timeout(
             format!("job timed out after {}s", timeout.as_secs_f64()),
         ),
     }
-}
-
-fn build_shell_command(command: &str, workspace_dir: &Path) -> Command {
-    #[cfg(windows)]
-    let mut shell = {
-        let comspec = std::env::var_os("COMSPEC").unwrap_or_else(|| OsString::from("cmd.exe"));
-        let mut process = Command::new(comspec);
-        process.arg("/d").arg("/s").arg("/c").arg(command);
-        process
-    };
-
-    #[cfg(not(windows))]
-    let mut shell = {
-        let mut process = Command::new("sh");
-        process.arg("-lc").arg(command);
-        process
-    };
-
-    shell.current_dir(workspace_dir);
-    shell
 }
 
 #[cfg(test)]
@@ -518,55 +569,12 @@ mod tests {
             enabled: true,
             delivery: DeliveryConfig::default(),
             delete_after_run: false,
+            allowed_tools: None,
             created_at: Utc::now(),
             next_run: Utc::now(),
             last_run: None,
             last_status: None,
             last_output: None,
-        }
-    }
-
-    fn missing_path_command(path: &str) -> String {
-        #[cfg(windows)]
-        {
-            format!("dir {path}")
-        }
-        #[cfg(not(windows))]
-        {
-            format!("ls {path}")
-        }
-    }
-
-    fn missing_path_allowed_command() -> &'static str {
-        #[cfg(windows)]
-        {
-            "dir"
-        }
-        #[cfg(not(windows))]
-        {
-            "ls"
-        }
-    }
-
-    fn sleep_command(seconds: u64) -> String {
-        #[cfg(windows)]
-        {
-            format!("ping 127.0.0.1 -n {}", seconds + 1)
-        }
-        #[cfg(not(windows))]
-        {
-            format!("sleep {seconds}")
-        }
-    }
-
-    fn sleep_allowed_command() -> &'static str {
-        #[cfg(windows)]
-        {
-            "ping"
-        }
-        #[cfg(not(windows))]
-        {
-            "sleep"
         }
     }
 
@@ -584,38 +592,28 @@ mod tests {
         let (success, output) = run_job_command(&config, &security, &job).await;
         assert!(success);
         assert!(output.contains("scheduler-ok"));
-        assert!(output.contains("status="));
-        assert!(output.contains('0'));
+        assert!(output.contains("status=exit status: 0"));
     }
 
     #[tokio::test]
     async fn run_job_command_failure() {
         let tmp = TempDir::new().unwrap();
-        let mut config = test_config(&tmp).await;
-        config.autonomy.allowed_commands = vec![missing_path_allowed_command().into()];
-        let job = test_job(&missing_path_command(
-            "definitely_missing_file_for_scheduler_test",
-        ));
+        let config = test_config(&tmp).await;
+        let job = test_job("ls definitely_missing_file_for_scheduler_test");
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
         let (success, output) = run_job_command(&config, &security, &job).await;
         assert!(!success);
-        #[cfg(windows)]
-        assert!(
-            output.contains("File Not Found") || output.contains("cannot find"),
-            "unexpected output: {output}"
-        );
-        #[cfg(not(windows))]
         assert!(output.contains("definitely_missing_file_for_scheduler_test"));
-        assert!(output.contains("status="));
+        assert!(output.contains("status=exit status:"));
     }
 
     #[tokio::test]
     async fn run_job_command_times_out() {
         let tmp = TempDir::new().unwrap();
         let mut config = test_config(&tmp).await;
-        config.autonomy.allowed_commands = vec![sleep_allowed_command().into()];
-        let job = test_job(&sleep_command(1));
+        config.autonomy.allowed_commands = vec!["sleep".into()];
+        let job = test_job("sleep 1");
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
         let (success, output) =
@@ -635,7 +633,7 @@ mod tests {
         let (success, output) = run_job_command(&config, &security, &job).await;
         assert!(!success);
         assert!(output.contains("blocked by security policy"));
-        assert!(output.contains("command not allowed"));
+        assert!(output.to_lowercase().contains("not allowed"));
     }
 
     #[tokio::test]
@@ -709,7 +707,7 @@ mod tests {
         let (success, output) = run_job_command(&config, &security, &job).await;
         assert!(!success);
         assert!(output.contains("blocked by security policy"));
-        assert!(output.contains("command not allowed"));
+        assert!(output.to_lowercase().contains("not allowed"));
     }
 
     #[tokio::test]
@@ -746,37 +744,18 @@ mod tests {
         let mut config = test_config(&tmp).await;
         config.reliability.scheduler_retries = 1;
         config.reliability.provider_backoff_ms = 1;
+        config.autonomy.allowed_commands = vec!["sh".into()];
+        let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
-        #[cfg(windows)]
-        {
-            config.autonomy.allowed_commands = vec!["retry-once.cmd".into()];
-            tokio::fs::write(
-                config.workspace_dir.join("retry-once.cmd"),
-                "@echo off\r\nif exist retry-ok.flag (\r\n  echo recovered\r\n  exit /b 0\r\n)\r\ntype nul > retry-ok.flag\r\nexit /b 1\r\n",
-            )
-            .await
-            .unwrap();
-        }
-
-        #[cfg(not(windows))]
-        {
-            config.autonomy.allowed_commands = vec!["sh".into()];
-            tokio::fs::write(
-                config.workspace_dir.join("retry-once.sh"),
-                "#!/bin/sh\nif [ -f retry-ok.flag ]; then\n  echo recovered\n  exit 0\nfi\ntouch retry-ok.flag\nexit 1\n",
-            )
-            .await
-            .unwrap();
-        }
-
-        #[cfg(windows)]
-        let job = test_job("retry-once.cmd");
-
-        #[cfg(not(windows))]
+        tokio::fs::write(
+            config.workspace_dir.join("retry-once.sh"),
+            "#!/bin/sh\nif [ -f retry-ok.flag ]; then\n  echo recovered\n  exit 0\nfi\ntouch retry-ok.flag\nexit 1\n",
+        )
+        .await
+        .unwrap();
         let job = test_job("sh ./retry-once.sh");
 
-        let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
-        let (success, output) = execute_job_with_retry(&config, &security, &job).await;
+        let (success, output) = Box::pin(execute_job_with_retry(&config, &security, &job)).await;
         assert!(success);
         assert!(output.contains("recovered"));
     }
@@ -787,19 +766,12 @@ mod tests {
         let mut config = test_config(&tmp).await;
         config.reliability.scheduler_retries = 1;
         config.reliability.provider_backoff_ms = 1;
-        config.autonomy.allowed_commands = vec![missing_path_allowed_command().into()];
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
-        let job = test_job(&missing_path_command("always_missing_for_retry_test"));
+        let job = test_job("ls always_missing_for_retry_test");
 
-        let (success, output) = execute_job_with_retry(&config, &security, &job).await;
+        let (success, output) = Box::pin(execute_job_with_retry(&config, &security, &job)).await;
         assert!(!success);
-        #[cfg(windows)]
-        assert!(
-            output.contains("File Not Found") || output.contains("cannot find"),
-            "unexpected output: {output}"
-        );
-        #[cfg(not(windows))]
         assert!(output.contains("always_missing_for_retry_test"));
     }
 
@@ -812,7 +784,7 @@ mod tests {
         job.prompt = Some("Say hello".into());
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
-        let (success, output) = run_agent_job(&config, &security, &job).await;
+        let (success, output) = Box::pin(run_agent_job(&config, &security, &job)).await;
         assert!(!success);
         assert!(output.contains("agent job failed:"));
     }
@@ -827,7 +799,7 @@ mod tests {
         job.prompt = Some("Say hello".into());
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
-        let (success, output) = run_agent_job(&config, &security, &job).await;
+        let (success, output) = Box::pin(run_agent_job(&config, &security, &job)).await;
         assert!(!success);
         assert!(output.contains("blocked by security policy"));
         assert!(output.contains("read-only"));
@@ -843,7 +815,7 @@ mod tests {
         job.prompt = Some("Say hello".into());
         let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
 
-        let (success, output) = run_agent_job(&config, &security, &job).await;
+        let (success, output) = Box::pin(run_agent_job(&config, &security, &job)).await;
         assert!(!success);
         assert!(output.contains("blocked by security policy"));
         assert!(output.contains("rate limit exceeded"));
@@ -1109,5 +1081,61 @@ mod tests {
         };
         let err = deliver_if_configured(&config, &job, "x").await.unwrap_err();
         assert!(err.to_string().contains("unsupported delivery channel"));
+    }
+
+    #[test]
+    fn resolve_matrix_delivery_room_prefers_target_when_present() {
+        assert_eq!(
+            resolve_matrix_delivery_room("!default:matrix.org", "  !ops:matrix.org  "),
+            "!ops:matrix.org"
+        );
+    }
+
+    #[test]
+    fn resolve_matrix_delivery_room_falls_back_to_configured_room() {
+        assert_eq!(
+            resolve_matrix_delivery_room("  !default:matrix.org  ", "   "),
+            "!default:matrix.org"
+        );
+    }
+
+    #[cfg(feature = "channel-matrix")]
+    #[tokio::test]
+    async fn deliver_if_configured_matrix_missing_config() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp).await;
+        let mut job = test_job("echo ok");
+        job.delivery = DeliveryConfig {
+            mode: "announce".into(),
+            channel: Some("matrix".into()),
+            to: Some("!ops:matrix.org".into()),
+            best_effort: false,
+        };
+
+        let err = deliver_if_configured(&config, &job, "hello")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("matrix channel not configured"));
+    }
+
+    #[cfg(not(feature = "channel-matrix"))]
+    #[tokio::test]
+    async fn deliver_if_configured_matrix_feature_disabled() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp).await;
+        let mut job = test_job("echo ok");
+        job.delivery = DeliveryConfig {
+            mode: "announce".into(),
+            channel: Some("matrix".into()),
+            to: Some("!ops:matrix.org".into()),
+            best_effort: false,
+        };
+
+        let err = deliver_if_configured(&config, &job, "hello")
+            .await
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("matrix delivery channel requires `channel-matrix` feature"));
     }
 }

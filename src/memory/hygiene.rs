@@ -328,11 +328,13 @@ fn date_prefix(filename: &str) -> Option<NaiveDate> {
     if filename.len() < 10 {
         return None;
     }
-    // Find a valid UTF-8 char boundary at or before byte 10 (MSRV 1.87.0-compatible).
-    let boundary = (0..=10)
-        .rev()
-        .find(|&i| filename.is_char_boundary(i))
-        .unwrap_or(0);
+    let boundary = {
+        let mut i = 10.min(filename.len());
+        while i > 0 && !filename.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    };
     NaiveDate::parse_from_str(&filename[..boundary], "%Y-%m-%d").ok()
 }
 

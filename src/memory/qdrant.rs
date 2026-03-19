@@ -236,7 +236,7 @@ impl Memory for QdrantMemory {
         self.ensure_initialized().await?;
 
         // Generate embedding for the content
-        let combined_text = format!("{key}\n{content}");
+        let combined_text = format!("{}\n{}", key, content);
         let embedding = self.embedder.embed_one(&combined_text).await?;
 
         if embedding.is_empty() {
@@ -560,7 +560,7 @@ impl Memory for QdrantMemory {
         let count = json
             .get("result")
             .and_then(|r| r.get("points_count"))
-            .and_then(serde_json::Value::as_u64)
+            .and_then(|c| c.as_u64())
             .unwrap_or(0);
 
         let count =

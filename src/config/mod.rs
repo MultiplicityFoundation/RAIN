@@ -1,29 +1,32 @@
-pub mod loader;
-pub mod proxy;
 pub mod schema;
 pub mod traits;
-
-#[allow(unused_imports)]
-pub use proxy::{
-    apply_runtime_proxy_to_builder, build_runtime_proxy_client,
-    build_runtime_proxy_client_with_timeouts, runtime_proxy_config, set_runtime_proxy_config,
-};
+pub mod workspace;
 
 #[allow(unused_imports)]
 pub use schema::{
-    AgentConfig, ArxivSearchConfig, AuditConfig, AutonomyConfig, BrowserComputerUseConfig,
-    BrowserConfig, BuiltinHooksConfig, ChannelsConfig, ClassificationRule, ComposioConfig, Config,
-    CostConfig, CronConfig, DelegateAgentConfig, DiscordConfig, DockerRuntimeConfig,
-    EmbeddingRouteConfig, EstopConfig, FeishuConfig, GatewayConfig, HardwareConfig,
-    HardwareTransport, HeartbeatConfig, HooksConfig, HttpRequestConfig, IMessageConfig,
-    IdentityConfig, LarkConfig, MatrixConfig, MemoryConfig, ModelRouteConfig, MultimodalConfig,
-    NextcloudTalkConfig, ObservabilityConfig, OtpConfig, OtpMethod, PeripheralBoardConfig,
-    PeripheralsConfig, ProxyConfig, ProxyScope, QdrantConfig, QueryClassificationConfig,
-    ReliabilityConfig, ResourceLimitsConfig, RuntimeConfig, SandboxBackend, SandboxConfig,
-    SchedulerConfig, SecretsConfig, SecurityConfig, SkillsConfig, SkillsPromptInjectionMode,
+    apply_runtime_proxy_to_builder, build_runtime_proxy_client,
+    build_runtime_proxy_client_with_timeouts, runtime_proxy_config, set_runtime_proxy_config,
+    AgentConfig, AssemblyAiSttConfig, AuditConfig, AutonomyConfig, BackupConfig,
+    BrowserComputerUseConfig, BrowserConfig, BuiltinHooksConfig, ChannelsConfig,
+    ClassificationRule, CloudOpsConfig, ComposioConfig, Config, ConversationalAiConfig, CostConfig,
+    CronConfig, DataRetentionConfig, DeepgramSttConfig, DelegateAgentConfig, DiscordConfig,
+    DockerRuntimeConfig, EdgeTtsConfig, ElevenLabsTtsConfig, EmbeddingRouteConfig, EstopConfig,
+    FeishuConfig, GatewayConfig, GoogleSttConfig, GoogleTtsConfig, GoogleWorkspaceConfig,
+    HardwareConfig, HardwareTransport, HeartbeatConfig, HooksConfig, HttpRequestConfig,
+    IMessageConfig, IdentityConfig, ImageProviderDalleConfig, ImageProviderFluxConfig,
+    ImageProviderImagenConfig, ImageProviderStabilityConfig, KnowledgeConfig, LarkConfig,
+    LinkedInConfig, LinkedInContentConfig, LinkedInImageConfig, MatrixConfig, McpConfig,
+    McpServerConfig, McpTransport, MemoryConfig, Microsoft365Config, ModelRouteConfig,
+    MultimodalConfig, NextcloudTalkConfig, NodeTransportConfig, NodesConfig, NotionConfig,
+    ObservabilityConfig, OpenAiSttConfig, OpenAiTtsConfig, OpenVpnTunnelConfig, OtpConfig,
+    OtpMethod, PeripheralBoardConfig, PeripheralsConfig, PluginsConfig, ProjectIntelConfig,
+    ProxyConfig, ProxyScope, QdrantConfig, QueryClassificationConfig, ReliabilityConfig,
+    ResourceLimitsConfig, RuntimeConfig, SandboxBackend, SandboxConfig, SchedulerConfig,
+    SecretsConfig, SecurityConfig, SecurityOpsConfig, SkillsConfig, SkillsPromptInjectionMode,
     SlackConfig, StorageConfig, StorageProviderConfig, StorageProviderSection, StreamMode,
-    TelegramConfig, TranscriptionConfig, TunnelConfig, WebFetchConfig, WebSearchConfig,
-    WebhookConfig,
+    SwarmConfig, SwarmStrategy, TelegramConfig, ToolFilterGroup, ToolFilterGroupMode,
+    TranscriptionConfig, TtsConfig, TunnelConfig, WebFetchConfig, WebSearchConfig, WebhookConfig,
+    WorkspaceConfig,
 };
 
 pub fn name_and_presence<T: traits::ChannelConfig>(channel: Option<&T>) -> (&'static str, bool) {

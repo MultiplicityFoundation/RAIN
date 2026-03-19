@@ -67,7 +67,7 @@ impl Tool for PdfReadTool {
 
         let max_chars = args
             .get("max_chars")
-            .and_then(serde_json::Value::as_u64)
+            .and_then(|v| v.as_u64())
             .map(|n| {
                 usize::try_from(n)
                     .unwrap_or(MAX_OUTPUT_CHARS)

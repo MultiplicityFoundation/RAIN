@@ -567,7 +567,7 @@ impl GeminiProvider {
 
         if let Ok(entries) = std::fs::read_dir(&home) {
             let mut extras: Vec<PathBuf> = entries
-                .filter_map(std::result::Result::ok)
+                .filter_map(|e| e.ok())
                 .filter_map(|e| {
                     let name = e.file_name().to_string_lossy().to_string();
                     if name.starts_with(".gemini-") && name.ends_with("-home") {
@@ -888,7 +888,7 @@ impl GeminiProvider {
                 // { model, project?, user_prompt_id?, request: { contents, systemInstruction?, generationConfig } }
                 let internal_request = InternalGenerateContentEnvelope {
                     model: Self::format_internal_model_name(model),
-                    project: project.map(std::string::ToString::to_string),
+                    project: project.map(|value| value.to_string()),
                     user_prompt_id: Some(uuid::Uuid::new_v4().to_string()),
                     request: InternalGenerateContentRequest {
                         contents: request.contents.clone(),
@@ -1128,13 +1128,14 @@ impl GeminiProvider {
         let usage = result.usage_metadata.map(|u| TokenUsage {
             input_tokens: u.prompt_token_count,
             output_tokens: u.candidates_token_count,
+            cached_input_tokens: None,
         });
 
         let text = result
             .candidates
             .and_then(|c| c.into_iter().next())
             .and_then(|c| c.content)
-            .and_then(CandidateContent::effective_text)
+            .and_then(|c| c.effective_text())
             .ok_or_else(|| anyhow::anyhow!("No response from Gemini"))?;
 
         Ok((text, usage))

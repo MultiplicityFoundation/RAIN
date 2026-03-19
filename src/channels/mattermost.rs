@@ -177,11 +177,7 @@ impl Channel for MattermostChannel {
             if let Some(posts) = data.get("posts").and_then(|p| p.as_object()) {
                 // Process in chronological order
                 let mut post_list: Vec<_> = posts.values().collect();
-                post_list.sort_by_key(|p| {
-                    p.get("create_at")
-                        .and_then(serde_json::Value::as_i64)
-                        .unwrap_or(0)
-                });
+                post_list.sort_by_key(|p| p.get("create_at").and_then(|c| c.as_i64()).unwrap_or(0));
 
                 for post in post_list {
                     let msg = self.parse_mattermost_post(
@@ -193,7 +189,7 @@ impl Channel for MattermostChannel {
                     );
                     let create_at = post
                         .get("create_at")
-                        .and_then(serde_json::Value::as_i64)
+                        .and_then(|c| c.as_i64())
                         .unwrap_or(last_create_at);
                     last_create_at = last_create_at.max(create_at);
 
@@ -285,10 +281,7 @@ impl MattermostChannel {
         let id = post.get("id").and_then(|i| i.as_str()).unwrap_or("");
         let user_id = post.get("user_id").and_then(|u| u.as_str()).unwrap_or("");
         let text = post.get("message").and_then(|m| m.as_str()).unwrap_or("");
-        let create_at = post
-            .get("create_at")
-            .and_then(serde_json::Value::as_i64)
-            .unwrap_or(0);
+        let create_at = post.get("create_at").and_then(|c| c.as_i64()).unwrap_or(0);
         let root_id = post.get("root_id").and_then(|r| r.as_str()).unwrap_or("");
 
         if user_id == bot_user_id || create_at <= last_create_at || text.is_empty() {
@@ -313,9 +306,9 @@ impl MattermostChannel {
         //   - Top-level post + thread_replies=true: thread on the original post.
         //   - Top-level post + thread_replies=false: reply at channel level.
         let reply_target = if !root_id.is_empty() {
-            format!("{channel_id}:{root_id}")
+            format!("{}:{}", channel_id, root_id)
         } else if self.thread_replies {
-            format!("{channel_id}:{id}")
+            format!("{}:{}", channel_id, id)
         } else {
             channel_id.to_string()
         };

@@ -2,6 +2,7 @@ mod cloudflare;
 mod custom;
 mod ngrok;
 mod none;
+mod openvpn;
 mod tailscale;
 
 pub use cloudflare::CloudflareTunnel;
@@ -9,6 +10,7 @@ pub use custom::CustomTunnel;
 pub use ngrok::NgrokTunnel;
 #[allow(unused_imports)]
 pub use none::NoneTunnel;
+pub use openvpn::OpenVpnTunnel;
 pub use tailscale::TailscaleTunnel;
 
 use crate::config::schema::{TailscaleTunnelConfig, TunnelConfig};
@@ -104,6 +106,20 @@ pub fn create_tunnel(config: &TunnelConfig) -> Result<Option<Box<dyn Tunnel>>> {
             ))))
         }
 
+        "openvpn" => {
+            let ov = config
+                .openvpn
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("tunnel.provider = \"openvpn\" but [tunnel.openvpn] section is missing"))?;
+            Ok(Some(Box::new(OpenVpnTunnel::new(
+                ov.config_file.clone(),
+                ov.auth_file.clone(),
+                ov.advertise_address.clone(),
+                ov.connect_timeout_secs,
+                ov.extra_args.clone(),
+            ))))
+        }
+
         "custom" => {
             let cu = config
                 .custom
@@ -116,7 +132,7 @@ pub fn create_tunnel(config: &TunnelConfig) -> Result<Option<Box<dyn Tunnel>>> {
             ))))
         }
 
-        other => bail!("Unknown tunnel provider: \"{other}\". Valid: none, cloudflare, tailscale, ngrok, custom"),
+        other => bail!("Unknown tunnel provider: \"{other}\". Valid: none, cloudflare, tailscale, ngrok, openvpn, custom"),
     }
 }
 
@@ -126,30 +142,10 @@ pub fn create_tunnel(config: &TunnelConfig) -> Result<Option<Box<dyn Tunnel>>> {
 mod tests {
     use super::*;
     use crate::config::schema::{
-        CloudflareTunnelConfig, CustomTunnelConfig, NgrokTunnelConfig, TunnelConfig,
+        CloudflareTunnelConfig, CustomTunnelConfig, NgrokTunnelConfig, OpenVpnTunnelConfig,
+        TunnelConfig,
     };
     use tokio::process::Command;
-
-    fn spawn_hold_child() -> tokio::process::Child {
-        #[cfg(windows)]
-        {
-            Command::new("cmd")
-                .args(["/d", "/s", "/c", "ping 127.0.0.1 -n 30 > nul"])
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .expect("cmd ping should spawn for lifecycle test")
-        }
-        #[cfg(not(windows))]
-        {
-            Command::new("sleep")
-                .arg("30")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .expect("sleep should spawn for lifecycle test")
-        }
-    }
 
     /// Helper: assert `create_tunnel` returns an error containing `needle`.
     fn assert_tunnel_err(cfg: &TunnelConfig, needle: &str) {
@@ -336,6 +332,46 @@ mod tests {
         assert!(t.public_url().is_none());
     }
 
+    #[test]
+    fn factory_openvpn_missing_config_errors() {
+        let cfg = TunnelConfig {
+            provider: "openvpn".into(),
+            ..TunnelConfig::default()
+        };
+        assert_tunnel_err(&cfg, "[tunnel.openvpn]");
+    }
+
+    #[test]
+    fn factory_openvpn_with_config_ok() {
+        let cfg = TunnelConfig {
+            provider: "openvpn".into(),
+            openvpn: Some(OpenVpnTunnelConfig {
+                config_file: "client.ovpn".into(),
+                auth_file: None,
+                advertise_address: None,
+                connect_timeout_secs: 30,
+                extra_args: vec![],
+            }),
+            ..TunnelConfig::default()
+        };
+        let t = create_tunnel(&cfg).unwrap();
+        assert!(t.is_some());
+        assert_eq!(t.unwrap().name(), "openvpn");
+    }
+
+    #[test]
+    fn openvpn_tunnel_name() {
+        let t = OpenVpnTunnel::new("client.ovpn".into(), None, None, 30, vec![]);
+        assert_eq!(t.name(), "openvpn");
+        assert!(t.public_url().is_none());
+    }
+
+    #[tokio::test]
+    async fn openvpn_health_false_before_start() {
+        let tunnel = OpenVpnTunnel::new("client.ovpn".into(), None, None, 30, vec![]);
+        assert!(!tunnel.health_check().await);
+    }
+
     #[tokio::test]
     async fn kill_shared_no_process_is_ok() {
         let proc = new_shared_process();
@@ -349,7 +385,12 @@ mod tests {
     async fn kill_shared_terminates_and_clears_child() {
         let proc = new_shared_process();
 
-        let child = spawn_hold_child();
+        let child = Command::new("sleep")
+            .arg("30")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("sleep should spawn for lifecycle test");
 
         {
             let mut guard = proc.lock().await;

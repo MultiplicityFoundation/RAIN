@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use directories::UserDirs;
 use parking_lot::Mutex;
 use reqwest::multipart::{Form, Part};
-use std::fmt::Write as FmtWrite;
+use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -93,7 +93,6 @@ fn split_message_for_telegram(message: &str) -> Vec<String> {
     chunks
 }
 
-#[allow(clippy::cast_possible_truncation)]
 fn pick_uniform_index(len: usize) -> usize {
     debug_assert!(len > 0);
     let upper = len as u64;
@@ -102,6 +101,7 @@ fn pick_uniform_index(len: usize) -> usize {
     loop {
         let value = rand::random::<u64>();
         if value < reject_threshold {
+            #[allow(clippy::cast_possible_truncation)]
             return (value % upper) as usize;
         }
     }
@@ -248,8 +248,6 @@ fn strip_tool_call_tags(message: &str) -> String {
     super::strip_tool_call_tags(message)
 }
 
-/// Find the position of the matching `]` for a substring starting just after
-/// `[`, handling nested brackets (e.g. filenames like `Video [G4PvTrTp7Tc].mp4`).
 fn find_matching_close(s: &str) -> Option<usize> {
     let mut depth = 1usize;
     for (i, ch) in s.char_indices() {
@@ -334,6 +332,13 @@ pub struct TelegramChannel {
     transcription: Option<crate::config::TranscriptionConfig>,
     voice_transcriptions: Mutex<std::collections::HashMap<String, String>>,
     workspace_dir: Option<std::path::PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EditMessageResult {
+    Success,
+    NotModified,
+    Failed(reqwest::StatusCode),
 }
 
 impl TelegramChannel {
@@ -542,6 +547,20 @@ impl TelegramChannel {
         format!("{}/bot{}/{method}", self.api_base, self.bot_token)
     }
 
+    async fn classify_edit_message_response(resp: reqwest::Response) -> EditMessageResult {
+        if resp.status().is_success() {
+            return EditMessageResult::Success;
+        }
+
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        if body.contains("message is not modified") {
+            return EditMessageResult::NotModified;
+        }
+
+        EditMessageResult::Failed(status)
+    }
+
     async fn fetch_bot_username(&self) -> anyhow::Result<String> {
         let resp = self.http_client().get(self.api_url("getMe")).send().await?;
 
@@ -732,7 +751,7 @@ impl TelegramChannel {
 
                         if let Some(identity) = bind_identity {
                             self.add_allowed_identity_runtime(&identity);
-                            match self.persist_allowed_identity(&identity).await {
+                            match Box::pin(self.persist_allowed_identity(&identity)).await {
                                 Ok(()) => {
                                     let _ = self
                                         .send(&SendMessage::new(
@@ -977,7 +996,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .map(|id| id.to_string());
 
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{chat_id}:{tid}")
+            format!("{}:{}", chat_id, tid)
         } else {
             chat_id.clone()
         };
@@ -1104,7 +1123,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             .map(|id| id.to_string());
 
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{chat_id}:{tid}")
+            format!("{}:{}", chat_id, tid)
         } else {
             chat_id.clone()
         };
@@ -1298,7 +1317,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
 
         // reply_target: chat_id or chat_id:thread_id format
         let reply_target = if let Some(ref tid) = thread_id {
-            format!("{chat_id}:{tid}")
+            format!("{}:{}", chat_id, tid)
         } else {
             chat_id.clone()
         };
@@ -1336,7 +1355,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         use base64::Engine as _;
 
         // Step 1: call getFile to get file_path
-        let get_file_url = self.api_url(&format!("getFile?file_id={file_id}"));
+        let get_file_url = self.api_url(&format!("getFile?file_id={}", file_id));
         let resp = self.http_client().get(&get_file_url).send().await?;
         let json: serde_json::Value = resp.json().await?;
         let file_path = json
@@ -1374,7 +1393,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
         .await??;
 
         let b64 = base64::engine::general_purpose::STANDARD.encode(&resized_bytes);
-        Ok(format!("data:image/jpeg;base64,{b64}"))
+        Ok(format!("data:image/jpeg;base64,{}", b64))
     }
 
     /// Convert Markdown to Telegram HTML format.
@@ -1519,8 +1538,7 @@ Allowlist Telegram username (without '@') or numeric user ID.",
             }
         }
         if in_code_block && !code_buf.is_empty() {
-            let escaped = code_buf.trim_end();
-            let _ = writeln!(final_out, "<pre><code>{escaped}</code></pre>");
+            let _ = writeln!(final_out, "<pre><code>{}</code></pre>", code_buf.trim_end());
         }
 
         final_out.trim_end_matches('\n').to_string()
@@ -1607,7 +1625,11 @@ Allowlist Telegram username (without '@') or numeric user ID.",
                 let plain_status = plain_resp.status();
                 let plain_err = plain_resp.text().await.unwrap_or_default();
                 anyhow::bail!(
-                    "Telegram sendMessage failed (markdown {markdown_status}: {markdown_err}; plain {plain_status}: {plain_err})"
+                    "Telegram sendMessage failed (markdown {}: {}; plain {}: {})",
+                    markdown_status,
+                    markdown_err,
+                    plain_status,
+                    plain_err
                 );
             }
 
@@ -2199,7 +2221,7 @@ impl Channel for TelegramChannel {
         let message_id = resp_json
             .get("result")
             .and_then(|r| r.get("message_id"))
-            .and_then(serde_json::Value::as_i64)
+            .and_then(|id| id.as_i64())
             .map(|id| id.to_string());
 
         self.last_draft_edit
@@ -2373,11 +2395,17 @@ impl Channel for TelegramChannel {
             .send()
             .await?;
 
-        if resp.status().is_success() {
-            return Ok(());
+        match Self::classify_edit_message_response(resp).await {
+            EditMessageResult::Success | EditMessageResult::NotModified => return Ok(()),
+            EditMessageResult::Failed(status) => {
+                tracing::debug!(
+                    status = ?status,
+                    "Telegram finalize_draft HTML edit failed; retrying without parse_mode"
+                );
+            }
         }
 
-        // Markdown failed — retry without parse_mode
+        // HTML failed — retry without parse_mode
         let plain_body = serde_json::json!({
             "chat_id": chat_id,
             "message_id": id,
@@ -2391,14 +2419,45 @@ impl Channel for TelegramChannel {
             .send()
             .await?;
 
-        if resp.status().is_success() {
-            return Ok(());
+        match Self::classify_edit_message_response(resp).await {
+            EditMessageResult::Success | EditMessageResult::NotModified => return Ok(()),
+            EditMessageResult::Failed(status) => {
+                tracing::warn!(
+                    status = ?status,
+                    "Telegram finalize_draft plain edit failed; attempting delete+send fallback"
+                );
+            }
         }
 
-        // Edit failed entirely — fall back to new message
-        tracing::warn!("Telegram finalize_draft edit failed; falling back to sendMessage");
-        self.send_text_chunks(text, &chat_id, thread_id.as_deref())
-            .await
+        let delete_resp = self
+            .client
+            .post(self.api_url("deleteMessage"))
+            .json(&serde_json::json!({
+                "chat_id": chat_id,
+                "message_id": id,
+            }))
+            .send()
+            .await;
+
+        match delete_resp {
+            Ok(resp) if resp.status().is_success() => {
+                self.send_text_chunks(text, &chat_id, thread_id.as_deref())
+                    .await
+            }
+            Ok(resp) => {
+                tracing::warn!(
+                    status = ?resp.status(),
+                    "Telegram finalize_draft delete failed; skipping sendMessage to avoid duplicate"
+                );
+                Ok(())
+            }
+            Err(err) => {
+                tracing::warn!(
+                    "Telegram finalize_draft delete request failed: {err}; skipping sendMessage to avoid duplicate"
+                );
+                Ok(())
+            }
+        }
     }
 
     async fn cancel_draft(&self, recipient: &str, message_id: &str) -> anyhow::Result<()> {
@@ -2626,7 +2685,7 @@ Ensure only one `zeroclaw` process is using this bot token."
                     } else if let Some(m) = self.try_parse_attachment_message(update).await {
                         m
                     } else {
-                        self.handle_unauthorized_message(update).await;
+                        Box::pin(self.handle_unauthorized_message(update)).await;
                         continue;
                     };
 
@@ -3839,9 +3898,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::format_collect)]
     fn telegram_split_many_short_lines() {
-        let msg: String = (0..1000).map(|i| format!("line {i}\n")).collect();
+        let msg: String = (0..1000).fold(String::new(), |mut acc, i| {
+            let _ = writeln!(acc, "line {i}");
+            acc
+        });
         let parts = split_message_for_telegram(&msg);
         for part in &parts {
             assert!(
@@ -4147,7 +4208,7 @@ mod tests {
     /// Skipped automatically when `GROQ_API_KEY` is not set.
     /// Run: `GROQ_API_KEY=<key> cargo test --lib -- telegram::tests::e2e_live_voice_transcription_and_reply_cache --ignored`
     #[tokio::test]
-    #[ignore = "requires GROQ_API_KEY"]
+    #[ignore = "requires GROQ_API_KEY environment variable"]
     async fn e2e_live_voice_transcription_and_reply_cache() {
         if std::env::var("GROQ_API_KEY").is_err() {
             eprintln!("GROQ_API_KEY not set — skipping live voice transcription test");

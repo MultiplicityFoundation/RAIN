@@ -202,9 +202,12 @@ impl Channel for DingTalkChannel {
                 }
                 "EVENT" | "CALLBACK" => {
                     // Parse the chatbot callback data from the frame.
-                    let Some(data) = Self::parse_stream_data(&frame) else {
-                        tracing::debug!("DingTalk: frame has no parseable data payload");
-                        continue;
+                    let data = match Self::parse_stream_data(&frame) {
+                        Some(v) => v,
+                        None => {
+                            tracing::debug!("DingTalk: frame has no parseable data payload");
+                            continue;
+                        }
                     };
 
                     // Extract message content

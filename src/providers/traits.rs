@@ -54,6 +54,9 @@ pub struct ToolCall {
 pub struct TokenUsage {
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
+    /// Tokens served from the provider's prompt cache (Anthropic `cache_read_input_tokens`,
+    /// OpenAI `prompt_tokens_details.cached_tokens`).
+    pub cached_input_tokens: Option<u64>,
 }
 
 /// An LLM response that may contain text, tool calls, or both.
@@ -233,6 +236,9 @@ pub struct ProviderCapabilities {
     pub native_tool_calling: bool,
     /// Whether the provider supports vision / image inputs.
     pub vision: bool,
+    /// Whether the provider supports prompt caching (Anthropic cache_control,
+    /// OpenAI automatic prompt caching).
+    pub prompt_caching: bool,
 }
 
 /// Provider-specific tool payload formats.
@@ -448,7 +454,7 @@ pub trait Provider: Send + Sync {
         let provider_name = "unknown".to_string();
 
         // Create a single empty chunk to indicate not supported
-        let chunk = StreamChunk::error(format!("{provider_name} does not support streaming"));
+        let chunk = StreamChunk::error(format!("{} does not support streaming", provider_name));
         stream::once(async move { Ok(chunk) }).boxed()
     }
 }
@@ -498,6 +504,7 @@ mod tests {
             ProviderCapabilities {
                 native_tool_calling: true,
                 vision: true,
+                prompt_caching: false,
             }
         }
 
@@ -568,6 +575,7 @@ mod tests {
             usage: Some(TokenUsage {
                 input_tokens: Some(100),
                 output_tokens: Some(50),
+                cached_input_tokens: None,
             }),
             reasoning_content: None,
         };
@@ -613,14 +621,17 @@ mod tests {
         let caps1 = ProviderCapabilities {
             native_tool_calling: true,
             vision: false,
+            prompt_caching: false,
         };
         let caps2 = ProviderCapabilities {
             native_tool_calling: true,
             vision: false,
+            prompt_caching: false,
         };
         let caps3 = ProviderCapabilities {
             native_tool_calling: false,
             vision: false,
+            prompt_caching: false,
         };
 
         assert_eq!(caps1, caps2);

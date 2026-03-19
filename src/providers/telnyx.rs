@@ -78,13 +78,13 @@ impl TelnyxProvider {
         let response = self
             .client
             .get(format!("{}/models", Self::BASE_URL))
-            .header("Authorization", format!("Bearer {api_key}"))
+            .header("Authorization", format!("Bearer {}", api_key))
             .send()
             .await?;
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            anyhow::bail!("Failed to list Telnyx models: {error}");
+            anyhow::bail!("Failed to list Telnyx models: {}", error);
         }
 
         let models_response: ModelsResponse = response.json().await?;
@@ -203,7 +203,7 @@ impl Provider for TelnyxProvider {
         let response = self
             .client
             .post(self.chat_url())
-            .header("Authorization", format!("Bearer {api_key}"))
+            .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -213,7 +213,7 @@ impl Provider for TelnyxProvider {
             let status = response.status();
             let error = response.text().await?;
             let sanitized = super::sanitize_api_error(&error);
-            anyhow::bail!("Telnyx API error ({status}): {sanitized}");
+            anyhow::bail!("Telnyx API error ({}): {}", status, sanitized);
         }
 
         let chat_response: ChatResponse = response.json().await?;
@@ -255,7 +255,7 @@ impl Provider for TelnyxProvider {
         let response = self
             .client
             .post(self.chat_url())
-            .header("Authorization", format!("Bearer {api_key}"))
+            .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -265,7 +265,7 @@ impl Provider for TelnyxProvider {
             let status = response.status();
             let error = response.text().await?;
             let sanitized = super::sanitize_api_error(&error);
-            anyhow::bail!("Telnyx API error ({status}): {sanitized}");
+            anyhow::bail!("Telnyx API error ({}): {}", status, sanitized);
         }
 
         let chat_response: ChatResponse = response.json().await?;

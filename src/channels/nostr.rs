@@ -276,7 +276,7 @@ impl Channel for NostrChannel {
             .relays()
             .await
             .values()
-            .any(nostr_sdk::Relay::is_connected)
+            .any(|r| r.is_connected())
     }
 }
 

@@ -79,8 +79,10 @@ impl AwsCredentials {
         anyhow::ensure!(!role.is_empty(), "No IAM role attached to this instance");
 
         // Step 3: get credentials for that role
-        let creds_url =
-            format!("http://169.254.169.254/latest/meta-data/iam/security-credentials/{role}");
+        let creds_url = format!(
+            "http://169.254.169.254/latest/meta-data/iam/security-credentials/{}",
+            role
+        );
         let creds_json: serde_json::Value = client
             .get(&creds_url)
             .header("X-aws-ec2-metadata-token", &token)
@@ -97,9 +99,7 @@ impl AwsCredentials {
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing SecretAccessKey in IMDS response"))?
             .to_string();
-        let session_token = creds_json["Token"]
-            .as_str()
-            .map(std::string::ToString::to_string);
+        let session_token = creds_json["Token"].as_str().map(|s| s.to_string());
 
         // Step 4: get region from instance identity document
         let region = match client
@@ -716,7 +716,7 @@ impl BedrockProvider {
                 }
                 // Non-data-uri image: just include as text reference
                 blocks.push(ContentBlock::Text(TextBlock {
-                    text: format!("[image: {src}]"),
+                    text: format!("[image: {}]", src),
                 }));
             } else {
                 // No closing bracket, treat rest as text
@@ -832,6 +832,7 @@ impl BedrockProvider {
         let usage = response.usage.map(|u| TokenUsage {
             input_tokens: u.input_tokens,
             output_tokens: u.output_tokens,
+            cached_input_tokens: None,
         });
 
         if let Some(output) = response.output {
@@ -967,6 +968,7 @@ impl Provider for BedrockProvider {
         ProviderCapabilities {
             native_tool_calling: true,
             vision: true,
+            prompt_caching: false,
         }
     }
 
@@ -1262,7 +1264,8 @@ mod tests {
         assert!(
             err.contains("credentials not set")
                 || err.contains("169.254.169.254")
-                || err.to_lowercase().contains("credential"),
+                || err.to_lowercase().contains("credential")
+                || err.to_lowercase().contains("builder error"),
             "Expected missing-credentials style error, got: {err}"
         );
     }

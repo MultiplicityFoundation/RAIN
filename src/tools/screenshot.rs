@@ -173,11 +173,10 @@ impl ScreenshotTool {
                 let size = bytes.len();
                 let mut encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 let truncated = if encoded.len() > MAX_BASE64_BYTES {
-                    // Find a valid UTF-8 char boundary at or before MAX_BASE64_BYTES (MSRV 1.87.0-compatible).
-                    let boundary = (0..=MAX_BASE64_BYTES)
-                        .rev()
-                        .find(|&i| encoded.is_char_boundary(i))
-                        .unwrap_or(0);
+                    let mut boundary = MAX_BASE64_BYTES.min(encoded.len());
+                    while boundary > 0 && !encoded.is_char_boundary(boundary) {
+                        boundary -= 1;
+                    }
                     encoded.truncate(boundary);
                     true
                 } else {
@@ -318,20 +317,11 @@ mod tests {
 
     #[test]
     fn screenshot_command_contains_output_path() {
-        let cmd = ScreenshotTool::screenshot_command("/tmp/my_screenshot.png");
-        if cfg!(any(target_os = "macos", target_os = "linux")) {
-            let joined = cmd
-                .expect("supported platforms should return command")
-                .join(" ");
-            assert!(
-                joined.contains("/tmp/my_screenshot.png"),
-                "Command should contain the output path"
-            );
-        } else {
-            assert!(
-                cmd.is_none(),
-                "unsupported platforms should not advertise a screenshot command"
-            );
-        }
+        let cmd = ScreenshotTool::screenshot_command("/tmp/my_screenshot.png").unwrap();
+        let joined = cmd.join(" ");
+        assert!(
+            joined.contains("/tmp/my_screenshot.png"),
+            "Command should contain the output path"
+        );
     }
 }
