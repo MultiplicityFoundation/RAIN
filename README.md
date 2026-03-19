@@ -31,10 +31,6 @@ hero:
   <img src="https://img.shields.io/badge/rust-1.87+%20(optional)-dea584?style=flat-square&logo=rust" alt="Rust (optional)" />
 </p>
 
-<p 
-  <a href="https://github.com/topherchris420/james_library/actions/workflows/deploy-docs.yml"><img src="https://github.com/topherchris420/james_library/actions/workflows/deploy-docs.yml/badge.svg?branch=main" alt="Docs" /></a>
-  <a href="https://github.com/topherchris420/james_library/actions/workflows/sec-audit.yml"><img src="https://github.com/topherchris420/james_library/actions/workflows/sec-audit.yml/badge.svg?branch=main" alt="Security Audit" /></a>
-</p>
 
 <p align="center">
   <a href="https://deepwiki.com/topherchris420/james_library"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
