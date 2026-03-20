@@ -264,6 +264,7 @@ Once installed, here are the most common things you can do:
 | **Guided first-time setup** | `python rain_lab.py --mode first-run` |
 | **Chat about a specific topic** | `python rain_lab.py --mode chat --topic "your research topic"` |
 | **Run a lab meeting** (multi-agent debate) | `python rain_lab.py --mode rlm` |
+| **Try the 3D Avatar experience** | `python deploy.py --install-godot-client` then `python rain_lab.py --mode chat --ui on` |
 | **Check if everything is working** | `python rain_lab.py --mode validate` |
 | **See detected AI models** | `python rain_lab.py --mode models` |
 | **Health check** | `python rain_lab.py --mode health` |
