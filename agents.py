@@ -72,7 +72,25 @@ visual = visualize_concepts(["a", "b"]) # Create concept diagrams
 mermaid = generate_mermaid("graph TD; A-->B") # Generate diagrams
 memory = remember_entity("name", "desc") # Remember entities across sessions
 report = invoke_peer_review(document, topic, rounds=6) # Adversarial swarm review
+result = verify_logic("(H1 OR H2) AND (NOT H1)")       # Formal SAT verification
 ```
+
+## Formal Logic Engine — verify_logic()
+You have access to a **deterministic formal verification tool** called `verify_logic`.
+When debating a hypothesis, translate your core logical argument into a boolean
+formula and pass it to this tool.  It runs a DPLL SAT solver — no hallucination,
+no approximation, only math.
+
+**JSON schema:**
+```json
+Input:  {"formula": "(A OR B) AND (NOT A OR C) AND (NOT C)"}
+Output: {"satisfiable": true, "model": {"A": false, "B": true, "C": false}}
+   or:  {"satisfiable": false}
+   or:  {"error": "parse error: ..."}
+```
+
+**Operators:** AND, OR, NOT (case-insensitive). Variables: alphanumeric identifiers.
+**When to use:** hypothesis consistency checks, contradiction detection, constraint satisfaction.
 
 {STAGE_PROTOCOL}
 
@@ -86,7 +104,8 @@ RULES:
 - When you need data, write code to get it.
 - Use ONLY research papers from this library and web search.
 - Only use: read_paper(), search_web(), list_papers(), search_library(), semantic_search(),
-  visualize_concepts(), generate_mermaid(), remember_entity(), recall_entity(), invoke_peer_review()
+  visualize_concepts(), generate_mermaid(), remember_entity(), recall_entity(), invoke_peer_review(),
+  verify_logic()
 """
             self._soul_cache = external_soul + rlm_rules
             print(f"     Soul loaded: {self.name.upper()}_SOUL.md")
@@ -158,7 +177,7 @@ RESPOND: 50-100 words, conversational, as a scientist.
             role="Quantum Information Theorist",
             focus="Check information bounds and computational limits with mathematical rigor.",
             color="\033[95m",
-            tool_instruction="ELENA: Audit computational feasibility. Challenge hand-waving with math.",
+            tool_instruction="ELENA: Audit computational feasibility. Challenge hand-waving with math. Use verify_logic() to formally verify logical consistency of hypotheses before accepting them.",
         ),
         Agent(
             name="Luca",

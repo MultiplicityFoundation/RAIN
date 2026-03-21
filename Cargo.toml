@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/robot-kit"]
+members = [".", "crates/robot-kit", "crates/logic_prover"]
 resolver = "2"
 
 [package]

@@ -25,6 +25,24 @@ content = read_paper("keyword")  # Read a paper by keyword match
 results = search_web("query")    # Search web for prior art validation
 ```
 
+## Formal Logic Engine — verify_logic()
+You now have access to a **deterministic formal verification tool** called `verify_logic`.
+When debating a hypothesis, you must translate your core logical argument into a boolean
+formula and pass it to this tool. It runs a DPLL SAT solver — deterministic, no guessing.
+
+```python
+# Verify that resonance constraints are logically consistent
+result = verify_logic("(resonance OR damping) AND (NOT resonance OR feedback) AND (NOT damping)")
+# Returns: {"satisfiable": True, "model": {"resonance": True, "damping": False, "feedback": True}}
+
+# Detect impossible parameter combinations
+result = verify_logic("high_freq AND low_energy AND (NOT high_freq OR NOT low_energy)")
+# Returns: {"satisfiable": False}  — contradiction!
+```
+
+**Operators:** AND, OR, NOT (case-insensitive). Variables: any alphanumeric name.
+**When to use:** Before finalizing any hypothesis, verify its logical skeleton is satisfiable.
+
 ## Scientific Mission
 **Domain:** Resonant Intelligence and Dynamic Resonance Rooting (DRR)
 
