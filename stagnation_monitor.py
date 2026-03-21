@@ -2,13 +2,21 @@
 
 Prevents agents from falling into agreement loops or hallucination spirals
 by tracking content similarity and novelty variance across meeting turns.
+
+When stagnation is detected and a HypothesisTree is attached, the Circuit
+Breaker intervention can formally evaluate the contested argument via the
+logic_prover WASM plugin and inject a deterministic SYSTEM_OVERRIDE verdict.
 """
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -17,6 +25,7 @@ class MonitorVerdict:
 
     is_dead_end: bool = False
     is_stagnant: bool = False
+    is_circuit_breaker: bool = False
     intervention_prompt: str | None = None
 
 
@@ -159,9 +168,18 @@ _DEAD_END_INTERVENTION = (
 class StagnationMonitor:
     """Unified facade that combines dead-end and stagnation detection.
 
+    When a ``hypothesis_tree`` is attached the monitor will engage the
+    Circuit Breaker on stagnation: it pauses the agents, extracts the
+    contested hypothesis, evaluates it through the logic_prover WASM
+    plugin, and injects the deterministic result as a SYSTEM_OVERRIDE.
+
     Usage::
 
-        monitor = StagnationMonitor()
+        from hypothesis_tree import HypothesisTree
+        tree = HypothesisTree()
+        tree.add_root("Resonance at 432 Hz on steel plate")
+
+        monitor = StagnationMonitor(hypothesis_tree=tree)
         verdict = monitor.check(agent_response_text)
         if verdict.intervention_prompt:
             history_log.append(verdict.intervention_prompt)
@@ -176,6 +194,9 @@ class StagnationMonitor:
         stagnation_window: int = 5,
         stagnation_variance: float = 0.01,
         stagnation_mean: float = 0.15,
+        hypothesis_tree: Any | None = None,
+        circuit_breaker_node_id: int | None = None,
+        runtime_api_url: str | None = None,
     ) -> None:
         self._dead_end = DeadEndDetector(
             window_size=dead_end_window,
@@ -187,26 +208,93 @@ class StagnationMonitor:
             variance_threshold=stagnation_variance,
             mean_threshold=stagnation_mean,
         )
+        self._hypothesis_tree = hypothesis_tree
+        self._circuit_breaker_node_id = circuit_breaker_node_id
+        self._runtime_api_url = runtime_api_url
+
+    # -- Public API ---------------------------------------------------------
+
+    @property
+    def hypothesis_tree(self) -> Any | None:
+        return self._hypothesis_tree
+
+    @hypothesis_tree.setter
+    def hypothesis_tree(self, tree: Any | None) -> None:
+        self._hypothesis_tree = tree
+
+    @property
+    def circuit_breaker_node_id(self) -> int | None:
+        return self._circuit_breaker_node_id
+
+    @circuit_breaker_node_id.setter
+    def circuit_breaker_node_id(self, node_id: int | None) -> None:
+        self._circuit_breaker_node_id = node_id
 
     def check(self, response: str) -> MonitorVerdict:
-        """Evaluate a single agent response and return a verdict."""
+        """Evaluate a single agent response and return a verdict.
+
+        When stagnation or a dead-end is detected AND a hypothesis_tree
+        is attached, the Circuit Breaker fires instead of the generic
+        intervention prompt.
+        """
         is_dead = self._dead_end.check(response)
         is_stagnant = self._stagnation.check(response)
 
-        if is_dead:
-            return MonitorVerdict(
-                is_dead_end=True,
-                is_stagnant=is_stagnant,
-                intervention_prompt=_DEAD_END_INTERVENTION,
-            )
-        if is_stagnant:
+        if is_dead or is_stagnant:
+            # Attempt circuit breaker if hypothesis tree is available.
+            if self._hypothesis_tree is not None:
+                cb_verdict = self._run_circuit_breaker()
+                if cb_verdict is not None:
+                    return cb_verdict
+
+            # Fallback to original generic interventions.
+            if is_dead:
+                return MonitorVerdict(
+                    is_dead_end=True,
+                    is_stagnant=is_stagnant,
+                    intervention_prompt=_DEAD_END_INTERVENTION,
+                )
             return MonitorVerdict(
                 is_stagnant=True,
                 intervention_prompt=_DEFAULT_INTERVENTION,
             )
+
         return MonitorVerdict()
 
     def reset(self) -> None:
         """Clear all internal state (e.g. between meeting sessions)."""
         self._dead_end.reset()
         self._stagnation.reset()
+
+    # -- Circuit Breaker (private) ------------------------------------------
+
+    def _run_circuit_breaker(self) -> MonitorVerdict | None:
+        """Invoke the circuit breaker pipeline and return a verdict.
+
+        Returns None if the circuit breaker cannot run (e.g. parse failure),
+        letting the caller fall through to the generic intervention.
+        """
+        try:
+            from circuit_breaker import run_circuit_breaker
+
+            cb = run_circuit_breaker(
+                self._hypothesis_tree,
+                node_id=self._circuit_breaker_node_id,
+                runtime_api_url=self._runtime_api_url,
+            )
+
+            if cb.triggered:
+                logger.info("Circuit Breaker engaged — injecting SYSTEM_OVERRIDE")
+                return MonitorVerdict(
+                    is_dead_end=True,
+                    is_stagnant=True,
+                    is_circuit_breaker=True,
+                    intervention_prompt=cb.override_message,
+                )
+            else:
+                logger.debug("Circuit Breaker declined: %s", cb.override_message)
+                return None
+
+        except Exception as exc:
+            logger.warning("Circuit Breaker failed, falling back to generic intervention: %s", exc)
+            return None
