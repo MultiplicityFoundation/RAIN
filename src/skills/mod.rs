@@ -562,7 +562,7 @@ struct ParsedSkillMarkdown {
 
 fn parse_skill_markdown(content: &str) -> ParsedSkillMarkdown {
     if let Some((frontmatter, body)) = split_skill_frontmatter(content) {
-        if let Ok(meta) = serde_yaml::from_str::<SkillMarkdownMeta>(&frontmatter) {
+        if let Some(meta) = parse_yaml_frontmatter(&frontmatter) {
             return ParsedSkillMarkdown { meta, body };
         }
     }
@@ -570,6 +570,70 @@ fn parse_skill_markdown(content: &str) -> ParsedSkillMarkdown {
     ParsedSkillMarkdown {
         meta: SkillMarkdownMeta::default(),
         body: content.to_string(),
+    }
+}
+
+/// Lightweight YAML frontmatter parser for simple key-value pairs.
+/// Replaces the `serde_yaml` dependency which is deprecated/archived.
+/// Handles the subset of YAML used by skill markdown: scalar values and
+/// a single `tags` list field.
+fn parse_yaml_frontmatter(frontmatter: &str) -> Option<SkillMarkdownMeta> {
+    let mut meta = SkillMarkdownMeta::default();
+    let mut in_tags = false;
+
+    for line in frontmatter.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        // Collect list items when inside `tags:` block
+        if in_tags {
+            if let Some(item) = trimmed.strip_prefix("- ") {
+                meta.tags.push(unquote_yaml_value(item.trim()));
+                continue;
+            }
+            in_tags = false;
+        }
+
+        if let Some((key, value)) = trimmed.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
+
+            match key {
+                "name" => meta.name = Some(unquote_yaml_value(value)),
+                "description" => meta.description = Some(unquote_yaml_value(value)),
+                "version" => meta.version = Some(unquote_yaml_value(value)),
+                "author" => meta.author = Some(unquote_yaml_value(value)),
+                "tags" => {
+                    if value.is_empty() {
+                        // Block-style list follows on next lines
+                        in_tags = true;
+                    } else if let Some(inline) = value.strip_prefix('[') {
+                        // Inline list: tags: [a, b, c]
+                        let inline = inline.trim_end_matches(']');
+                        meta.tags = inline
+                            .split(',')
+                            .map(|s| unquote_yaml_value(s.trim()))
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Some(meta)
+}
+
+/// Strip surrounding single or double quotes from a YAML value.
+fn unquote_yaml_value(s: &str) -> String {
+    let s = s.trim();
+    if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
+        s[1..s.len() - 1].to_string()
+    } else {
+        s.to_string()
     }
 }
 

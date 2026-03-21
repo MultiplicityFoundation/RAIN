@@ -5,6 +5,8 @@ pub mod dispatcher;
 pub mod loop_;
 pub mod memory_loader;
 pub mod prompt;
+pub(crate) mod tool_call_parser;
+pub(crate) mod tool_filter;
 
 #[cfg(test)]
 mod tests;
