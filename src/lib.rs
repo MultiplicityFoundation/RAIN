@@ -62,9 +62,9 @@ pub(crate) mod multimodal;
 pub mod nodes;
 pub mod observability;
 pub(crate) mod onboard;
-pub mod peripherals;
 #[cfg(feature = "p2p")]
 pub mod p2p;
+pub mod peripherals;
 pub mod providers;
 pub mod rag;
 pub mod runtime;
@@ -73,7 +73,7 @@ pub(crate) mod service;
 pub(crate) mod skills;
 pub mod tools;
 pub(crate) mod tunnel;
-pub(crate) mod util;
+pub mod util;
 
 #[cfg(feature = "plugins-wasm")]
 pub mod plugins;

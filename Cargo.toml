@@ -208,7 +208,7 @@ wa-rs-tokio-transport = { version = "0.2", optional = true, default-features = f
 
 # P2P Networking (libp2p) — enable with --features p2p
 libp2p = { version = "0.55", default-features = false, features = [
-    "tcp", "noise", "yamux", "gossipsub", "kademlia", "mdns", "ping", "autonat", "relay", "dcutr", "identify", "serde_json"
+    "tcp", "noise", "yamux", "gossipsub", "kad", "mdns", "ping", "autonat", "relay", "dcutr", "identify", "json"
 ], optional = true }
 
 # Raspberry Pi GPIO / Landlock (Linux only) — target-specific to avoid compile failure on macOS
@@ -221,7 +221,7 @@ landlock = { version = "0.4", optional = true }
 libc = "0.2"
 
 [features]
-default = ["observability-prometheus", "channel-nostr", "skill-creation"]
+default = ["observability-prometheus", "channel-nostr"]
 channel-nostr = ["dep:nostr-sdk"]
 hardware = ["nusb", "tokio-serial"]
 channel-matrix = ["dep:matrix-sdk"]
@@ -252,6 +252,7 @@ whatsapp-web = ["dep:wa-rs", "dep:wa-rs-core", "dep:wa-rs-binary", "dep:wa-rs-pr
 plugins-wasm = ["dep:extism"]
 # P2P networking with libp2p (gossipsub, kademlia, mDNS, ping, relay)
 p2p = ["dep:libp2p"]
+test-wiremock = []
 
 [profile.release]
 opt-level = "z"      # Optimize for size

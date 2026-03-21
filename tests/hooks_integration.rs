@@ -24,7 +24,6 @@ impl HookHandler for CounterHook {
     async fn on_after_tool_call(
         &self,
         _tool: &str,
-        _args: &serde_json::Value,
         _result: &ToolResult,
         _duration: Duration,
     ) {
@@ -98,7 +97,6 @@ async fn hook_runner_full_pipeline() {
     runner
         .fire_after_tool_call(
             "safe_tool",
-            &serde_json::json!({}),
             &tool_result,
             Duration::from_millis(10),
         )

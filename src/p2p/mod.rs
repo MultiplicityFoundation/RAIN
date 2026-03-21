@@ -18,21 +18,14 @@ use libp2p::{
     identify::{Behaviour as IdentifyBehaviour, Config as IdentifyConfig, Event as IdentifyEvent},
     identity,
     kad::{
-        store::MemoryStore,
-        Behaviour as Kademlia,
-        Event as KademliaEvent,
-        KBucketKey,
-        PeerRecord,
+        store::MemoryStore, Behaviour as Kademlia, Event as KademliaEvent, KBucketKey, PeerRecord,
         RecordKey,
     },
     mdns::{Behaviour as MdnsBehaviour, Event as MdnsEvent},
     multiaddr::Protocol,
     noise,
     ping::{Behaviour as PingBehaviour, Config as PingConfig, Event as PingEvent, Priority},
-    relay::{
-        client::Behaviour as RelayClient,
-        Event as RelayEvent,
-    },
+    relay::{client::Behaviour as RelayClient, Event as RelayEvent},
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };

@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 
 fn benchmark_truncate_with_ellipsis(c: &mut Criterion) {
     let long_text = "x".repeat(8_192);
