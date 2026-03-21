@@ -61,7 +61,7 @@ All you need to know is the **R.A.I.N. Lab**. Everything else just works.
 
 ## Why R.A.I.N. Lab?
 
-* **Runs on almost anything:** The core engine is a tiny 3.1 MB program that works on laptops, desktops, and even low-powered devices.
+* **Runs on almost anything:** The core engine is ZeroClaw, a 3.1 MB program that works on laptops, desktops, and even low-powered devices.
 * **Your data stays on your machine:** All conversations and files are stored locally with strong encryption. Nothing is sent to the cloud unless you choose to connect a cloud AI provider.
 * **Extensible with plugins:** If you need the AI to use a custom math solver or physics engine, you can drop it in as a plugin — no restart required.
 * **Two languages, best of both worlds:** Python handles the AI conversations and research workflows; Rust handles the fast, security-critical parts like verification and networking.
