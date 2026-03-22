@@ -3,10 +3,10 @@ R.A.I.N. LAB PRE-FLIGHT DIAGNOSTIC
 Verifies all prerequisites before running rain_lab_meeting.py
 """
 
-import sys
-import os
 import glob
 import io
+import os
+import sys
 
 # Force UTF-8 for Windows consoles
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -184,8 +184,9 @@ for package_name, import_names in dependency_groups.items():
 print(f"\n{BOLD}[6/7] Checking LM Studio API...{RESET}")
 
 try:
-    import requests
     import json
+
+    import requests
 
     api_url = "http://127.0.0.1:1234/v1/models"
 

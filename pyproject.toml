@@ -11,7 +11,8 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Catch style, bugs, and unused code; remaining ignores are justified below
+# Stage 0 baseline: keep the repo on stable pycodestyle/pyflakes coverage.
+# Stage 1 maintainability rollout is enforced in CI on an allowlist via `--select I,UP`.
 select = ["E", "F", "W"]
 ignore = [
     "E402",   # module-level import not at top — scripts do sys.path manipulation
@@ -23,6 +24,39 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Prompt template file: all long lines are natural-language prompt strings
 "graph_r1_engine/graphr1/prompt.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+pretty = true
+show_error_codes = true
+warn_unused_configs = true
+files = [
+    "truth_layer.py",
+    "rain_preflight_check.py",
+]
+
+[[tool.mypy.overrides]]
+module = ["rlm"]
+ignore_missing_imports = true
+
+[tool.rain.python_validation]
+ruff_stage_0_rules = ["E", "F", "W"]
+ruff_stage_1_rules = ["I", "UP"]
+ruff_stage_1_allowlist = [
+    "rain_lab.py",
+    "rain_preflight_check.py",
+    "tools.py",
+    "truth_layer.py",
+]
+ruff_stage_2_candidate_rules = ["B"]
+static_typing_stage_1_allowlist = [
+    "truth_layer.py",
+    "rain_preflight_check.py",
+]
+static_typing_stage_2_allowlist = [
+    "rain_lab.py",
+    "tools.py",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
