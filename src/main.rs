@@ -21,6 +21,7 @@
     clippy::similar_names,
     clippy::single_match_else,
     clippy::struct_field_names,
+    clippy::too_many_lines,
     clippy::uninlined_format_args,
     clippy::unused_self,
     clippy::cast_precision_loss,
