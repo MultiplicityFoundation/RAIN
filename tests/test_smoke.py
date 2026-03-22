@@ -1,6 +1,6 @@
-# Tests for R.A.I.N. repo — smoke-test that every top-level script
-# can at least be *parsed and imported* without raising SyntaxError
-# or crashing at module level on a headless Linux CI box.
+"""Smoke tests for top-level wrappers and packaged Python modules."""
+
+from __future__ import annotations
 
 import subprocess
 import sys
@@ -10,69 +10,64 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+ROOT_SCRIPTS = [
+    "rain_lab.py",
+    "meeting_workflow.py",
+    "swarm_orchestrator.py",
+    "rain_preflight_check.py",
+    "rain_first_run.py",
+    "deploy.py",
+    "openclaw_service.py",
+    "external_integrations.py",
+    "tools.py",
+    "truth_layer.py",
+    "library_compiler.py",
+]
 
-def _compile_check(script: Path) -> None:
-    """Compile the file to bytecode — catches SyntaxError early."""
-    source = script.read_text(encoding="utf-8", errors="replace")
-    compile(source, str(script), "exec")
+PACKAGE_MODULES = [
+    "james_library.launcher.rain_lab",
+    "james_library.launcher.meeting_workflow",
+    "james_library.launcher.swarm_orchestrator",
+    "james_library.bootstrap.rain_preflight_check",
+    "james_library.bootstrap.rain_first_run",
+    "james_library.bootstrap.deploy",
+    "james_library.services.openclaw_service",
+    "james_library.services.external_integrations",
+    "james_library.utilities.tools",
+    "james_library.utilities.truth_layer",
+    "james_library.utilities.library_compiler",
+]
 
 
-# ------------------------------------------------------------------
-# 1. Syntax / compile checks for every .py at the repo root
-# ------------------------------------------------------------------
+def _compile_check(path: Path) -> None:
+    source = path.read_text(encoding="utf-8", errors="replace")
+    compile(source, str(path), "exec")
+
+
 class TestSyntax:
-    """Every top-level .py file must be valid Python."""
+    @pytest.mark.parametrize("script_name", ROOT_SCRIPTS)
+    def test_root_wrapper_compiles(self, script_name: str) -> None:
+        _compile_check(REPO_ROOT / script_name)
 
-    def test_rain_preflight_check_compiles(self):
-        _compile_check(REPO_ROOT / "rain_preflight_check.py")
-
-    def test_rain_lab_meeting_compiles(self):
-        _compile_check(REPO_ROOT / "rain_lab_meeting.py")
-
-    def test_rain_lab_meeting_chat_version_compiles(self):
-        _compile_check(REPO_ROOT / "rain_lab_meeting_chat_version.py")
-
-    def test_rain_lab_compiles(self):
-        _compile_check(REPO_ROOT / "rain_lab.py")
-
-    def test_chat_with_james_compiles(self):
-        _compile_check(REPO_ROOT / "chat_with_james.py")
-
-    def test_hello_os_executable_compiles(self):
-        _compile_check(REPO_ROOT / "hello_os_executable.py")
-
-    def test_hello_os_compiles(self):
-        # hello_os.py is a Colab export with !pip shell magic lines;
-        # it is valid for Colab/IPython but not plain CPython.
-        pytest.skip("hello_os.py is a Colab notebook export with shell magic")
+    @pytest.mark.parametrize("module_name", PACKAGE_MODULES)
+    def test_packaged_module_compiles(self, module_name: str) -> None:
+        module_path = REPO_ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+        _compile_check(module_path)
 
 
-# ------------------------------------------------------------------
-# 2. Importability — scripts that guard heavy deps behind
-#    `--help` / try-except should survive a subprocess import.
-# ------------------------------------------------------------------
 class TestImport:
-    """Verify scripts don't crash on import in a subprocess."""
-
     @staticmethod
-    def _import_in_subprocess(script_name: str) -> None:
-        """Import *script_name* (stem) in a fresh subprocess.
-
-        We set JAMES_LIBRARY_PATH to the repo root so path probing
-        succeeds on Linux CI.
-        """
+    def _import_module(module_name: str) -> None:
         result = subprocess.run(
             [
                 sys.executable,
                 "-c",
                 (
-                    "import sys, os; "
+                    "import importlib, os, sys; "
                     f"sys.path.insert(0, {str(REPO_ROOT)!r}); "
                     "os.environ.setdefault('JAMES_LIBRARY_PATH', "
                     f"{str(REPO_ROOT)!r}); "
-                    f"compile(open({str(REPO_ROOT / (script_name + '.py'))!r}, "
-                    "encoding='utf-8', errors='replace').read(), "
-                    f"'{script_name}.py', 'exec')"
+                    f"importlib.import_module({module_name!r})"
                 ),
             ],
             capture_output=True,
@@ -80,30 +75,30 @@ class TestImport:
             timeout=30,
         )
         assert result.returncode == 0, (
-            f"Script {script_name}.py failed to compile:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            f"Module {module_name} failed to import:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
 
-    def test_rain_lab_imports(self):
-        self._import_in_subprocess("rain_lab")
+    @pytest.mark.parametrize(
+        "module_name",
+        [
+            "james_library.launcher.rain_lab",
+            "james_library.utilities.library_compiler",
+            "james_library.services.external_integrations",
+        ],
+    )
+    def test_packaged_module_imports(self, module_name: str) -> None:
+        self._import_module(module_name)
 
-    def test_hello_os_executable_imports(self):
-        self._import_in_subprocess("hello_os_executable")
 
-
-# ------------------------------------------------------------------
-# 3. Preflight path parameterisation — the critical CI-blocker fix
-# ------------------------------------------------------------------
 class TestPreflightPath:
-    """rain_preflight_check.py must NOT contain a hardcoded Windows path."""
-
-    def test_no_hardcoded_windows_path(self):
-        source = (REPO_ROOT / "rain_preflight_check.py").read_text(encoding="utf-8")
-        assert r"C:\Users" not in source, (
-            "rain_preflight_check.py still contains a hardcoded Windows path — parameterise via JAMES_LIBRARY_PATH"
+    def test_no_hardcoded_windows_path(self) -> None:
+        source = (REPO_ROOT / "james_library" / "bootstrap" / "rain_preflight_check.py").read_text(
+            encoding="utf-8"
         )
+        assert r"C:\Users" not in source
 
-    def test_uses_env_var(self):
-        source = (REPO_ROOT / "rain_preflight_check.py").read_text(encoding="utf-8")
-        assert "JAMES_LIBRARY_PATH" in source, (
-            "rain_preflight_check.py should read JAMES_LIBRARY_PATH from the environment"
+    def test_uses_env_var(self) -> None:
+        source = (REPO_ROOT / "james_library" / "bootstrap" / "rain_preflight_check.py").read_text(
+            encoding="utf-8"
         )
+        assert "JAMES_LIBRARY_PATH" in source

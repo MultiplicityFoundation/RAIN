@@ -1,11 +1,7 @@
-import sys
 from pathlib import Path
 
-# Ensure the repo root is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import rain_lab as rain_launcher
-from rain_lab import (
+import james_library.launcher.rain_lab as rain_launcher
+from james_library.launcher.rain_lab import (
     _build_sidecar_specs,
     _resolve_launcher_log_path,
     build_command,
