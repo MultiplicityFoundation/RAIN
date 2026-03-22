@@ -166,15 +166,13 @@ enum NodeMessage {
 /// Messages sent to a node.
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[allow(dead_code)] // variants used in serialization and tests
 enum GatewayMessage {
     Registered {
         node_id: String,
         capabilities_count: usize,
     },
-    Error {
-        message: String,
-    },
+    #[allow(dead_code)] // protocol message variant kept for serialized gateway errors
+    Error { message: String },
     Invoke {
         call_id: String,
         capability: String,
