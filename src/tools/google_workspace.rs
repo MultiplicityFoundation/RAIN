@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Default `gws` command execution time before kill (overridden by config).
-#[allow(dead_code)] // used in tests
+#[allow(dead_code)] // referenced from test module only
 const DEFAULT_GWS_TIMEOUT_SECS: u64 = 30;
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;

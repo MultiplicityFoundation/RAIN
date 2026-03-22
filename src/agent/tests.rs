@@ -60,10 +60,6 @@ impl ScriptedProvider {
         }
     }
 
-    #[allow(dead_code)]
-    fn request_count(&self) -> usize {
-        self.requests.lock().unwrap().len()
-    }
 }
 
 #[async_trait]

@@ -91,7 +91,7 @@ impl HttpRequestTool {
         result
     }
 
-    #[allow(dead_code)] // used in tests
+    #[allow(dead_code)] // called from test module only
     fn redact_headers_for_display(headers: &[(String, String)]) -> Vec<(String, String)> {
         headers
             .iter()
