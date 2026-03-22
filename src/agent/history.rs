@@ -146,8 +146,8 @@ pub(crate) async fn auto_compact_history(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct InteractiveSessionState {
-    version: u32,
-    history: Vec<ChatMessage>,
+    pub(crate) version: u32,
+    pub(crate) history: Vec<ChatMessage>,
 }
 
 impl InteractiveSessionState {
