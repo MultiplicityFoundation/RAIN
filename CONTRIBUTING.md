@@ -30,6 +30,9 @@ contributor—human or bot—must follow before code lands on `dev`.
 - Must not introduce regressions—existing tests must stay green.
 - Large changes should be broken into reviewable chunks (< 400 lines diff
   where practical).
+- Keep orchestrator modules as thin coordinators when refactoring: target
+  **< 800 lines** for top-level orchestrators and **< 400 lines** for helper
+  modules as a soft limit (not a hard gate).
 
 ---
 

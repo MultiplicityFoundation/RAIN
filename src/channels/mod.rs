@@ -19,7 +19,10 @@ pub mod clawdtalk;
 pub mod cli;
 pub mod dingtalk;
 pub mod discord;
+mod dispatch;
 pub mod email_channel;
+mod factory;
+mod health;
 mod history;
 pub mod imessage;
 pub mod irc;
@@ -36,6 +39,7 @@ pub mod nostr;
 pub mod notion;
 pub mod qq;
 pub mod reddit;
+mod registry;
 pub(crate) mod runtime_state;
 pub(crate) mod sanitize;
 pub mod session_backend;
@@ -119,6 +123,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
+use self::dispatch::run_message_dispatch_loop;
+#[cfg(test)]
+use self::factory::build_channel_by_id;
+use self::factory::send_channel_message;
+use self::health::{classify_health_result, ChannelHealthState};
 use self::history::{
     append_sender_turn, compact_sender_history, proactive_trim_turns, rollback_orphan_user_turn,
 };
@@ -2097,137 +2106,6 @@ async fn process_channel_message(
     }
 }
 
-async fn run_message_dispatch_loop(
-    mut rx: tokio::sync::mpsc::Receiver<traits::ChannelMessage>,
-    ctx: Arc<ChannelRuntimeContext>,
-    max_in_flight_messages: usize,
-) {
-    let semaphore = Arc::new(tokio::sync::Semaphore::new(max_in_flight_messages));
-    let mut workers = tokio::task::JoinSet::new();
-    let in_flight_by_sender = Arc::new(tokio::sync::Mutex::new(HashMap::<
-        String,
-        InFlightSenderTaskState,
-    >::new()));
-    let task_sequence = Arc::new(AtomicU64::new(1));
-
-    while let Some(msg) = rx.recv().await {
-        // Fast path: /stop cancels the in-flight task for this sender scope without
-        // spawning a worker or registering a new task. Handled here — before semaphore
-        // acquisition — so the target task is still in the store and is never replaced.
-        if msg.channel != "cli" && is_stop_command(&msg.content) {
-            let scope_key = interruption_scope_key(&msg);
-            let previous = {
-                let mut active = in_flight_by_sender.lock().await;
-                active.remove(&scope_key)
-            };
-            let reply = if let Some(state) = previous {
-                state.cancellation.cancel();
-                "Stop signal sent.".to_string()
-            } else {
-                "No in-flight task for this sender scope.".to_string()
-            };
-            let channel = ctx
-                .channels_by_name
-                .get(&msg.channel)
-                .or_else(|| {
-                    // Multi-room channels use "name:qualifier" format (e.g. "matrix:!roomId");
-                    // fall back to base channel name for routing.
-                    msg.channel
-                        .split_once(':')
-                        .and_then(|(base, _)| ctx.channels_by_name.get(base))
-                })
-                .cloned();
-            if let Some(channel) = channel {
-                let reply_target = msg.reply_target.clone();
-                let thread_ts = msg.thread_ts.clone();
-                tokio::spawn(async move {
-                    let _ = channel
-                        .send(&SendMessage::new(reply, &reply_target).in_thread(thread_ts))
-                        .await;
-                });
-            } else {
-                tracing::warn!(
-                    channel = %msg.channel,
-                    "stop command: no registered channel found for reply"
-                );
-            }
-            continue;
-        }
-
-        let permit = match Arc::clone(&semaphore).acquire_owned().await {
-            Ok(permit) => permit,
-            Err(_) => break,
-        };
-
-        let worker_ctx = Arc::clone(&ctx);
-        let in_flight = Arc::clone(&in_flight_by_sender);
-        let task_sequence = Arc::clone(&task_sequence);
-        workers.spawn(async move {
-            let _permit = permit;
-            let interrupt_enabled = worker_ctx
-                .interrupt_on_new_message
-                .enabled_for_channel(msg.channel.as_str());
-            let sender_scope_key = interruption_scope_key(&msg);
-            let cancellation_token = CancellationToken::new();
-            let completion = Arc::new(InFlightTaskCompletion::new());
-            let task_id = task_sequence.fetch_add(1, Ordering::Relaxed) as u64;
-
-            // Register all non-CLI tasks in the in-flight store so /stop can reach them.
-            // This is a deliberate broadening from the previous behaviour where only
-            // interrupt_enabled (Telegram/Slack) channels registered tasks.
-            let register_in_flight = msg.channel != "cli";
-
-            if register_in_flight {
-                let previous = {
-                    let mut active = in_flight.lock().await;
-                    active.insert(
-                        sender_scope_key.clone(),
-                        InFlightSenderTaskState {
-                            task_id,
-                            cancellation: cancellation_token.clone(),
-                            completion: Arc::clone(&completion),
-                        },
-                    )
-                };
-
-                if interrupt_enabled {
-                    if let Some(previous) = previous {
-                        tracing::info!(
-                            channel = %msg.channel,
-                            sender = %msg.sender,
-                            "Interrupting previous in-flight request for sender"
-                        );
-                        previous.cancellation.cancel();
-                        previous.completion.wait().await;
-                    }
-                }
-            }
-
-            process_channel_message(worker_ctx, msg, cancellation_token).await;
-
-            if register_in_flight {
-                let mut active = in_flight.lock().await;
-                if active
-                    .get(&sender_scope_key)
-                    .is_some_and(|state| state.task_id == task_id)
-                {
-                    active.remove(&sender_scope_key);
-                }
-            }
-
-            completion.mark_done();
-        });
-
-        while let Some(result) = workers.try_join_next() {
-            log_worker_join_result(result);
-        }
-    }
-
-    while let Some(result) = workers.join_next().await {
-        log_worker_join_result(result);
-    }
-}
-
 /// Load OpenClaw format bootstrap files into the prompt.
 fn load_openclaw_bootstrap_files(
     prompt: &mut String,
@@ -2792,99 +2670,6 @@ pub(crate) async fn handle_command(command: crate::ChannelCommands, config: &Con
 }
 
 /// Build a single channel instance by config section name (e.g. "telegram").
-fn build_channel_by_id(config: &Config, channel_id: &str) -> Result<Arc<dyn Channel>> {
-    match channel_id {
-        "telegram" => {
-            let tg = config
-                .channels_config
-                .telegram
-                .as_ref()
-                .context("Telegram channel is not configured")?;
-            let ack = tg
-                .ack_reactions
-                .unwrap_or(config.channels_config.ack_reactions);
-            Ok(Arc::new(
-                TelegramChannel::new(
-                    tg.bot_token.clone(),
-                    tg.allowed_users.clone(),
-                    tg.mention_only,
-                )
-                .with_ack_reactions(ack)
-                .with_streaming(tg.stream_mode, tg.draft_update_interval_ms)
-                .with_transcription(config.transcription.clone())
-                .with_tts(config.tts.clone())
-                .with_workspace_dir(config.workspace_dir.clone()),
-            ))
-        }
-        "discord" => {
-            let dc = config
-                .channels_config
-                .discord
-                .as_ref()
-                .context("Discord channel is not configured")?;
-            Ok(Arc::new(DiscordChannel::new(
-                dc.bot_token.clone(),
-                dc.guild_id.clone(),
-                dc.allowed_users.clone(),
-                dc.listen_to_bots,
-                dc.mention_only,
-            )))
-        }
-        "slack" => {
-            let sl = config
-                .channels_config
-                .slack
-                .as_ref()
-                .context("Slack channel is not configured")?;
-            Ok(Arc::new(
-                SlackChannel::new(
-                    sl.bot_token.clone(),
-                    sl.app_token.clone(),
-                    sl.channel_id.clone(),
-                    Vec::new(),
-                    sl.allowed_users.clone(),
-                )
-                .with_workspace_dir(config.workspace_dir.clone()),
-            ))
-        }
-        other => anyhow::bail!("Unknown channel '{other}'. Supported: telegram, discord, slack"),
-    }
-}
-
-/// Send a one-off message to a configured channel.
-async fn send_channel_message(
-    config: &Config,
-    channel_id: &str,
-    recipient: &str,
-    message: &str,
-) -> Result<()> {
-    let channel = build_channel_by_id(config, channel_id)?;
-    let msg = SendMessage::new(message, recipient);
-    channel
-        .send(&msg)
-        .await
-        .with_context(|| format!("Failed to send message via {channel_id}"))?;
-    println!("Message sent via {channel_id}.");
-    Ok(())
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ChannelHealthState {
-    Healthy,
-    Unhealthy,
-    Timeout,
-}
-
-fn classify_health_result(
-    result: &std::result::Result<bool, tokio::time::error::Elapsed>,
-) -> ChannelHealthState {
-    match result {
-        Ok(true) => ChannelHealthState::Healthy,
-        Ok(false) => ChannelHealthState::Unhealthy,
-        Err(_) => ChannelHealthState::Timeout,
-    }
-}
-
 struct ConfiguredChannel {
     display_name: &'static str,
     channel: Arc<dyn Channel>,
