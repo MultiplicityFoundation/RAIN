@@ -37,7 +37,7 @@ pub fn is_serial_path_allowed(path: &str) -> bool {
 ///
 /// # Examples
 /// ```ignore
-/// use R.A.I.N.::util::truncate_with_ellipsis;
+/// use rain_labs::util::truncate_with_ellipsis;
 ///
 /// // ASCII string - no truncation needed
 /// assert_eq!(truncate_with_ellipsis("hello", 10), "hello");

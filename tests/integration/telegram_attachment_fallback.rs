@@ -8,10 +8,10 @@
 //! `send_document_by_url()` immediately via `?`, causing the entire reply
 //! (including already-sent text) to fail with no fallback.
 
+use rain_labs::channels::telegram::TelegramChannel;
+use rain_labs::channels::traits::{Channel, SendMessage};
 use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-use R.A.I.N.::channels::telegram::TelegramChannel;
-use R.A.I.N.::channels::traits::{Channel, SendMessage};
 
 /// Helper: create a TelegramChannel pointing at a mock server.
 fn test_channel(mock_url: &str) -> TelegramChannel {

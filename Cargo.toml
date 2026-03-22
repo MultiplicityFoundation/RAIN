@@ -3,7 +3,7 @@ members = [".", "crates/robot-kit", "crates/logic_prover", "crates/aardvark-sys"
 resolver = "2"
 
 [package]
-name = "R.A.I.N.labs"
+name = "rain-labs"
 version = "0.5.6"
 edition = "2021"
 authors = ["theonlyhennygod"]
@@ -26,11 +26,11 @@ include = [
 ]
 
 [[bin]]
-name = "R.A.I.N."
+name = "rain"
 path = "src/main.rs"
 
 [lib]
-name = "R.A.I.N."
+name = "rain_labs"
 path = "src/lib.rs"
 
 [dependencies]

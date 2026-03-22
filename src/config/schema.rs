@@ -61,7 +61,7 @@ static RUNTIME_PROXY_CLIENT_CACHE: OnceLock<RwLock<HashMap<String, reqwest::Clie
 
 /// Top-level R.A.I.N. configuration, loaded from `config.toml`.
 ///
-/// Resolution order: `R.A.I.N._WORKSPACE` env → `active_workspace.toml` marker → `~/.R.A.I.N./config.toml`.
+/// Resolution order: `rain_WORKSPACE` env → `active_workspace.toml` marker → `~/.R.A.I.N./config.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     /// Workspace directory - computed from home, not serialized
@@ -70,7 +70,7 @@ pub struct Config {
     /// Path to config.toml - computed from home, not serialized
     #[serde(skip)]
     pub config_path: PathBuf,
-    /// API key for the selected provider. Overridden by `R.A.I.N._API_KEY` or `API_KEY` env vars.
+    /// API key for the selected provider. Overridden by `rain_API_KEY` or `API_KEY` env vars.
     pub api_key: Option<String>,
     /// Base URL override for provider API (e.g. "http://10.0.0.1:11434" for remote Ollama)
     pub api_url: Option<String>,
@@ -107,7 +107,7 @@ pub struct Config {
     /// `X-Title`) for request routing or policy enforcement. Headers defined here
     /// augment (and override) the program's default headers.
     ///
-    /// Can also be set via `R.A.I.N._EXTRA_HEADERS` environment variable using
+    /// Can also be set via `rain_EXTRA_HEADERS` environment variable using
     /// the format `Key:Value,Key2:Value2`. Env var headers override config file headers.
     #[serde(default)]
     pub extra_headers: HashMap<String, String>,
@@ -367,7 +367,7 @@ pub struct Config {
     /// `tool_descriptions/<locale>.toml`. Falls back to English, then to
     /// hardcoded descriptions.
     ///
-    /// If omitted or empty, the locale is auto-detected from `R.A.I.N._LOCALE`,
+    /// If omitted or empty, the locale is auto-detected from `rain_LOCALE`,
     /// `LANG`, or `LC_ALL` environment variables (defaulting to `"en"`).
     #[serde(default)]
     pub locale: Option<String>,
@@ -3027,7 +3027,7 @@ pub enum ProxyScope {
     Environment,
     /// Apply proxy to all R.A.I.N.-managed HTTP traffic (default).
     #[default]
-    R.A.I.N.,
+    Rain,
     /// Apply proxy only to explicitly listed service selectors.
     Services,
 }
@@ -3066,7 +3066,7 @@ impl Default for ProxyConfig {
             https_proxy: None,
             all_proxy: None,
             no_proxy: Vec::new(),
-            scope: ProxyScope::R.A.I.N.,
+            scope: ProxyScope::Rain,
             services: Vec::new(),
         }
     }
@@ -3139,7 +3139,7 @@ impl ProxyConfig {
 
         match self.scope {
             ProxyScope::Environment => false,
-            ProxyScope::R.A.I.N. => true,
+            ProxyScope::Rain => true,
             ProxyScope::Services => {
                 let service_key = service_key.trim().to_ascii_lowercase();
                 if service_key.is_empty() {
@@ -3637,7 +3637,7 @@ fn apply_explicit_proxy_to_builder(
 fn parse_proxy_scope(raw: &str) -> Option<ProxyScope> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "environment" | "env" => Some(ProxyScope::Environment),
-        "R.A.I.N." | "internal" | "core" => Some(ProxyScope::R.A.I.N.),
+        "R.A.I.N." | "internal" | "core" => Some(ProxyScope::Rain),
         "services" | "service" => Some(ProxyScope::Services),
         _ => None,
     }
@@ -3731,7 +3731,7 @@ pub struct QdrantConfig {
     #[serde(default)]
     pub url: Option<String>,
     /// Qdrant collection name for storing memories.
-    /// Falls back to `QDRANT_COLLECTION` env var, or default "R.A.I.N._memories".
+    /// Falls back to `QDRANT_COLLECTION` env var, or default "rain_memories".
     #[serde(default = "default_qdrant_collection")]
     pub collection: String,
     /// Optional API key for Qdrant Cloud or secured instances.
@@ -3741,7 +3741,7 @@ pub struct QdrantConfig {
 }
 
 fn default_qdrant_collection() -> String {
-    "R.A.I.N._memories".into()
+    "rain_memories".into()
 }
 
 impl Default for QdrantConfig {
@@ -5431,7 +5431,7 @@ pub struct WhatsAppConfig {
     #[serde(default)]
     pub verify_token: Option<String>,
     /// App secret from Meta Business Suite (for webhook signature verification)
-    /// Can also be set via `R.A.I.N._WHATSAPP_APP_SECRET` environment variable
+    /// Can also be set via `rain_WHATSAPP_APP_SECRET` environment variable
     /// Only used in Cloud API mode
     #[serde(default)]
     pub app_secret: Option<String>,
@@ -5548,7 +5548,7 @@ pub struct NextcloudTalkConfig {
     pub app_token: String,
     /// Shared secret for webhook signature verification.
     ///
-    /// Can also be set via `R.A.I.N._NEXTCLOUD_TALK_WEBHOOK_SECRET`.
+    /// Can also be set via `rain_NEXTCLOUD_TALK_WEBHOOK_SECRET`.
     #[serde(default)]
     pub webhook_secret: Option<String>,
     /// Allowed Nextcloud actor IDs (`[]` = deny all, `"*"` = allow all).
@@ -6036,7 +6036,7 @@ pub struct NevisRoleMappingConfig {
 
     /// Tool names this role can access. Use `"all"` for unrestricted tool access.
     #[serde(default)]
-    pub R.A.I.N._permissions: Vec<String>,
+    pub rain_permissions: Vec<String>,
 
     /// Workspace names this role can access. Use `"all"` for unrestricted.
     #[serde(default)]
@@ -6742,11 +6742,11 @@ impl Default for Config {
     fn default() -> Self {
         let home =
             UserDirs::new().map_or_else(|| PathBuf::from("."), |u| u.home_dir().to_path_buf());
-        let R.A.I.N._dir = home.join(".R.A.I.N.");
+        let rain_dir = home.join(".R.A.I.N.");
 
         Self {
-            workspace_dir: R.A.I.N._dir.join("workspace"),
-            config_path: R.A.I.N._dir.join("config.toml"),
+            workspace_dir: rain_dir.join("workspace"),
+            config_path: rain_dir.join("config.toml"),
             api_key: None,
             api_url: None,
             api_path: None,
@@ -7008,11 +7008,11 @@ pub(crate) fn resolve_config_dir_for_workspace(workspace_dir: &Path) -> (PathBuf
 /// Resolve the current runtime config/workspace directories for onboarding flows.
 ///
 /// This mirrors the same precedence used by `Config::load_or_init()`:
-/// `R.A.I.N._CONFIG_DIR` > `R.A.I.N._WORKSPACE` > active workspace marker > defaults.
+/// `rain_CONFIG_DIR` > `rain_WORKSPACE` > active workspace marker > defaults.
 pub async fn resolve_runtime_dirs_for_onboarding() -> Result<(PathBuf, PathBuf)> {
-    let (default_R.A.I.N._dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
+    let (default_rain_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
     let (config_dir, workspace_dir, _) =
-        resolve_runtime_config_dirs(&default_R.A.I.N._dir, &default_workspace_dir).await?;
+        resolve_runtime_config_dirs(&default_rain_dir, &default_workspace_dir).await?;
     Ok((config_dir, workspace_dir))
 }
 
@@ -7027,8 +7027,8 @@ enum ConfigResolutionSource {
 impl ConfigResolutionSource {
     const fn as_str(self) -> &'static str {
         match self {
-            Self::EnvConfigDir => "R.A.I.N._CONFIG_DIR",
-            Self::EnvWorkspace => "R.A.I.N._WORKSPACE",
+            Self::EnvConfigDir => "rain_CONFIG_DIR",
+            Self::EnvWorkspace => "rain_WORKSPACE",
             Self::ActiveWorkspaceMarker => "active_workspace.toml",
             Self::DefaultConfigDir => "default",
         }
@@ -7065,45 +7065,44 @@ fn expand_tilde_path(path: &str) -> PathBuf {
 }
 
 async fn resolve_runtime_config_dirs(
-    default_R.A.I.N._dir: &Path,
+    default_rain_dir: &Path,
     default_workspace_dir: &Path,
 ) -> Result<(PathBuf, PathBuf, ConfigResolutionSource)> {
-    if let Ok(custom_config_dir) = std::env::var("R.A.I.N._CONFIG_DIR") {
+    if let Ok(custom_config_dir) = std::env::var("rain_CONFIG_DIR") {
         let custom_config_dir = custom_config_dir.trim();
         if !custom_config_dir.is_empty() {
-            let R.A.I.N._dir = expand_tilde_path(custom_config_dir);
+            let rain_dir = expand_tilde_path(custom_config_dir);
             return Ok((
-                R.A.I.N._dir.clone(),
-                R.A.I.N._dir.join("workspace"),
+                rain_dir.clone(),
+                rain_dir.join("workspace"),
                 ConfigResolutionSource::EnvConfigDir,
             ));
         }
     }
 
-    if let Ok(custom_workspace) = std::env::var("R.A.I.N._WORKSPACE") {
+    if let Ok(custom_workspace) = std::env::var("rain_WORKSPACE") {
         if !custom_workspace.is_empty() {
             let expanded = expand_tilde_path(&custom_workspace);
-            let (R.A.I.N._dir, workspace_dir) = resolve_config_dir_for_workspace(&expanded);
+            let (rain_dir, workspace_dir) = resolve_config_dir_for_workspace(&expanded);
             return Ok((
-                R.A.I.N._dir,
+                rain_dir,
                 workspace_dir,
                 ConfigResolutionSource::EnvWorkspace,
             ));
         }
     }
 
-    if let Some((R.A.I.N._dir, workspace_dir)) =
-        load_persisted_workspace_dirs(default_R.A.I.N._dir).await?
+    if let Some((rain_dir, workspace_dir)) = load_persisted_workspace_dirs(default_rain_dir).await?
     {
         return Ok((
-            R.A.I.N._dir,
+            rain_dir,
             workspace_dir,
             ConfigResolutionSource::ActiveWorkspaceMarker,
         ));
     }
 
     Ok((
-        default_R.A.I.N._dir.to_path_buf(),
+        default_rain_dir.to_path_buf(),
         default_workspace_dir.to_path_buf(),
         ConfigResolutionSource::DefaultConfigDir,
     ))
@@ -7196,7 +7195,7 @@ fn has_ollama_cloud_credential(config_api_key: Option<&str>) -> bool {
         return true;
     }
 
-    ["OLLAMA_API_KEY", "R.A.I.N._API_KEY", "API_KEY"]
+    ["OLLAMA_API_KEY", "rain_API_KEY", "API_KEY"]
         .iter()
         .any(|name| {
             std::env::var(name)
@@ -7205,7 +7204,7 @@ fn has_ollama_cloud_credential(config_api_key: Option<&str>) -> bool {
         })
 }
 
-/// Parse the `R.A.I.N._EXTRA_HEADERS` environment variable value.
+/// Parse the `rain_EXTRA_HEADERS` environment variable value.
 ///
 /// Format: `Key:Value,Key2:Value2`
 ///
@@ -7222,7 +7221,7 @@ pub fn parse_extra_headers_env(raw: &str) -> Vec<(String, String)> {
             let key = key.trim();
             let value = value.trim();
             if key.is_empty() {
-                tracing::warn!("Ignoring extra header with empty name in R.A.I.N._EXTRA_HEADERS");
+                tracing::warn!("Ignoring extra header with empty name in rain_EXTRA_HEADERS");
                 continue;
             }
             result.push((key.to_string(), value.to_string()));
@@ -7301,16 +7300,16 @@ async fn ensure_bootstrap_files(workspace_dir: &Path) -> Result<()> {
 
 impl Config {
     pub async fn load_or_init() -> Result<Self> {
-        let (default_R.A.I.N._dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
+        let (default_rain_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
 
-        let (R.A.I.N._dir, workspace_dir, resolution_source) =
-            resolve_runtime_config_dirs(&default_R.A.I.N._dir, &default_workspace_dir).await?;
+        let (rain_dir, workspace_dir, resolution_source) =
+            resolve_runtime_config_dirs(&default_rain_dir, &default_workspace_dir).await?;
 
-        let config_path = R.A.I.N._dir.join("config.toml");
+        let config_path = rain_dir.join("config.toml");
 
-        fs::create_dir_all(&R.A.I.N._dir)
+        fs::create_dir_all(&rain_dir)
             .await
-            .with_context(|| config_dir_creation_error(&R.A.I.N._dir))?;
+            .with_context(|| config_dir_creation_error(&rain_dir))?;
         fs::create_dir_all(&workspace_dir)
             .await
             .context("Failed to create workspace directory")?;
@@ -7397,7 +7396,7 @@ impl Config {
             // Set computed paths that are skipped during serialization
             config.config_path = config_path.clone();
             config.workspace_dir = workspace_dir;
-            let store = crate::security::SecretStore::new(&R.A.I.N._dir, config.secrets.encrypt);
+            let store = crate::security::SecretStore::new(&rain_dir, config.secrets.encrypt);
             decrypt_optional_secret(&store, &mut config.api_key, "config.api_key")?;
             decrypt_optional_secret(
                 &store,
@@ -8445,8 +8444,8 @@ impl Config {
 
     /// Apply environment variable overrides to config
     pub fn apply_env_overrides(&mut self) {
-        // API Key: R.A.I.N._API_KEY or API_KEY (generic)
-        if let Ok(key) = std::env::var("R.A.I.N._API_KEY").or_else(|_| std::env::var("API_KEY")) {
+        // API Key: rain_API_KEY or API_KEY (generic)
+        if let Ok(key) = std::env::var("rain_API_KEY").or_else(|_| std::env::var("API_KEY")) {
             if !key.is_empty() {
                 self.api_key = Some(key);
             }
@@ -8470,15 +8469,15 @@ impl Config {
         }
 
         // Provider override precedence:
-        // 1) R.A.I.N._PROVIDER always wins when set.
-        // 2) R.A.I.N._MODEL_PROVIDER/MODEL_PROVIDER (Codex app-server style).
+        // 1) rain_PROVIDER always wins when set.
+        // 2) rain_MODEL_PROVIDER/MODEL_PROVIDER (Codex app-server style).
         // 3) Legacy PROVIDER is honored only when config still uses default provider.
-        if let Ok(provider) = std::env::var("R.A.I.N._PROVIDER") {
+        if let Ok(provider) = std::env::var("rain_PROVIDER") {
             if !provider.is_empty() {
                 self.default_provider = Some(provider);
             }
         } else if let Ok(provider) =
-            std::env::var("R.A.I.N._MODEL_PROVIDER").or_else(|_| std::env::var("MODEL_PROVIDER"))
+            std::env::var("rain_MODEL_PROVIDER").or_else(|_| std::env::var("MODEL_PROVIDER"))
         {
             if !provider.is_empty() {
                 self.default_provider = Some(provider);
@@ -8493,15 +8492,15 @@ impl Config {
             }
         }
 
-        // Model: R.A.I.N._MODEL or MODEL
-        if let Ok(model) = std::env::var("R.A.I.N._MODEL").or_else(|_| std::env::var("MODEL")) {
+        // Model: rain_MODEL or MODEL
+        if let Ok(model) = std::env::var("rain_MODEL").or_else(|_| std::env::var("MODEL")) {
             if !model.is_empty() {
                 self.default_model = Some(model);
             }
         }
 
-        // Provider HTTP timeout: R.A.I.N._PROVIDER_TIMEOUT_SECS
-        if let Ok(timeout_secs) = std::env::var("R.A.I.N._PROVIDER_TIMEOUT_SECS") {
+        // Provider HTTP timeout: rain_PROVIDER_TIMEOUT_SECS
+        if let Ok(timeout_secs) = std::env::var("rain_PROVIDER_TIMEOUT_SECS") {
             if let Ok(timeout_secs) = timeout_secs.parse::<u64>() {
                 if timeout_secs > 0 {
                     self.provider_timeout_secs = timeout_secs;
@@ -8509,10 +8508,10 @@ impl Config {
             }
         }
 
-        // Extra provider headers: R.A.I.N._EXTRA_HEADERS
+        // Extra provider headers: rain_EXTRA_HEADERS
         // Format: "Key:Value,Key2:Value2"
         // Env var headers override config file headers with the same name.
-        if let Ok(raw) = std::env::var("R.A.I.N._EXTRA_HEADERS") {
+        if let Ok(raw) = std::env::var("rain_EXTRA_HEADERS") {
             for header in parse_extra_headers_env(&raw) {
                 self.extra_headers.insert(header.0, header.1);
             }
@@ -8521,8 +8520,8 @@ impl Config {
         // Apply named provider profile remapping (Codex app-server compatibility).
         self.apply_named_model_provider_profile();
 
-        // Workspace directory: R.A.I.N._WORKSPACE
-        if let Ok(workspace) = std::env::var("R.A.I.N._WORKSPACE") {
+        // Workspace directory: rain_WORKSPACE
+        if let Ok(workspace) = std::env::var("rain_WORKSPACE") {
             if !workspace.is_empty() {
                 let expanded = expand_tilde_path(&workspace);
                 let (_, workspace_dir) = resolve_config_dir_for_workspace(&expanded);
@@ -8530,100 +8529,96 @@ impl Config {
             }
         }
 
-        // Open-skills opt-in flag: R.A.I.N._OPEN_SKILLS_ENABLED
-        if let Ok(flag) = std::env::var("R.A.I.N._OPEN_SKILLS_ENABLED") {
+        // Open-skills opt-in flag: rain_OPEN_SKILLS_ENABLED
+        if let Ok(flag) = std::env::var("rain_OPEN_SKILLS_ENABLED") {
             if !flag.trim().is_empty() {
                 match flag.trim().to_ascii_lowercase().as_str() {
                     "1" | "true" | "yes" | "on" => self.skills.open_skills_enabled = true,
                     "0" | "false" | "no" | "off" => self.skills.open_skills_enabled = false,
                     _ => tracing::warn!(
-                        "Ignoring invalid R.A.I.N._OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
+                        "Ignoring invalid rain_OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
                     ),
                 }
             }
         }
 
-        // Open-skills directory override: R.A.I.N._OPEN_SKILLS_DIR
-        if let Ok(path) = std::env::var("R.A.I.N._OPEN_SKILLS_DIR") {
+        // Open-skills directory override: rain_OPEN_SKILLS_DIR
+        if let Ok(path) = std::env::var("rain_OPEN_SKILLS_DIR") {
             let trimmed = path.trim();
             if !trimmed.is_empty() {
                 self.skills.open_skills_dir = Some(trimmed.to_string());
             }
         }
 
-        // Skills script-file audit override: R.A.I.N._SKILLS_ALLOW_SCRIPTS
-        if let Ok(flag) = std::env::var("R.A.I.N._SKILLS_ALLOW_SCRIPTS") {
+        // Skills script-file audit override: rain_SKILLS_ALLOW_SCRIPTS
+        if let Ok(flag) = std::env::var("rain_SKILLS_ALLOW_SCRIPTS") {
             if !flag.trim().is_empty() {
                 match flag.trim().to_ascii_lowercase().as_str(){
                     "1" | "true" | "yes" | "on" => self.skills.allow_scripts = true,
                     "0" | "false" | "no" | "off" => self.skills.allow_scripts = false,
                     _ => tracing::warn!(
-                        "Ignoring invalid R.A.I.N._SKILLS_ALLOW_SCRIPTS (valid: 1|0|true|false|yes|no|on|off)"
+                        "Ignoring invalid rain_SKILLS_ALLOW_SCRIPTS (valid: 1|0|true|false|yes|no|on|off)"
                     ),
                 }
             }
         }
 
-        // Skills prompt mode override: R.A.I.N._SKILLS_PROMPT_MODE
-        if let Ok(mode) = std::env::var("R.A.I.N._SKILLS_PROMPT_MODE") {
+        // Skills prompt mode override: rain_SKILLS_PROMPT_MODE
+        if let Ok(mode) = std::env::var("rain_SKILLS_PROMPT_MODE") {
             if !mode.trim().is_empty() {
                 if let Some(parsed) = parse_skills_prompt_injection_mode(&mode) {
                     self.skills.prompt_injection_mode = parsed;
                 } else {
                     tracing::warn!(
-                        "Ignoring invalid R.A.I.N._SKILLS_PROMPT_MODE (valid: full|compact)"
+                        "Ignoring invalid rain_SKILLS_PROMPT_MODE (valid: full|compact)"
                     );
                 }
             }
         }
 
-        // Gateway port: R.A.I.N._GATEWAY_PORT or PORT
-        if let Ok(port_str) =
-            std::env::var("R.A.I.N._GATEWAY_PORT").or_else(|_| std::env::var("PORT"))
+        // Gateway port: rain_GATEWAY_PORT or PORT
+        if let Ok(port_str) = std::env::var("rain_GATEWAY_PORT").or_else(|_| std::env::var("PORT"))
         {
             if let Ok(port) = port_str.parse::<u16>() {
                 self.gateway.port = port;
             }
         }
 
-        // Gateway host: R.A.I.N._GATEWAY_HOST or HOST
-        if let Ok(host) = std::env::var("R.A.I.N._GATEWAY_HOST").or_else(|_| std::env::var("HOST"))
-        {
+        // Gateway host: rain_GATEWAY_HOST or HOST
+        if let Ok(host) = std::env::var("rain_GATEWAY_HOST").or_else(|_| std::env::var("HOST")) {
             if !host.is_empty() {
                 self.gateway.host = host;
             }
         }
 
-        // Allow public bind: R.A.I.N._ALLOW_PUBLIC_BIND
-        if let Ok(val) = std::env::var("R.A.I.N._ALLOW_PUBLIC_BIND") {
+        // Allow public bind: rain_ALLOW_PUBLIC_BIND
+        if let Ok(val) = std::env::var("rain_ALLOW_PUBLIC_BIND") {
             self.gateway.allow_public_bind = val == "1" || val.eq_ignore_ascii_case("true");
         }
 
-        // Temperature: R.A.I.N._TEMPERATURE
-        if let Ok(temp_str) = std::env::var("R.A.I.N._TEMPERATURE") {
+        // Temperature: rain_TEMPERATURE
+        if let Ok(temp_str) = std::env::var("rain_TEMPERATURE") {
             match temp_str.parse::<f64>() {
                 Ok(temp) if TEMPERATURE_RANGE.contains(&temp) => {
                     self.default_temperature = temp;
                 }
                 Ok(temp) => {
                     tracing::warn!(
-                        "Ignoring R.A.I.N._TEMPERATURE={temp}: \
+                        "Ignoring rain_TEMPERATURE={temp}: \
                          value out of range (expected {}..={})",
                         TEMPERATURE_RANGE.start(),
                         TEMPERATURE_RANGE.end()
                     );
                 }
                 Err(_) => {
-                    tracing::warn!(
-                        "Ignoring R.A.I.N._TEMPERATURE={temp_str:?}: not a valid number"
-                    );
+                    tracing::warn!("Ignoring rain_TEMPERATURE={temp_str:?}: not a valid number");
                 }
             }
         }
 
-        // Reasoning override: R.A.I.N._REASONING_ENABLED or REASONING_ENABLED
-        if let Ok(flag) = std::env::var("R.A.I.N._REASONING_ENABLED")
-            .or_else(|_| std::env::var("REASONING_ENABLED"))
+        // Reasoning override: rain_REASONING_ENABLED or REASONING_ENABLED
+        if let Ok(flag) =
+            std::env::var("rain_REASONING_ENABLED").or_else(|_| std::env::var("REASONING_ENABLED"))
         {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {
@@ -8633,9 +8628,9 @@ impl Config {
             }
         }
 
-        if let Ok(raw) = std::env::var("R.A.I.N._REASONING_EFFORT")
+        if let Ok(raw) = std::env::var("rain_REASONING_EFFORT")
             .or_else(|_| std::env::var("REASONING_EFFORT"))
-            .or_else(|_| std::env::var("R.A.I.N._CODEX_REASONING_EFFORT"))
+            .or_else(|_| std::env::var("rain_CODEX_REASONING_EFFORT"))
         {
             match normalize_reasoning_effort(&raw) {
                 Ok(effort) => self.runtime.reasoning_effort = Some(effort),
@@ -8643,15 +8638,15 @@ impl Config {
             }
         }
 
-        // Web search enabled: R.A.I.N._WEB_SEARCH_ENABLED or WEB_SEARCH_ENABLED
-        if let Ok(enabled) = std::env::var("R.A.I.N._WEB_SEARCH_ENABLED")
+        // Web search enabled: rain_WEB_SEARCH_ENABLED or WEB_SEARCH_ENABLED
+        if let Ok(enabled) = std::env::var("rain_WEB_SEARCH_ENABLED")
             .or_else(|_| std::env::var("WEB_SEARCH_ENABLED"))
         {
             self.web_search.enabled = enabled == "1" || enabled.eq_ignore_ascii_case("true");
         }
 
-        // Web search provider: R.A.I.N._WEB_SEARCH_PROVIDER or WEB_SEARCH_PROVIDER
-        if let Ok(provider) = std::env::var("R.A.I.N._WEB_SEARCH_PROVIDER")
+        // Web search provider: rain_WEB_SEARCH_PROVIDER or WEB_SEARCH_PROVIDER
+        if let Ok(provider) = std::env::var("rain_WEB_SEARCH_PROVIDER")
             .or_else(|_| std::env::var("WEB_SEARCH_PROVIDER"))
         {
             let provider = provider.trim();
@@ -8660,9 +8655,9 @@ impl Config {
             }
         }
 
-        // Brave API key: R.A.I.N._BRAVE_API_KEY or BRAVE_API_KEY
+        // Brave API key: rain_BRAVE_API_KEY or BRAVE_API_KEY
         if let Ok(api_key) =
-            std::env::var("R.A.I.N._BRAVE_API_KEY").or_else(|_| std::env::var("BRAVE_API_KEY"))
+            std::env::var("rain_BRAVE_API_KEY").or_else(|_| std::env::var("BRAVE_API_KEY"))
         {
             let api_key = api_key.trim();
             if !api_key.is_empty() {
@@ -8670,8 +8665,8 @@ impl Config {
             }
         }
 
-        // Web search max results: R.A.I.N._WEB_SEARCH_MAX_RESULTS or WEB_SEARCH_MAX_RESULTS
-        if let Ok(max_results) = std::env::var("R.A.I.N._WEB_SEARCH_MAX_RESULTS")
+        // Web search max results: rain_WEB_SEARCH_MAX_RESULTS or WEB_SEARCH_MAX_RESULTS
+        if let Ok(max_results) = std::env::var("rain_WEB_SEARCH_MAX_RESULTS")
             .or_else(|_| std::env::var("WEB_SEARCH_MAX_RESULTS"))
         {
             if let Ok(max_results) = max_results.parse::<usize>() {
@@ -8681,8 +8676,8 @@ impl Config {
             }
         }
 
-        // Web search timeout: R.A.I.N._WEB_SEARCH_TIMEOUT_SECS or WEB_SEARCH_TIMEOUT_SECS
-        if let Ok(timeout_secs) = std::env::var("R.A.I.N._WEB_SEARCH_TIMEOUT_SECS")
+        // Web search timeout: rain_WEB_SEARCH_TIMEOUT_SECS or WEB_SEARCH_TIMEOUT_SECS
+        if let Ok(timeout_secs) = std::env::var("rain_WEB_SEARCH_TIMEOUT_SECS")
             .or_else(|_| std::env::var("WEB_SEARCH_TIMEOUT_SECS"))
         {
             if let Ok(timeout_secs) = timeout_secs.parse::<u64>() {
@@ -8692,32 +8687,32 @@ impl Config {
             }
         }
 
-        // Storage provider key (optional backend override): R.A.I.N._STORAGE_PROVIDER
-        if let Ok(provider) = std::env::var("R.A.I.N._STORAGE_PROVIDER") {
+        // Storage provider key (optional backend override): rain_STORAGE_PROVIDER
+        if let Ok(provider) = std::env::var("rain_STORAGE_PROVIDER") {
             let provider = provider.trim();
             if !provider.is_empty() {
                 self.storage.provider.config.provider = provider.to_string();
             }
         }
 
-        // Storage connection URL (for remote backends): R.A.I.N._STORAGE_DB_URL
-        if let Ok(db_url) = std::env::var("R.A.I.N._STORAGE_DB_URL") {
+        // Storage connection URL (for remote backends): rain_STORAGE_DB_URL
+        if let Ok(db_url) = std::env::var("rain_STORAGE_DB_URL") {
             let db_url = db_url.trim();
             if !db_url.is_empty() {
                 self.storage.provider.config.db_url = Some(db_url.to_string());
             }
         }
 
-        // Storage connect timeout: R.A.I.N._STORAGE_CONNECT_TIMEOUT_SECS
-        if let Ok(timeout_secs) = std::env::var("R.A.I.N._STORAGE_CONNECT_TIMEOUT_SECS") {
+        // Storage connect timeout: rain_STORAGE_CONNECT_TIMEOUT_SECS
+        if let Ok(timeout_secs) = std::env::var("rain_STORAGE_CONNECT_TIMEOUT_SECS") {
             if let Ok(timeout_secs) = timeout_secs.parse::<u64>() {
                 if timeout_secs > 0 {
                     self.storage.provider.config.connect_timeout_secs = Some(timeout_secs);
                 }
             }
         }
-        // Proxy enabled flag: R.A.I.N._PROXY_ENABLED
-        let explicit_proxy_enabled = std::env::var("R.A.I.N._PROXY_ENABLED")
+        // Proxy enabled flag: rain_PROXY_ENABLED
+        let explicit_proxy_enabled = std::env::var("rain_PROXY_ENABLED")
             .ok()
             .as_deref()
             .and_then(parse_proxy_enabled);
@@ -8725,28 +8720,27 @@ impl Config {
             self.proxy.enabled = enabled;
         }
 
-        // Proxy URLs: R.A.I.N._* wins, then generic *PROXY vars.
+        // Proxy URLs: rain_* wins, then generic *PROXY vars.
         let mut proxy_url_overridden = false;
         if let Ok(proxy_url) =
-            std::env::var("R.A.I.N._HTTP_PROXY").or_else(|_| std::env::var("HTTP_PROXY"))
+            std::env::var("rain_HTTP_PROXY").or_else(|_| std::env::var("HTTP_PROXY"))
         {
             self.proxy.http_proxy = normalize_proxy_url_option(Some(&proxy_url));
             proxy_url_overridden = true;
         }
         if let Ok(proxy_url) =
-            std::env::var("R.A.I.N._HTTPS_PROXY").or_else(|_| std::env::var("HTTPS_PROXY"))
+            std::env::var("rain_HTTPS_PROXY").or_else(|_| std::env::var("HTTPS_PROXY"))
         {
             self.proxy.https_proxy = normalize_proxy_url_option(Some(&proxy_url));
             proxy_url_overridden = true;
         }
         if let Ok(proxy_url) =
-            std::env::var("R.A.I.N._ALL_PROXY").or_else(|_| std::env::var("ALL_PROXY"))
+            std::env::var("rain_ALL_PROXY").or_else(|_| std::env::var("ALL_PROXY"))
         {
             self.proxy.all_proxy = normalize_proxy_url_option(Some(&proxy_url));
             proxy_url_overridden = true;
         }
-        if let Ok(no_proxy) =
-            std::env::var("R.A.I.N._NO_PROXY").or_else(|_| std::env::var("NO_PROXY"))
+        if let Ok(no_proxy) = std::env::var("rain_NO_PROXY").or_else(|_| std::env::var("NO_PROXY"))
         {
             self.proxy.no_proxy = normalize_no_proxy_list(vec![no_proxy]);
         }
@@ -8759,18 +8753,18 @@ impl Config {
         }
 
         // Proxy scope and service selectors.
-        if let Ok(scope_raw) = std::env::var("R.A.I.N._PROXY_SCOPE") {
+        if let Ok(scope_raw) = std::env::var("rain_PROXY_SCOPE") {
             if let Some(scope) = parse_proxy_scope(&scope_raw) {
                 self.proxy.scope = scope;
             } else {
                 tracing::warn!(
                     scope = %scope_raw,
-                    "Ignoring invalid R.A.I.N._PROXY_SCOPE (valid: environment|R.A.I.N.|services)"
+                    "Ignoring invalid rain_PROXY_SCOPE (valid: environment|R.A.I.N.|services)"
                 );
             }
         }
 
-        if let Ok(services_raw) = std::env::var("R.A.I.N._PROXY_SERVICES") {
+        if let Ok(services_raw) = std::env::var("rain_PROXY_SERVICES") {
             self.proxy.services = normalize_service_list(vec![services_raw]);
         }
 
@@ -8802,15 +8796,15 @@ impl Config {
             return Ok(self.config_path.clone());
         }
 
-        let (default_R.A.I.N._dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
-        let (R.A.I.N._dir, _workspace_dir, source) =
-            resolve_runtime_config_dirs(&default_R.A.I.N._dir, &default_workspace_dir).await?;
+        let (default_rain_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
+        let (rain_dir, _workspace_dir, source) =
+            resolve_runtime_config_dirs(&default_rain_dir, &default_workspace_dir).await?;
         let file_name = self
             .config_path
             .file_name()
             .filter(|name| !name.is_empty())
             .unwrap_or_else(|| std::ffi::OsStr::new("config.toml"));
-        let resolved = R.A.I.N._dir.join(file_name);
+        let resolved = rain_dir.join(file_name);
         tracing::warn!(
             path = %self.config_path.display(),
             resolved = %resolved.display(),
@@ -8824,10 +8818,10 @@ impl Config {
         // Encrypt secrets before serialization
         let mut config_to_save = self.clone();
         let config_path = self.resolve_config_path_for_save().await?;
-        let R.A.I.N._dir = config_path
+        let rain_dir = config_path
             .parent()
             .context("Config path must have a parent directory")?;
-        let store = crate::security::SecretStore::new(R.A.I.N._dir, self.secrets.encrypt);
+        let store = crate::security::SecretStore::new(rain_dir, self.secrets.encrypt);
 
         encrypt_optional_secret(&store, &mut config_to_save.api_key, "config.api_key")?;
         encrypt_optional_secret(
@@ -10030,10 +10024,8 @@ default_temperature = 0.7
 
     #[tokio::test]
     async fn sync_directory_handles_existing_directory() {
-        let dir = std::env::temp_dir().join(format!(
-            "R.A.I.N._test_sync_directory_{}",
-            uuid::Uuid::new_v4()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("rain_test_sync_directory_{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).await.unwrap();
 
         sync_directory(&dir).await.unwrap();
@@ -10043,7 +10035,7 @@ default_temperature = 0.7
 
     #[tokio::test]
     async fn config_save_and_load_tmpdir() {
-        let dir = std::env::temp_dir().join("R.A.I.N._test_config");
+        let dir = std::env::temp_dir().join("rain_test_config");
         let _ = fs::remove_dir_all(&dir).await;
         fs::create_dir_all(&dir).await.unwrap();
 
@@ -10142,7 +10134,7 @@ default_temperature = 0.7
     #[tokio::test]
     async fn config_save_encrypts_nested_credentials() {
         let dir = std::env::temp_dir().join(format!(
-            "R.A.I.N._test_nested_credentials_{}",
+            "rain_test_nested_credentials_{}",
             uuid::Uuid::new_v4()
         ));
         fs::create_dir_all(&dir).await.unwrap();
@@ -10266,8 +10258,7 @@ default_temperature = 0.7
 
     #[tokio::test]
     async fn config_save_atomic_cleanup() {
-        let dir =
-            std::env::temp_dir().join(format!("R.A.I.N._test_config_{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("rain_test_config_{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).await.unwrap();
 
         let config_path = dir.join("config.toml");
@@ -11188,13 +11179,13 @@ default_temperature = 0.7
 
     fn clear_proxy_env_test_vars() {
         for key in [
-            "R.A.I.N._PROXY_ENABLED",
-            "R.A.I.N._HTTP_PROXY",
-            "R.A.I.N._HTTPS_PROXY",
-            "R.A.I.N._ALL_PROXY",
-            "R.A.I.N._NO_PROXY",
-            "R.A.I.N._PROXY_SCOPE",
-            "R.A.I.N._PROXY_SERVICES",
+            "rain_PROXY_ENABLED",
+            "rain_HTTP_PROXY",
+            "rain_HTTPS_PROXY",
+            "rain_ALL_PROXY",
+            "rain_NO_PROXY",
+            "rain_PROXY_SCOPE",
+            "rain_PROXY_SERVICES",
             "HTTP_PROXY",
             "HTTPS_PROXY",
             "ALL_PROXY",
@@ -11214,11 +11205,11 @@ default_temperature = 0.7
         let mut config = Config::default();
         assert!(config.api_key.is_none());
 
-        std::env::set_var("R.A.I.N._API_KEY", "sk-test-env-key");
+        std::env::set_var("rain_API_KEY", "sk-test-env-key");
         config.apply_env_overrides();
         assert_eq!(config.api_key.as_deref(), Some("sk-test-env-key"));
 
-        std::env::remove_var("R.A.I.N._API_KEY");
+        std::env::remove_var("rain_API_KEY");
     }
 
     #[test]
@@ -11226,7 +11217,7 @@ default_temperature = 0.7
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._API_KEY");
+        std::env::remove_var("rain_API_KEY");
         std::env::set_var("API_KEY", "sk-fallback-key");
         config.apply_env_overrides();
         assert_eq!(config.api_key.as_deref(), Some("sk-fallback-key"));
@@ -11239,11 +11230,11 @@ default_temperature = 0.7
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._PROVIDER", "anthropic");
+        std::env::set_var("rain_PROVIDER", "anthropic");
         config.apply_env_overrides();
         assert_eq!(config.default_provider.as_deref(), Some("anthropic"));
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
+        std::env::remove_var("rain_PROVIDER");
     }
 
     #[test]
@@ -11251,12 +11242,12 @@ default_temperature = 0.7
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
-        std::env::set_var("R.A.I.N._MODEL_PROVIDER", "openai-codex");
+        std::env::remove_var("rain_PROVIDER");
+        std::env::set_var("rain_MODEL_PROVIDER", "openai-codex");
         config.apply_env_overrides();
         assert_eq!(config.default_provider.as_deref(), Some("openai-codex"));
 
-        std::env::remove_var("R.A.I.N._MODEL_PROVIDER");
+        std::env::remove_var("rain_MODEL_PROVIDER");
     }
 
     #[test]
@@ -11295,10 +11286,10 @@ requires_openai_auth = true
             SkillsPromptInjectionMode::Full
         );
 
-        std::env::set_var("R.A.I.N._OPEN_SKILLS_ENABLED", "true");
-        std::env::set_var("R.A.I.N._OPEN_SKILLS_DIR", "/tmp/open-skills");
-        std::env::set_var("R.A.I.N._SKILLS_ALLOW_SCRIPTS", "yes");
-        std::env::set_var("R.A.I.N._SKILLS_PROMPT_MODE", "compact");
+        std::env::set_var("rain_OPEN_SKILLS_ENABLED", "true");
+        std::env::set_var("rain_OPEN_SKILLS_DIR", "/tmp/open-skills");
+        std::env::set_var("rain_SKILLS_ALLOW_SCRIPTS", "yes");
+        std::env::set_var("rain_SKILLS_PROMPT_MODE", "compact");
         config.apply_env_overrides();
 
         assert!(config.skills.open_skills_enabled);
@@ -11312,10 +11303,10 @@ requires_openai_auth = true
             SkillsPromptInjectionMode::Compact
         );
 
-        std::env::remove_var("R.A.I.N._OPEN_SKILLS_ENABLED");
-        std::env::remove_var("R.A.I.N._OPEN_SKILLS_DIR");
-        std::env::remove_var("R.A.I.N._SKILLS_ALLOW_SCRIPTS");
-        std::env::remove_var("R.A.I.N._SKILLS_PROMPT_MODE");
+        std::env::remove_var("rain_OPEN_SKILLS_ENABLED");
+        std::env::remove_var("rain_OPEN_SKILLS_DIR");
+        std::env::remove_var("rain_SKILLS_ALLOW_SCRIPTS");
+        std::env::remove_var("rain_SKILLS_PROMPT_MODE");
     }
 
     #[test]
@@ -11326,9 +11317,9 @@ requires_openai_auth = true
         config.skills.allow_scripts = true;
         config.skills.prompt_injection_mode = SkillsPromptInjectionMode::Compact;
 
-        std::env::set_var("R.A.I.N._OPEN_SKILLS_ENABLED", "maybe");
-        std::env::set_var("R.A.I.N._SKILLS_ALLOW_SCRIPTS", "maybe");
-        std::env::set_var("R.A.I.N._SKILLS_PROMPT_MODE", "invalid");
+        std::env::set_var("rain_OPEN_SKILLS_ENABLED", "maybe");
+        std::env::set_var("rain_SKILLS_ALLOW_SCRIPTS", "maybe");
+        std::env::set_var("rain_SKILLS_PROMPT_MODE", "invalid");
         config.apply_env_overrides();
 
         assert!(config.skills.open_skills_enabled);
@@ -11337,9 +11328,9 @@ requires_openai_auth = true
             config.skills.prompt_injection_mode,
             SkillsPromptInjectionMode::Compact
         );
-        std::env::remove_var("R.A.I.N._OPEN_SKILLS_ENABLED");
-        std::env::remove_var("R.A.I.N._SKILLS_ALLOW_SCRIPTS");
-        std::env::remove_var("R.A.I.N._SKILLS_PROMPT_MODE");
+        std::env::remove_var("rain_OPEN_SKILLS_ENABLED");
+        std::env::remove_var("rain_SKILLS_ALLOW_SCRIPTS");
+        std::env::remove_var("rain_SKILLS_PROMPT_MODE");
     }
 
     #[test]
@@ -11347,7 +11338,7 @@ requires_openai_auth = true
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
+        std::env::remove_var("rain_PROVIDER");
         std::env::set_var("PROVIDER", "openai");
         config.apply_env_overrides();
         assert_eq!(config.default_provider.as_deref(), Some("openai"));
@@ -11363,7 +11354,7 @@ requires_openai_auth = true
             ..Config::default()
         };
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
+        std::env::remove_var("rain_PROVIDER");
         std::env::set_var("PROVIDER", "openrouter");
         config.apply_env_overrides();
         assert_eq!(
@@ -11382,12 +11373,12 @@ requires_openai_auth = true
             ..Config::default()
         };
 
-        std::env::set_var("R.A.I.N._PROVIDER", "openrouter");
+        std::env::set_var("rain_PROVIDER", "openrouter");
         std::env::set_var("PROVIDER", "anthropic");
         config.apply_env_overrides();
         assert_eq!(config.default_provider.as_deref(), Some("openrouter"));
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
+        std::env::remove_var("rain_PROVIDER");
         std::env::remove_var("PROVIDER");
     }
 
@@ -11426,11 +11417,11 @@ requires_openai_auth = true
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._MODEL", "gpt-4o");
+        std::env::set_var("rain_MODEL", "gpt-4o");
         config.apply_env_overrides();
         assert_eq!(config.default_model.as_deref(), Some("gpt-4o"));
 
-        std::env::remove_var("R.A.I.N._MODEL");
+        std::env::remove_var("rain_MODEL");
     }
 
     #[test]
@@ -11500,13 +11491,13 @@ requires_openai_auth = true
     async fn save_repairs_bare_config_filename_using_runtime_resolution() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("workspace");
         let resolved_config_path = temp_home.join(".R.A.I.N.").join("config.toml");
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
 
         let mut config = Config::default();
         config.workspace_dir = workspace_dir;
@@ -11521,7 +11512,7 @@ requires_openai_auth = true
         let parsed = parse_test_config(&saved);
         assert_eq!(parsed.default_temperature, 0.5);
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -11597,7 +11588,7 @@ requires_openai_auth = true
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._MODEL");
+        std::env::remove_var("rain_MODEL");
         std::env::set_var("MODEL", "anthropic/claude-3.5-sonnet");
         config.apply_env_overrides();
         assert_eq!(
@@ -11613,11 +11604,11 @@ requires_openai_auth = true
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._WORKSPACE", "/custom/workspace");
+        std::env::set_var("rain_WORKSPACE", "/custom/workspace");
         config.apply_env_overrides();
         assert_eq!(config.workspace_dir, PathBuf::from("/custom/workspace"));
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
     }
 
     #[test]
@@ -11627,7 +11618,7 @@ requires_openai_auth = true
         let default_workspace_dir = default_config_dir.join("workspace");
         let workspace_dir = default_config_dir.join("profile-a");
 
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
         let (config_dir, resolved_workspace_dir, source) =
             resolve_runtime_config_dirs(&default_config_dir, &default_workspace_dir)
                 .await
@@ -11637,7 +11628,7 @@ requires_openai_auth = true
         assert_eq!(config_dir, workspace_dir);
         assert_eq!(resolved_workspace_dir, workspace_dir.join("workspace"));
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         let _ = fs::remove_dir_all(default_config_dir).await;
     }
 
@@ -11658,8 +11649,8 @@ requires_openai_auth = true
             .await
             .unwrap();
 
-        std::env::set_var("R.A.I.N._CONFIG_DIR", &explicit_config_dir);
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::set_var("rain_CONFIG_DIR", &explicit_config_dir);
+        std::env::remove_var("rain_WORKSPACE");
 
         let (config_dir, resolved_workspace_dir, source) =
             resolve_runtime_config_dirs(&default_config_dir, &default_workspace_dir)
@@ -11673,7 +11664,7 @@ requires_openai_auth = true
             explicit_config_dir.join("workspace")
         );
 
-        std::env::remove_var("R.A.I.N._CONFIG_DIR");
+        std::env::remove_var("rain_CONFIG_DIR");
         let _ = fs::remove_dir_all(default_config_dir).await;
     }
 
@@ -11685,7 +11676,7 @@ requires_openai_auth = true
         let marker_config_dir = default_config_dir.join("profiles").join("alpha");
         let state_path = default_config_dir.join(ACTIVE_WORKSPACE_STATE_FILE);
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         fs::create_dir_all(&default_config_dir).await.unwrap();
         let state = ActiveWorkspaceState {
             config_dir: marker_config_dir.to_string_lossy().into_owned(),
@@ -11712,7 +11703,7 @@ requires_openai_auth = true
         let default_config_dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
         let default_workspace_dir = default_config_dir.join("workspace");
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         let (config_dir, resolved_workspace_dir, source) =
             resolve_runtime_config_dirs(&default_config_dir, &default_workspace_dir)
                 .await
@@ -11729,12 +11720,12 @@ requires_openai_auth = true
     async fn load_or_init_workspace_override_uses_workspace_root_for_config() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("profile-a");
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
 
         let config = Box::pin(Config::load_or_init()).await.unwrap();
 
@@ -11742,7 +11733,7 @@ requires_openai_auth = true
         assert_eq!(config.config_path, workspace_dir.join("config.toml"));
         assert!(workspace_dir.join("config.toml").exists());
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -11755,13 +11746,13 @@ requires_openai_auth = true
     async fn load_or_init_workspace_suffix_uses_legacy_config_layout() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("workspace");
         let legacy_config_path = temp_home.join(".R.A.I.N.").join("config.toml");
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
 
         let config = Box::pin(Config::load_or_init()).await.unwrap();
 
@@ -11769,7 +11760,7 @@ requires_openai_auth = true
         assert_eq!(config.config_path, legacy_config_path);
         assert!(config.config_path.exists());
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -11782,7 +11773,7 @@ requires_openai_auth = true
     async fn load_or_init_workspace_override_keeps_existing_legacy_config() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("custom-workspace");
         let legacy_config_dir = temp_home.join(".R.A.I.N.");
         let legacy_config_path = legacy_config_dir.join("config.toml");
@@ -11799,7 +11790,7 @@ default_model = "legacy-model"
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
 
         let config = Box::pin(Config::load_or_init()).await.unwrap();
 
@@ -11807,7 +11798,7 @@ default_model = "legacy-model"
         assert_eq!(config.config_path, legacy_config_path);
         assert_eq!(config.default_model.as_deref(), Some("legacy-model"));
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -11820,7 +11811,7 @@ default_model = "legacy-model"
     async fn load_or_init_decrypts_feishu_channel_secrets() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let config_dir = temp_home.join(".R.A.I.N.");
         let config_path = config_dir.join("config.toml");
 
@@ -11828,7 +11819,7 @@ default_model = "legacy-model"
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
 
         let mut config = Config::default();
         config.config_path = config_path.clone();
@@ -11864,7 +11855,7 @@ default_model = "legacy-model"
     async fn load_or_init_uses_persisted_active_workspace_marker() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let temp_default_dir = temp_home.join(".R.A.I.N.");
         let custom_config_dir = temp_home.join("profiles").join("agent-alpha");
 
@@ -11887,7 +11878,7 @@ default_model = "legacy-model"
         // correct temp location, so no stale marker can leak.
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
 
         let config = Box::pin(Config::load_or_init()).await.unwrap();
 
@@ -11907,7 +11898,7 @@ default_model = "legacy-model"
     async fn load_or_init_env_workspace_override_takes_priority_over_marker() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let temp_default_dir = temp_home.join(".R.A.I.N.");
         let marker_config_dir = temp_home.join("profiles").join("persisted-profile");
         let env_workspace_dir = temp_home.join("env-workspace");
@@ -11927,14 +11918,14 @@ default_model = "legacy-model"
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &env_workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &env_workspace_dir);
 
         let config = Box::pin(Config::load_or_init()).await.unwrap();
 
         assert_eq!(config.workspace_dir, env_workspace_dir.join("workspace"));
         assert_eq!(config.config_path, env_workspace_dir.join("config.toml"));
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -11946,7 +11937,7 @@ default_model = "legacy-model"
     #[test]
     async fn persist_active_workspace_marker_is_cleared_for_default_config_dir() {
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let default_config_dir = temp_home.join(".R.A.I.N.");
         let custom_config_dir = temp_home.join("profiles").join("custom-profile");
         let marker_path = default_config_dir.join(ACTIVE_WORKSPACE_STATE_FILE);
@@ -11971,7 +11962,7 @@ default_model = "legacy-model"
     async fn load_or_init_logs_existing_config_as_initialized() {
         let _env_guard = env_override_lock().await;
         let temp_home =
-            std::env::temp_dir().join(format!("R.A.I.N._test_home_{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("rain_test_home_{}", uuid::Uuid::new_v4()));
         let workspace_dir = temp_home.join("profile-a");
         let config_path = workspace_dir.join("config.toml");
 
@@ -11987,7 +11978,7 @@ default_model = "persisted-profile"
 
         let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &temp_home);
-        std::env::set_var("R.A.I.N._WORKSPACE", &workspace_dir);
+        std::env::set_var("rain_WORKSPACE", &workspace_dir);
 
         let capture = SharedLogBuffer::default();
         let subscriber = tracing_subscriber::fmt()
@@ -12011,7 +12002,7 @@ default_model = "persisted-profile"
         assert!(logs.contains("initialized=true"), "{logs}");
         assert!(!logs.contains("initialized=false"), "{logs}");
 
-        std::env::remove_var("R.A.I.N._WORKSPACE");
+        std::env::remove_var("rain_WORKSPACE");
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
@@ -12026,11 +12017,11 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         let original_provider = config.default_provider.clone();
 
-        std::env::set_var("R.A.I.N._PROVIDER", "");
+        std::env::set_var("rain_PROVIDER", "");
         config.apply_env_overrides();
         assert_eq!(config.default_provider, original_provider);
 
-        std::env::remove_var("R.A.I.N._PROVIDER");
+        std::env::remove_var("rain_PROVIDER");
     }
 
     #[test]
@@ -12039,11 +12030,11 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         assert_eq!(config.gateway.port, 42617);
 
-        std::env::set_var("R.A.I.N._GATEWAY_PORT", "8080");
+        std::env::set_var("rain_GATEWAY_PORT", "8080");
         config.apply_env_overrides();
         assert_eq!(config.gateway.port, 8080);
 
-        std::env::remove_var("R.A.I.N._GATEWAY_PORT");
+        std::env::remove_var("rain_GATEWAY_PORT");
     }
 
     #[test]
@@ -12051,7 +12042,7 @@ default_model = "persisted-profile"
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._GATEWAY_PORT");
+        std::env::remove_var("rain_GATEWAY_PORT");
         std::env::set_var("PORT", "9000");
         config.apply_env_overrides();
         assert_eq!(config.gateway.port, 9000);
@@ -12065,11 +12056,11 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         assert_eq!(config.gateway.host, "127.0.0.1");
 
-        std::env::set_var("R.A.I.N._GATEWAY_HOST", "0.0.0.0");
+        std::env::set_var("rain_GATEWAY_HOST", "0.0.0.0");
         config.apply_env_overrides();
         assert_eq!(config.gateway.host, "0.0.0.0");
 
-        std::env::remove_var("R.A.I.N._GATEWAY_HOST");
+        std::env::remove_var("rain_GATEWAY_HOST");
     }
 
     #[test]
@@ -12077,7 +12068,7 @@ default_model = "persisted-profile"
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::remove_var("R.A.I.N._GATEWAY_HOST");
+        std::env::remove_var("rain_GATEWAY_HOST");
         std::env::set_var("HOST", "0.0.0.0");
         config.apply_env_overrides();
         assert_eq!(config.gateway.host, "0.0.0.0");
@@ -12090,31 +12081,31 @@ default_model = "persisted-profile"
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._TEMPERATURE", "0.5");
+        std::env::set_var("rain_TEMPERATURE", "0.5");
         config.apply_env_overrides();
         assert!((config.default_temperature - 0.5).abs() < f64::EPSILON);
 
-        std::env::remove_var("R.A.I.N._TEMPERATURE");
+        std::env::remove_var("rain_TEMPERATURE");
     }
 
     #[test]
     async fn env_override_temperature_out_of_range_ignored() {
         let _env_guard = env_override_lock().await;
         // Clean up any leftover env vars from other tests
-        std::env::remove_var("R.A.I.N._TEMPERATURE");
+        std::env::remove_var("rain_TEMPERATURE");
 
         let mut config = Config::default();
         let original_temp = config.default_temperature;
 
         // Temperature > 2.0 should be ignored
-        std::env::set_var("R.A.I.N._TEMPERATURE", "3.0");
+        std::env::set_var("rain_TEMPERATURE", "3.0");
         config.apply_env_overrides();
         assert!(
             (config.default_temperature - original_temp).abs() < f64::EPSILON,
             "Temperature 3.0 should be ignored (out of range)"
         );
 
-        std::env::remove_var("R.A.I.N._TEMPERATURE");
+        std::env::remove_var("rain_TEMPERATURE");
     }
 
     #[test]
@@ -12123,15 +12114,15 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         assert_eq!(config.runtime.reasoning_enabled, None);
 
-        std::env::set_var("R.A.I.N._REASONING_ENABLED", "false");
+        std::env::set_var("rain_REASONING_ENABLED", "false");
         config.apply_env_overrides();
         assert_eq!(config.runtime.reasoning_enabled, Some(false));
 
-        std::env::set_var("R.A.I.N._REASONING_ENABLED", "true");
+        std::env::set_var("rain_REASONING_ENABLED", "true");
         config.apply_env_overrides();
         assert_eq!(config.runtime.reasoning_enabled, Some(true));
 
-        std::env::remove_var("R.A.I.N._REASONING_ENABLED");
+        std::env::remove_var("rain_REASONING_ENABLED");
     }
 
     #[test]
@@ -12140,11 +12131,11 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         config.runtime.reasoning_enabled = Some(false);
 
-        std::env::set_var("R.A.I.N._REASONING_ENABLED", "maybe");
+        std::env::set_var("rain_REASONING_ENABLED", "maybe");
         config.apply_env_overrides();
         assert_eq!(config.runtime.reasoning_enabled, Some(false));
 
-        std::env::remove_var("R.A.I.N._REASONING_ENABLED");
+        std::env::remove_var("rain_REASONING_ENABLED");
     }
 
     #[test]
@@ -12153,11 +12144,11 @@ default_model = "persisted-profile"
         let mut config = Config::default();
         assert_eq!(config.runtime.reasoning_effort, None);
 
-        std::env::set_var("R.A.I.N._REASONING_EFFORT", "HIGH");
+        std::env::set_var("rain_REASONING_EFFORT", "HIGH");
         config.apply_env_overrides();
         assert_eq!(config.runtime.reasoning_effort.as_deref(), Some("high"));
 
-        std::env::remove_var("R.A.I.N._REASONING_EFFORT");
+        std::env::remove_var("rain_REASONING_EFFORT");
     }
 
     #[test]
@@ -12165,11 +12156,11 @@ default_model = "persisted-profile"
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._CODEX_REASONING_EFFORT", "minimal");
+        std::env::set_var("rain_CODEX_REASONING_EFFORT", "minimal");
         config.apply_env_overrides();
         assert_eq!(config.runtime.reasoning_effort.as_deref(), Some("minimal"));
 
-        std::env::remove_var("R.A.I.N._CODEX_REASONING_EFFORT");
+        std::env::remove_var("rain_CODEX_REASONING_EFFORT");
     }
 
     #[test]
@@ -12238,9 +12229,9 @@ default_model = "persisted-profile"
         let _env_guard = env_override_lock().await;
         let mut config = Config::default();
 
-        std::env::set_var("R.A.I.N._STORAGE_PROVIDER", "postgres");
-        std::env::set_var("R.A.I.N._STORAGE_DB_URL", "postgres://example/db");
-        std::env::set_var("R.A.I.N._STORAGE_CONNECT_TIMEOUT_SECS", "15");
+        std::env::set_var("rain_STORAGE_PROVIDER", "postgres");
+        std::env::set_var("rain_STORAGE_DB_URL", "postgres://example/db");
+        std::env::set_var("rain_STORAGE_CONNECT_TIMEOUT_SECS", "15");
 
         config.apply_env_overrides();
 
@@ -12254,9 +12245,9 @@ default_model = "persisted-profile"
             Some(15)
         );
 
-        std::env::remove_var("R.A.I.N._STORAGE_PROVIDER");
-        std::env::remove_var("R.A.I.N._STORAGE_DB_URL");
-        std::env::remove_var("R.A.I.N._STORAGE_CONNECT_TIMEOUT_SECS");
+        std::env::remove_var("rain_STORAGE_PROVIDER");
+        std::env::remove_var("rain_STORAGE_DB_URL");
+        std::env::remove_var("rain_STORAGE_CONNECT_TIMEOUT_SECS");
     }
 
     #[test]
@@ -12281,13 +12272,10 @@ default_model = "persisted-profile"
         clear_proxy_env_test_vars();
 
         let mut config = Config::default();
-        std::env::set_var("R.A.I.N._PROXY_ENABLED", "true");
-        std::env::set_var("R.A.I.N._HTTP_PROXY", "http://127.0.0.1:7890");
-        std::env::set_var(
-            "R.A.I.N._PROXY_SERVICES",
-            "provider.openai, tool.http_request",
-        );
-        std::env::set_var("R.A.I.N._PROXY_SCOPE", "services");
+        std::env::set_var("rain_PROXY_ENABLED", "true");
+        std::env::set_var("rain_HTTP_PROXY", "http://127.0.0.1:7890");
+        std::env::set_var("rain_PROXY_SERVICES", "provider.openai, tool.http_request");
+        std::env::set_var("rain_PROXY_SCOPE", "services");
 
         config.apply_env_overrides();
 
@@ -12310,11 +12298,11 @@ default_model = "persisted-profile"
         clear_proxy_env_test_vars();
 
         let mut config = Config::default();
-        std::env::set_var("R.A.I.N._PROXY_ENABLED", "true");
-        std::env::set_var("R.A.I.N._PROXY_SCOPE", "environment");
-        std::env::set_var("R.A.I.N._HTTP_PROXY", "http://127.0.0.1:7890");
-        std::env::set_var("R.A.I.N._HTTPS_PROXY", "http://127.0.0.1:7891");
-        std::env::set_var("R.A.I.N._NO_PROXY", "localhost,127.0.0.1");
+        std::env::set_var("rain_PROXY_ENABLED", "true");
+        std::env::set_var("rain_PROXY_SCOPE", "environment");
+        std::env::set_var("rain_HTTP_PROXY", "http://127.0.0.1:7890");
+        std::env::set_var("rain_HTTPS_PROXY", "http://127.0.0.1:7891");
+        std::env::set_var("rain_NO_PROXY", "localhost,127.0.0.1");
 
         config.apply_env_overrides();
 
@@ -12888,10 +12876,8 @@ require_otp_to_resume = true
 
     #[tokio::test]
     async fn channel_secret_telegram_bot_token_roundtrip() {
-        let dir = std::env::temp_dir().join(format!(
-            "R.A.I.N._test_tg_bot_token_{}",
-            uuid::Uuid::new_v4()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("rain_test_tg_bot_token_{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).await.unwrap();
 
         let plaintext_token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11";
@@ -13283,10 +13269,8 @@ require_otp_to_resume = true
 
     #[tokio::test]
     async fn nevis_client_secret_encrypt_decrypt_roundtrip() {
-        let dir = std::env::temp_dir().join(format!(
-            "R.A.I.N._test_nevis_secret_{}",
-            uuid::Uuid::new_v4()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("rain_test_nevis_secret_{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).await.unwrap();
 
         let plaintext_secret = "nevis-test-client-secret-value";

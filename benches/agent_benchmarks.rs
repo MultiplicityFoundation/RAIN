@@ -13,14 +13,14 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 use std::sync::{Arc, Mutex};
 
-use R.A.I.N.::agent::agent::Agent;
-use R.A.I.N.::agent::dispatcher::{NativeToolDispatcher, ToolDispatcher, XmlToolDispatcher};
-use R.A.I.N.::config::MemoryConfig;
-use R.A.I.N.::memory;
-use R.A.I.N.::memory::{Memory, MemoryCategory};
-use R.A.I.N.::observability::{NoopObserver, Observer};
-use R.A.I.N.::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
-use R.A.I.N.::tools::{Tool, ToolResult};
+use rain_labs::agent::agent::Agent;
+use rain_labs::agent::dispatcher::{NativeToolDispatcher, ToolDispatcher, XmlToolDispatcher};
+use rain_labs::config::MemoryConfig;
+use rain_labs::memory;
+use rain_labs::memory::{Memory, MemoryCategory};
+use rain_labs::observability::{NoopObserver, Observer};
+use rain_labs::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
+use rain_labs::tools::{Tool, ToolResult};
 
 use anyhow::Result;
 use async_trait::async_trait;

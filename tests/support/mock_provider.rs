@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
+use rain_labs::providers::traits::{ChatMessage, TokenUsage};
+use rain_labs::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
 use std::sync::{Arc, Mutex};
-use R.A.I.N.::providers::traits::{ChatMessage, TokenUsage};
-use R.A.I.N.::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
 
 use super::trace::{LlmTrace, TraceResponse};
 

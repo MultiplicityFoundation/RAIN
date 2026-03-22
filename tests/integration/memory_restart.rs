@@ -6,9 +6,9 @@
 //! Tests SqliteMemory deduplication on restart, session scoping, concurrent
 //! message ordering, and recall behavior after re-initialization.
 
+use rain_labs::memory::sqlite::SqliteMemory;
+use rain_labs::memory::traits::{Memory, MemoryCategory};
 use std::sync::Arc;
-use R.A.I.N.::memory::sqlite::SqliteMemory;
-use R.A.I.N.::memory::traits::{Memory, MemoryCategory};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Deduplication: same key overwrites instead of duplicating (#430)

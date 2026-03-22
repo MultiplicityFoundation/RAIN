@@ -4,7 +4,7 @@
 //! the ChannelMessage contract is maintained across the provider->channel boundary.
 
 use async_trait::async_trait;
-use R.A.I.N.::channels::traits::{Channel, ChannelMessage, SendMessage};
+use rain_labs::channels::traits::{Channel, ChannelMessage, SendMessage};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Channel for integration testing
@@ -61,6 +61,7 @@ fn provider_response_to_channel_message_format() {
         channel: "test_channel".into(),
         timestamp: 1_700_000_000,
         thread_ts: None,
+        interruption_scope_id: None,
     };
 
     // Verify the message can be used by channel
@@ -83,6 +84,7 @@ fn provider_channel_message_round_trip() {
         channel: "telegram".into(),
         timestamp: 1_700_000_000,
         thread_ts: None,
+        interruption_scope_id: None,
     };
 
     // Verify round-trip preserves key information
@@ -104,6 +106,7 @@ fn multi_provider_channel_routing() {
             channel: "unified".into(),
             timestamp: 1_700_000_000,
             thread_ts: None,
+            interruption_scope_id: None,
         };
 
         // Each provider should be able to generate valid channel messages
@@ -125,6 +128,7 @@ fn channel_message_timestamp_propagation() {
         channel: "test".into(),
         timestamp: test_timestamp,
         thread_ts: None,
+        interruption_scope_id: None,
     };
 
     // Timestamp should be preserved exactly
@@ -144,6 +148,7 @@ fn provider_error_to_channel_error_message() {
         channel: "error_channel".into(),
         timestamp: 1_700_000_000,
         thread_ts: None,
+        interruption_scope_id: None,
     };
 
     // Error messages should be properly formatted for channel delivery

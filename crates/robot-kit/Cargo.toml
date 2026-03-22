@@ -1,5 +1,5 @@
 [package]
-name = "R.A.I.N.-robot-kit"
+name = "rain-robot-kit"
 version = "0.1.0"
 edition = "2021"
 authors = ["theonlyhennygod"]

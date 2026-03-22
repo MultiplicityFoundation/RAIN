@@ -242,7 +242,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
             );
             println!();
             // Signal to main.rs to call start_channels after wizard returns
-            std::env::set_var("R.A.I.N._AUTOSTART_CHANNELS", "1");
+            std::env::set_var("rain_AUTOSTART_CHANNELS", "1");
         }
     }
 
@@ -294,7 +294,7 @@ pub async fn run_channels_repair_wizard() -> Result<Config> {
             );
             println!();
             // Signal to main.rs to call start_channels after wizard returns
-            std::env::set_var("R.A.I.N._AUTOSTART_CHANNELS", "1");
+            std::env::set_var("rain_AUTOSTART_CHANNELS", "1");
         }
     }
 
@@ -356,7 +356,7 @@ async fn run_provider_update_wizard(workspace_dir: &Path, config_path: &Path) ->
                 style("Starting channel server...").white().bold()
             );
             println!();
-            std::env::set_var("R.A.I.N._AUTOSTART_CHANNELS", "1");
+            std::env::set_var("rain_AUTOSTART_CHANNELS", "1");
         }
     }
 
@@ -449,7 +449,7 @@ pub async fn run_quick_setup(
 }
 
 fn resolve_quick_setup_dirs_with_home(home: &Path) -> (PathBuf, PathBuf) {
-    if let Ok(custom_config_dir) = std::env::var("R.A.I.N._CONFIG_DIR") {
+    if let Ok(custom_config_dir) = std::env::var("rain_CONFIG_DIR") {
         let trimmed = custom_config_dir.trim();
         if !trimmed.is_empty() {
             let config_dir = PathBuf::from(shellexpand::tilde(trimmed).as_ref());
@@ -457,7 +457,7 @@ fn resolve_quick_setup_dirs_with_home(home: &Path) -> (PathBuf, PathBuf) {
         }
     }
 
-    if let Ok(custom_workspace) = std::env::var("R.A.I.N._WORKSPACE") {
+    if let Ok(custom_workspace) = std::env::var("rain_WORKSPACE") {
         let trimmed = custom_workspace.trim();
         if !trimmed.is_empty() {
             let expanded = shellexpand::tilde(trimmed);
@@ -530,8 +530,8 @@ async fn run_quick_setup_with_home(
     );
     println!();
 
-    let (R.A.I.N._dir, workspace_dir) = resolve_quick_setup_dirs_with_home(home);
-    let config_path = R.A.I.N._dir.join("config.toml");
+    let (rain_dir, workspace_dir) = resolve_quick_setup_dirs_with_home(home);
+    let config_path = rain_dir.join("config.toml");
 
     ensure_onboard_overwrite_allowed(&config_path, force)?;
     fs::create_dir_all(&workspace_dir)
@@ -4477,7 +4477,7 @@ fn setup_channels() -> Result<ChannelsConfig> {
                     access_token: Some(access_token.trim().to_string()),
                     phone_number_id: Some(phone_number_id.trim().to_string()),
                     verify_token: Some(verify_token.trim().to_string()),
-                    app_secret: None, // Can be set via R.A.I.N._WHATSAPP_APP_SECRET env var
+                    app_secret: None, // Can be set via rain_WHATSAPP_APP_SECRET env var
                     session_path: None,
                     pair_phone: None,
                     pair_code: None,
@@ -6076,8 +6076,8 @@ mod tests {
     #[tokio::test]
     async fn quick_setup_model_override_persists_to_config_toml() {
         let _env_guard = env_lock().lock().await;
-        let _workspace_env = EnvVarGuard::unset("R.A.I.N._WORKSPACE");
-        let _config_env = EnvVarGuard::unset("R.A.I.N._CONFIG_DIR");
+        let _workspace_env = EnvVarGuard::unset("rain_WORKSPACE");
+        let _config_env = EnvVarGuard::unset("rain_CONFIG_DIR");
         let tmp = TempDir::new().unwrap();
 
         let config = Box::pin(run_quick_setup_with_home(
@@ -6103,8 +6103,8 @@ mod tests {
     #[tokio::test]
     async fn quick_setup_without_model_uses_provider_default_model() {
         let _env_guard = env_lock().lock().await;
-        let _workspace_env = EnvVarGuard::unset("R.A.I.N._WORKSPACE");
-        let _config_env = EnvVarGuard::unset("R.A.I.N._CONFIG_DIR");
+        let _workspace_env = EnvVarGuard::unset("rain_WORKSPACE");
+        let _config_env = EnvVarGuard::unset("rain_CONFIG_DIR");
         let tmp = TempDir::new().unwrap();
 
         let config = Box::pin(run_quick_setup_with_home(
@@ -6126,13 +6126,13 @@ mod tests {
     #[tokio::test]
     async fn quick_setup_existing_config_requires_force_when_non_interactive() {
         let _env_guard = env_lock().lock().await;
-        let _workspace_env = EnvVarGuard::unset("R.A.I.N._WORKSPACE");
-        let _config_env = EnvVarGuard::unset("R.A.I.N._CONFIG_DIR");
+        let _workspace_env = EnvVarGuard::unset("rain_WORKSPACE");
+        let _config_env = EnvVarGuard::unset("rain_CONFIG_DIR");
         let tmp = TempDir::new().unwrap();
-        let R.A.I.N._dir = tmp.path().join(".R.A.I.N.");
-        let config_path = R.A.I.N._dir.join("config.toml");
+        let rain_dir = tmp.path().join(".R.A.I.N.");
+        let config_path = rain_dir.join("config.toml");
 
-        tokio::fs::create_dir_all(&R.A.I.N._dir).await.unwrap();
+        tokio::fs::create_dir_all(&rain_dir).await.unwrap();
         tokio::fs::write(&config_path, "default_provider = \"openrouter\"\n")
             .await
             .unwrap();
@@ -6156,13 +6156,13 @@ mod tests {
     #[tokio::test]
     async fn quick_setup_existing_config_overwrites_with_force() {
         let _env_guard = env_lock().lock().await;
-        let _workspace_env = EnvVarGuard::unset("R.A.I.N._WORKSPACE");
-        let _config_env = EnvVarGuard::unset("R.A.I.N._CONFIG_DIR");
+        let _workspace_env = EnvVarGuard::unset("rain_WORKSPACE");
+        let _config_env = EnvVarGuard::unset("rain_CONFIG_DIR");
         let tmp = TempDir::new().unwrap();
-        let R.A.I.N._dir = tmp.path().join(".R.A.I.N.");
-        let config_path = R.A.I.N._dir.join("config.toml");
+        let rain_dir = tmp.path().join(".R.A.I.N.");
+        let config_path = rain_dir.join("config.toml");
 
-        tokio::fs::create_dir_all(&R.A.I.N._dir).await.unwrap();
+        tokio::fs::create_dir_all(&rain_dir).await.unwrap();
         tokio::fs::write(
             &config_path,
             "default_provider = \"anthropic\"\ndefault_model = \"stale-model\"\n",
@@ -6198,11 +6198,9 @@ mod tests {
         let workspace_dir = workspace_root.join("workspace");
         let expected_config_path = workspace_root.join(".R.A.I.N.").join("config.toml");
 
-        let _workspace_env = EnvVarGuard::set(
-            "R.A.I.N._WORKSPACE",
-            workspace_dir.to_string_lossy().as_ref(),
-        );
-        let _config_env = EnvVarGuard::unset("R.A.I.N._CONFIG_DIR");
+        let _workspace_env =
+            EnvVarGuard::set("rain_WORKSPACE", workspace_dir.to_string_lossy().as_ref());
+        let _config_env = EnvVarGuard::unset("rain_CONFIG_DIR");
 
         let config = Box::pin(run_quick_setup_with_home(
             Some("sk-env"),
@@ -6213,7 +6211,7 @@ mod tests {
             tmp.path(),
         ))
         .await
-        .expect("quick setup should honor R.A.I.N._WORKSPACE");
+        .expect("quick setup should honor rain_WORKSPACE");
 
         assert_eq!(config.workspace_dir, workspace_dir);
         assert_eq!(config.config_path, expected_config_path);

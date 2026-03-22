@@ -41,69 +41,66 @@ impl PrometheusObserver {
         let registry = Registry::new();
 
         let agent_starts = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._agent_starts_total", "Total agent invocations"),
+            prometheus::Opts::new("rain_agent_starts_total", "Total agent invocations"),
             &["provider", "model"],
         )
         .expect("valid metric");
 
         let llm_requests = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._llm_requests_total", "Total LLM provider requests"),
+            prometheus::Opts::new("rain_llm_requests_total", "Total LLM provider requests"),
             &["provider", "model", "success"],
         )
         .expect("valid metric");
 
         let tokens_input_total = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._tokens_input_total", "Total input tokens consumed"),
+            prometheus::Opts::new("rain_tokens_input_total", "Total input tokens consumed"),
             &["provider", "model"],
         )
         .expect("valid metric");
 
         let tokens_output_total = IntCounterVec::new(
-            prometheus::Opts::new(
-                "R.A.I.N._tokens_output_total",
-                "Total output tokens consumed",
-            ),
+            prometheus::Opts::new("rain_tokens_output_total", "Total output tokens consumed"),
             &["provider", "model"],
         )
         .expect("valid metric");
 
         let tool_calls = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._tool_calls_total", "Total tool calls"),
+            prometheus::Opts::new("rain_tool_calls_total", "Total tool calls"),
             &["tool", "success"],
         )
         .expect("valid metric");
 
         let channel_messages = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._channel_messages_total", "Total channel messages"),
+            prometheus::Opts::new("rain_channel_messages_total", "Total channel messages"),
             &["channel", "direction"],
         )
         .expect("valid metric");
 
         let heartbeat_ticks =
-            prometheus::IntCounter::new("R.A.I.N._heartbeat_ticks_total", "Total heartbeat ticks")
+            prometheus::IntCounter::new("rain_heartbeat_ticks_total", "Total heartbeat ticks")
                 .expect("valid metric");
 
         let errors = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._errors_total", "Total errors by component"),
+            prometheus::Opts::new("rain_errors_total", "Total errors by component"),
             &["component"],
         )
         .expect("valid metric");
 
         let cache_hits = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._cache_hits_total", "Total response cache hits"),
+            prometheus::Opts::new("rain_cache_hits_total", "Total response cache hits"),
             &["cache_type"],
         )
         .expect("valid metric");
 
         let cache_misses = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._cache_misses_total", "Total response cache misses"),
+            prometheus::Opts::new("rain_cache_misses_total", "Total response cache misses"),
             &["cache_type"],
         )
         .expect("valid metric");
 
         let cache_tokens_saved = IntCounterVec::new(
             prometheus::Opts::new(
-                "R.A.I.N._cache_tokens_saved_total",
+                "rain_cache_tokens_saved_total",
                 "Total tokens saved by response cache",
             ),
             &["cache_type"],
@@ -112,7 +109,7 @@ impl PrometheusObserver {
 
         let agent_duration = HistogramVec::new(
             HistogramOpts::new(
-                "R.A.I.N._agent_duration_seconds",
+                "rain_agent_duration_seconds",
                 "Agent invocation duration in seconds",
             )
             .buckets(vec![0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
@@ -122,7 +119,7 @@ impl PrometheusObserver {
 
         let tool_duration = HistogramVec::new(
             HistogramOpts::new(
-                "R.A.I.N._tool_duration_seconds",
+                "rain_tool_duration_seconds",
                 "Tool execution duration in seconds",
             )
             .buckets(vec![0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]),
@@ -131,51 +128,43 @@ impl PrometheusObserver {
         .expect("valid metric");
 
         let request_latency = Histogram::with_opts(
-            HistogramOpts::new(
-                "R.A.I.N._request_latency_seconds",
-                "Request latency in seconds",
-            )
-            .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
+            HistogramOpts::new("rain_request_latency_seconds", "Request latency in seconds")
+                .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
         )
         .expect("valid metric");
 
-        let tokens_used = prometheus::IntGauge::new(
-            "R.A.I.N._tokens_used_last",
-            "Tokens used in the last request",
-        )
-        .expect("valid metric");
+        let tokens_used =
+            prometheus::IntGauge::new("rain_tokens_used_last", "Tokens used in the last request")
+                .expect("valid metric");
 
         let active_sessions = GaugeVec::new(
-            prometheus::Opts::new("R.A.I.N._active_sessions", "Number of active sessions"),
+            prometheus::Opts::new("rain_active_sessions", "Number of active sessions"),
             &[],
         )
         .expect("valid metric");
 
         let queue_depth = GaugeVec::new(
-            prometheus::Opts::new("R.A.I.N._queue_depth", "Message queue depth"),
+            prometheus::Opts::new("rain_queue_depth", "Message queue depth"),
             &[],
         )
         .expect("valid metric");
 
         let hand_runs = IntCounterVec::new(
-            prometheus::Opts::new("R.A.I.N._hand_runs_total", "Total hand runs by outcome"),
+            prometheus::Opts::new("rain_hand_runs_total", "Total hand runs by outcome"),
             &["hand", "success"],
         )
         .expect("valid metric");
 
         let hand_duration = HistogramVec::new(
-            HistogramOpts::new(
-                "R.A.I.N._hand_duration_seconds",
-                "Hand run duration in seconds",
-            )
-            .buckets(vec![0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+            HistogramOpts::new("rain_hand_duration_seconds", "Hand run duration in seconds")
+                .buckets(vec![0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
             &["hand"],
         )
         .expect("valid metric");
 
         let hand_findings = IntCounterVec::new(
             prometheus::Opts::new(
-                "R.A.I.N._hand_findings_total",
+                "rain_hand_findings_total",
                 "Total findings produced by hand runs",
             ),
             &["hand"],
@@ -491,10 +480,10 @@ mod tests {
         obs.record_metric(&ObserverMetric::RequestLatency(Duration::from_millis(250)));
 
         let output = obs.encode();
-        assert!(output.contains("R.A.I.N._agent_starts_total"));
-        assert!(output.contains("R.A.I.N._tool_calls_total"));
-        assert!(output.contains("R.A.I.N._heartbeat_ticks_total"));
-        assert!(output.contains("R.A.I.N._request_latency_seconds"));
+        assert!(output.contains("rain_agent_starts_total"));
+        assert!(output.contains("rain_tool_calls_total"));
+        assert!(output.contains("rain_heartbeat_ticks_total"));
+        assert!(output.contains("rain_request_latency_seconds"));
     }
 
     #[test]
@@ -506,7 +495,7 @@ mod tests {
         }
 
         let output = obs.encode();
-        assert!(output.contains("R.A.I.N._heartbeat_ticks_total 3"));
+        assert!(output.contains("rain_heartbeat_ticks_total 3"));
     }
 
     #[test]
@@ -530,8 +519,8 @@ mod tests {
         });
 
         let output = obs.encode();
-        assert!(output.contains(r#"R.A.I.N._tool_calls_total{success="true",tool="shell"} 2"#));
-        assert!(output.contains(r#"R.A.I.N._tool_calls_total{success="false",tool="shell"} 1"#));
+        assert!(output.contains(r#"rain_tool_calls_total{success="true",tool="shell"} 2"#));
+        assert!(output.contains(r#"rain_tool_calls_total{success="false",tool="shell"} 1"#));
     }
 
     #[test]
@@ -551,8 +540,8 @@ mod tests {
         });
 
         let output = obs.encode();
-        assert!(output.contains(r#"R.A.I.N._errors_total{component="provider"} 2"#));
-        assert!(output.contains(r#"R.A.I.N._errors_total{component="channels"} 1"#));
+        assert!(output.contains(r#"rain_errors_total{component="provider"} 2"#));
+        assert!(output.contains(r#"rain_errors_total{component="channels"} 1"#));
     }
 
     #[test]
@@ -562,7 +551,7 @@ mod tests {
         obs.record_metric(&ObserverMetric::TokensUsed(200));
 
         let output = obs.encode();
-        assert!(output.contains("R.A.I.N._tokens_used_last 200"));
+        assert!(output.contains("rain_tokens_used_last 200"));
     }
 
     #[test]
@@ -590,13 +579,13 @@ mod tests {
 
         let output = obs.encode();
         assert!(output.contains(
-            r#"R.A.I.N._llm_requests_total{model="claude-sonnet",provider="openrouter",success="true"} 2"#
+            r#"rain_llm_requests_total{model="claude-sonnet",provider="openrouter",success="true"} 2"#
         ));
         assert!(output.contains(
-            r#"R.A.I.N._tokens_input_total{model="claude-sonnet",provider="openrouter"} 300"#
+            r#"rain_tokens_input_total{model="claude-sonnet",provider="openrouter"} 300"#
         ));
         assert!(output.contains(
-            r#"R.A.I.N._tokens_output_total{model="claude-sonnet",provider="openrouter"} 130"#
+            r#"rain_tokens_output_total{model="claude-sonnet",provider="openrouter"} 130"#
         ));
     }
 
@@ -621,10 +610,10 @@ mod tests {
         });
 
         let output = obs.encode();
-        assert!(output.contains(r#"R.A.I.N._hand_runs_total{hand="review",success="true"} 2"#));
-        assert!(output.contains(r#"R.A.I.N._hand_runs_total{hand="review",success="false"} 1"#));
-        assert!(output.contains(r#"R.A.I.N._hand_findings_total{hand="review"} 4"#));
-        assert!(output.contains("R.A.I.N._hand_duration_seconds"));
+        assert!(output.contains(r#"rain_hand_runs_total{hand="review",success="true"} 2"#));
+        assert!(output.contains(r#"rain_hand_runs_total{hand="review",success="false"} 1"#));
+        assert!(output.contains(r#"rain_hand_findings_total{hand="review"} 4"#));
+        assert!(output.contains("rain_hand_duration_seconds"));
     }
 
     #[test]
@@ -649,10 +638,10 @@ mod tests {
         });
 
         let output = obs.encode();
-        assert!(output.contains("R.A.I.N._hand_duration_seconds"));
-        assert!(output.contains(r#"R.A.I.N._hand_findings_total{hand="scan"} 5"#));
-        assert!(output.contains(r#"R.A.I.N._hand_runs_total{hand="scan",success="true"} 1"#));
-        assert!(output.contains(r#"R.A.I.N._hand_runs_total{hand="scan",success="false"} 1"#));
+        assert!(output.contains("rain_hand_duration_seconds"));
+        assert!(output.contains(r#"rain_hand_findings_total{hand="scan"} 5"#));
+        assert!(output.contains(r#"rain_hand_runs_total{hand="scan",success="true"} 1"#));
+        assert!(output.contains(r#"rain_hand_runs_total{hand="scan",success="false"} 1"#));
     }
 
     #[test]
@@ -671,10 +660,10 @@ mod tests {
 
         let output = obs.encode();
         assert!(output.contains(
-            r#"R.A.I.N._llm_requests_total{model="llama3",provider="ollama",success="false"} 1"#
+            r#"rain_llm_requests_total{model="llama3",provider="ollama",success="false"} 1"#
         ));
         // Token counters should not appear (no data recorded)
-        assert!(!output.contains("R.A.I.N._tokens_input_total{"));
-        assert!(!output.contains("R.A.I.N._tokens_output_total{"));
+        assert!(!output.contains("rain_tokens_input_total{"));
+        assert!(!output.contains("rain_tokens_output_total{"));
     }
 }

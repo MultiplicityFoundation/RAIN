@@ -188,7 +188,7 @@ impl LinqChannel {
             tracing::warn!(
                 "Linq: ignoring message from unauthorized sender: {normalized_from}. \
                 Add to channels.linq.allowed_senders in config.toml, \
-                or run `R.A.I.N. onboard --channels-only` to configure interactively."
+                or run `rain onboard --channels-only` to configure interactively."
             );
             return messages;
         }

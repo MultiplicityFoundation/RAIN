@@ -801,7 +801,7 @@ fn runtime_defaults_from_config(config: &Config) -> ChannelRuntimeDefaults {
 
 fn runtime_config_path(ctx: &ChannelRuntimeContext) -> Option<PathBuf> {
     ctx.provider_runtime_options
-        .R.A.I.N._dir
+        .rain_dir
         .as_ref()
         .map(|dir| dir.join("config.toml"))
 }
@@ -860,8 +860,8 @@ async fn load_runtime_defaults_from_config_file(path: &Path) -> Result<ChannelRu
         toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
     parsed.config_path = path.to_path_buf();
 
-    if let Some(R.A.I.N._dir) = path.parent() {
-        let store = crate::security::SecretStore::new(R.A.I.N._dir, parsed.secrets.encrypt);
+    if let Some(rain_dir) = path.parent() {
+        let store = crate::security::SecretStore::new(rain_dir, parsed.secrets.encrypt);
         decrypt_optional_secret_for_runtime_reload(&store, &mut parsed.api_key, "config.api_key")?;
         // Decrypt TTS provider API keys for runtime reload
         if let Some(ref mut openai) = parsed.tts.openai {
@@ -3794,7 +3794,7 @@ fn collect_configured_channels(
     if let Some(ref mx) = config.channels_config.matrix {
         channels.push(ConfiguredChannel {
             display_name: "Matrix",
-            channel: Arc::new(MatrixChannel::new_with_session_hint_and_R.A.I.N._dir(
+            channel: Arc::new(MatrixChannel::new_with_session_hint_and_rain_dir(
                 mx.homeserver.clone(),
                 mx.access_token.clone(),
                 mx.room_id.clone(),
@@ -4198,7 +4198,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
     let provider_runtime_options = providers::ProviderRuntimeOptions {
         auth_profile_override: None,
         provider_api_url: config.api_url.clone(),
-        R.A.I.N._dir: config.config_path.parent().map(std::path::PathBuf::from),
+        rain_dir: config.config_path.parent().map(std::path::PathBuf::from),
         secrets_encrypt: config.secrets.encrypt,
         reasoning_enabled: config.runtime.reasoning_enabled,
         reasoning_effort: config.runtime.reasoning_effort.clone(),
@@ -6465,7 +6465,7 @@ BTC is currently around $65,000 based on latest tool output."#
             api_url: None,
             reliability: Arc::new(crate::config::ReliabilityConfig::default()),
             provider_runtime_options: providers::ProviderRuntimeOptions {
-                R.A.I.N._dir: Some(temp.path().to_path_buf()),
+                rain_dir: Some(temp.path().to_path_buf()),
                 ..providers::ProviderRuntimeOptions::default()
             },
             workspace_dir: Arc::new(std::env::temp_dir()),
@@ -9142,7 +9142,7 @@ This is an example JSON object for profile settings."#;
             runtime_ctx,
             traits::ChannelMessage {
                 id: "msg-photo-1".to_string(),
-                sender: "R.A.I.N._user".to_string(),
+                sender: "rain_user".to_string(),
                 reply_target: "chat-photo".to_string(),
                 content: "[IMAGE:/tmp/workspace/photo_99_1.jpg]\n\nWhat is this?".to_string(),
                 channel: "test-channel".to_string(),
@@ -9229,7 +9229,7 @@ This is an example JSON object for profile settings."#;
             Arc::clone(&runtime_ctx),
             traits::ChannelMessage {
                 id: "msg-photo-1".to_string(),
-                sender: "R.A.I.N._user".to_string(),
+                sender: "rain_user".to_string(),
                 reply_target: "chat-photo".to_string(),
                 content: "[IMAGE:/tmp/workspace/photo_99_1.jpg]\n\nWhat is this?".to_string(),
                 channel: "test-channel".to_string(),
@@ -9245,7 +9245,7 @@ This is an example JSON object for profile settings."#;
             Arc::clone(&runtime_ctx),
             traits::ChannelMessage {
                 id: "msg-text-2".to_string(),
-                sender: "R.A.I.N._user".to_string(),
+                sender: "rain_user".to_string(),
                 reply_target: "chat-photo".to_string(),
                 content: "What is WAL?".to_string(),
                 channel: "test-channel".to_string(),
@@ -9276,7 +9276,7 @@ This is an example JSON object for profile settings."#;
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let turns = histories
-            .get("test-channel_chat-photo_R.A.I.N._user")
+            .get("test-channel_chat-photo_rain_user")
             .expect("history should exist for sender");
         assert_eq!(turns.len(), 2);
         assert_eq!(turns[0].role, "user");
@@ -9812,7 +9812,7 @@ This is an example JSON object for profile settings."#;
 
     #[test]
     fn is_stop_command_matches_with_bot_suffix() {
-        assert!(is_stop_command("/stop@R.A.I.N._bot"));
+        assert!(is_stop_command("/stop@rain_bot"));
     }
 
     #[test]

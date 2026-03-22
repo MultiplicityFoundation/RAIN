@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use R.A.I.N.::hooks::{HookHandler, HookResult, HookRunner};
-use R.A.I.N.::tools::ToolResult;
+use rain_labs::hooks::{HookHandler, HookResult, HookRunner};
+use rain_labs::tools::ToolResult;
 
 struct CounterHook {
     gateway_starts: Arc<AtomicUsize>,

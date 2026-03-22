@@ -506,8 +506,8 @@ impl TelegramChannel {
         let home = UserDirs::new()
             .map(|u| u.home_dir().to_path_buf())
             .context("Could not find home directory")?;
-        let R.A.I.N._dir = home.join(".R.A.I.N.");
-        let config_path = R.A.I.N._dir.join("config.toml");
+        let rain_dir = home.join(".R.A.I.N.");
+        let config_path = rain_dir.join("config.toml");
 
         let contents = fs::read_to_string(&config_path)
             .await
@@ -516,7 +516,7 @@ impl TelegramChannel {
             "Failed to parse config.toml — check [channels.telegram] section for syntax errors",
         )?;
         config.config_path = config_path;
-        config.workspace_dir = R.A.I.N._dir.join("workspace");
+        config.workspace_dir = rain_dir.join("workspace");
         Ok(config)
     }
 
@@ -3217,7 +3217,7 @@ mod tests {
     #[test]
     fn telegram_extract_bind_code_supports_bot_mention() {
         assert_eq!(
-            TelegramChannel::extract_bind_code("/bind@R.A.I.N._bot 654321"),
+            TelegramChannel::extract_bind_code("/bind@rain_bot 654321"),
             Some("654321")
         );
     }
@@ -4426,7 +4426,7 @@ mod tests {
             "chat": { "id": chat_id },
             "reply_to_message": {
                 "message_id": message_id,
-                "from": { "username": "R.A.I.N._user" },
+                "from": { "username": "rain_user" },
                 "voice": { "file_id": "test_file", "duration": 1 }
             }
         });

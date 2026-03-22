@@ -4,8 +4,8 @@
 //! injection and response capture for race-free testing.
 
 use async_trait::async_trait;
+use rain_labs::channels::traits::{Channel, ChannelMessage, SendMessage};
 use std::sync::{Arc, Mutex};
-use R.A.I.N.::channels::traits::{Channel, ChannelMessage, SendMessage};
 
 /// A test channel that captures sent messages and supports message injection.
 pub struct TestChannel {

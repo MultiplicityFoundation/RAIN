@@ -7,8 +7,8 @@
 //! to provider construction, verifying factory resolution, URL construction,
 //! credential wiring, and auth header format.
 
-use R.A.I.N.::providers::compatible::{AuthStyle, OpenAiCompatibleProvider};
-use R.A.I.N.::providers::{
+use rain_labs::providers::compatible::{AuthStyle, OpenAiCompatibleProvider};
+use rain_labs::providers::{
     create_provider, create_provider_with_options, create_provider_with_url,
 };
 
@@ -276,7 +276,7 @@ fn factory_resolves_synthetic_provider() {
 
 #[test]
 fn factory_resolves_openai_codex_provider() {
-    let options = R.A.I.N.::providers::ProviderRuntimeOptions::default();
+    let options = rain_labs::providers::ProviderRuntimeOptions::default();
     let result = create_provider_with_options("openai-codex", None, &options);
     assert!(
         result.is_ok(),

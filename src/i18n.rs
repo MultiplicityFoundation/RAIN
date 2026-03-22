@@ -88,10 +88,10 @@ impl ToolDescriptions {
 
 /// Detect the user's preferred locale from environment variables.
 ///
-/// Checks `R.A.I.N._LOCALE`, then `LANG`, then `LC_ALL`.
+/// Checks `rain_LOCALE`, then `LANG`, then `LC_ALL`.
 /// Returns "en" if none are set or parseable.
 pub fn detect_locale() -> String {
-    if let Ok(val) = std::env::var("R.A.I.N._LOCALE") {
+    if let Ok(val) = std::env::var("rain_LOCALE") {
         let val = val.trim().to_string();
         if !val.is_empty() {
             return normalize_locale(&val);
@@ -259,20 +259,20 @@ shell = "Execute a shell command"
     #[test]
     fn detect_locale_from_env() {
         // Save and restore env.
-        let saved = std::env::var("R.A.I.N._LOCALE").ok();
+        let saved = std::env::var("rain_LOCALE").ok();
         let saved_lang = std::env::var("LANG").ok();
 
-        std::env::set_var("R.A.I.N._LOCALE", "ja-JP");
+        std::env::set_var("rain_LOCALE", "ja-JP");
         assert_eq!(detect_locale(), "ja-JP");
 
-        std::env::remove_var("R.A.I.N._LOCALE");
+        std::env::remove_var("rain_LOCALE");
         std::env::set_var("LANG", "zh_CN.UTF-8");
         assert_eq!(detect_locale(), "zh-CN");
 
         // Restore.
         match saved {
-            Some(v) => std::env::set_var("R.A.I.N._LOCALE", v),
-            None => std::env::remove_var("R.A.I.N._LOCALE"),
+            Some(v) => std::env::set_var("rain_LOCALE", v),
+            None => std::env::remove_var("rain_LOCALE"),
         }
         match saved_lang {
             Some(v) => std::env::set_var("LANG", v),

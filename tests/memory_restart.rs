@@ -6,9 +6,9 @@
 //! Tests SqliteMemory deduplication on restart, session scoping, concurrent
 //! message ordering, and recall behavior after re-initialization.
 
+use rain_labs::memory::sqlite::SqliteMemory;
+use rain_labs::memory::traits::{Memory, MemoryCategory};
 use std::sync::Arc;
-use R.A.I.N.::memory::sqlite::SqliteMemory;
-use R.A.I.N.::memory::traits::{Memory, MemoryCategory};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Deduplication: same key overwrites instead of duplicating (#430)
@@ -216,7 +216,10 @@ async fn sqlite_memory_recall_returns_relevant_results() {
     .await
     .unwrap();
 
-    let results = mem.recall("Rust programming", 10, None).await.unwrap();
+    let results = mem
+        .recall("Rust programming", 10, None, None, None)
+        .await
+        .unwrap();
     assert!(!results.is_empty(), "recall should find matching entries");
     // The Rust-related entry should be in results
     assert!(
@@ -241,7 +244,10 @@ async fn sqlite_memory_recall_respects_limit() {
         .unwrap();
     }
 
-    let results = mem.recall("test content", 3, None).await.unwrap();
+    let results = mem
+        .recall("test content", 3, None, None, None)
+        .await
+        .unwrap();
     assert!(
         results.len() <= 3,
         "recall should respect limit of 3, got {}",
@@ -250,7 +256,7 @@ async fn sqlite_memory_recall_respects_limit() {
 }
 
 #[tokio::test]
-async fn sqlite_memory_recall_empty_query_returns_empty() {
+async fn sqlite_memory_recall_empty_query_returns_recent_entries() {
     let tmp = tempfile::TempDir::new().unwrap();
     let mem = SqliteMemory::new(tmp.path()).unwrap();
 
@@ -258,8 +264,9 @@ async fn sqlite_memory_recall_empty_query_returns_empty() {
         .await
         .unwrap();
 
-    let results = mem.recall("", 10, None).await.unwrap();
-    assert!(results.is_empty(), "empty query should return no results");
+    // Empty query = time-only mode: returns recent entries
+    let results = mem.recall("", 10, None, None, None).await.unwrap();
+    assert_eq!(results.len(), 1, "empty query should return recent entries");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
