@@ -366,7 +366,7 @@ You interact with R.A.I.N. Lab as a single product. The Python layer handles res
 ```mermaid
 graph TB
     subgraph "R.A.I.N. Lab"
-        subgraph "R.A.I.N. (Rust Runtime)"
+        subgraph "ZeroClaw (Rust Runtime)"
             CLI[CLI and Gateway]
             Agent[Agent Orchestrator]
             Providers[Model Providers]
