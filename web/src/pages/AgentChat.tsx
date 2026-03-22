@@ -180,10 +180,14 @@ export default function AgentChat() {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(content).then(onSuccess).catch(() => {
         // Fallback for insecure contexts (HTTP)
-        fallbackCopy(content) && onSuccess();
+        if (fallbackCopy(content)) {
+          onSuccess();
+        }
       });
     } else {
-      fallbackCopy(content) && onSuccess();
+      if (fallbackCopy(content)) {
+        onSuccess();
+      }
     }
   }, []);
 

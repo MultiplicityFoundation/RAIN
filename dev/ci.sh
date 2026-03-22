@@ -50,6 +50,7 @@ Commands:
   lint-strict   Run rustfmt + full clippy warnings gate (container only)
   lint-delta    Run strict lint delta gate on changed Rust lines (container only)
   test          Run cargo test (container only)
+  web           Run web lint, test, and build checks locally
   test-component  Run component tests only
   test-integration Run integration tests only
   test-system     Run system tests only
@@ -60,7 +61,7 @@ Commands:
   deny          Run cargo deny check (container only)
   security      Run cargo audit + cargo deny (container only)
   docker-smoke  Build and verify runtime image (host docker daemon)
-  all           Run lint, test, build, security, docker-smoke
+  all           Run lint, test, web, build, security, docker-smoke
   clean         Remove local CI containers and volumes
 EOF
 }
@@ -93,6 +94,10 @@ case "$1" in
 
   test)
     run_in_ci "cargo test --locked --verbose"
+    ;;
+
+  web)
+    (cd web && npm ci && npm run lint && npm run test -- --run && npm run build)
     ;;
 
   test-component)
@@ -140,6 +145,7 @@ case "$1" in
   all)
     run_in_ci "./scripts/ci/rust_quality_gate.sh"
     run_in_ci "cargo test --locked --verbose"
+    (cd web && npm ci && npm run lint && npm run test -- --run && npm run build)
     run_in_ci "bash tests/manual/test_dockerignore.sh"
     run_in_ci "cargo build --release --locked --verbose"
     run_in_ci "cargo deny check licenses sources"

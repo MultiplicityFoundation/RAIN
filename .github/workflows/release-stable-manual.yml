@@ -68,7 +68,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Build web dashboard
-        run: cd web && npm ci && npm run build
+        run: cd web && npm ci && npm run lint && npm run test -- --run && npm run build
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
@@ -318,10 +318,10 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build web dashboard
-        run: cd web && npm ci && npm run build
+        run: cd web && npm ci && npm run lint && npm run test -- --run && npm run build
 
       - name: Clean web build artifacts
-        run: rm -rf web/node_modules web/src web/package.json web/package-lock.json web/tsconfig*.json web/vite.config.ts web/index.html
+        run: rm -rf web/node_modules web/src web/package.json web/package-lock.json web/tsconfig*.json web/vite.config.ts web/vitest.config.ts web/eslint.config.mjs web/index.html
 
       - name: Publish aardvark-sys to crates.io
         env:

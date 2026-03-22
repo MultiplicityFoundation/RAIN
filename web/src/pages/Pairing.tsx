@@ -29,7 +29,7 @@ export default function Pairing() {
         const data = await res.json();
         setDevices(data.devices || []);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load devices');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function Pairing() {
       } else {
         setError('Failed to generate pairing code');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate pairing code');
     }
   };
@@ -77,7 +77,7 @@ export default function Pairing() {
       if (res.ok) {
         setDevices(devices.filter(d => d.id !== deviceId));
       }
-    } catch (err) {
+    } catch {
       setError('Failed to revoke device');
     }
   };
