@@ -258,6 +258,8 @@ struct ConverseRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ConverseMessage {
+    // Present in both request/response shapes; retained for serde compatibility.
+    #[allow(dead_code)]
     role: String,
     content: Vec<ContentBlock>,
 }
@@ -401,6 +403,7 @@ struct ConverseResponse {
     #[serde(default)]
     output: Option<ConverseOutput>,
     #[serde(default)]
+    // Useful for diagnostics even when normal flow only reads `output`.
     #[allow(dead_code)]
     stop_reason: Option<String>,
     #[serde(default)]
@@ -424,6 +427,7 @@ struct ConverseOutput {
 
 #[derive(Debug, Deserialize)]
 struct ConverseOutputMessage {
+    // Included in Bedrock output envelope even when callers only consume text/tool blocks.
     #[allow(dead_code)]
     role: String,
     content: Vec<ResponseContentBlock>,

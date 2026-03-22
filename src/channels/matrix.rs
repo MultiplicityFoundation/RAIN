@@ -82,6 +82,9 @@ struct TimelineEvent {
     #[serde(rename = "type")]
     event_type: String,
     sender: String,
+    // Deserialized from Matrix timeline payloads for correlation/debugging.
+    // Some call paths only need body/msgtype and intentionally ignore event_id.
+    #[allow(dead_code)]
     #[serde(default)]
     event_id: Option<String>,
     #[serde(default)]

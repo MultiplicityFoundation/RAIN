@@ -2624,6 +2624,9 @@ pub struct KnowledgeConfig {
     #[serde(default)]
     pub enabled: bool,
     /// Path to the knowledge graph SQLite database.
+    /// This may be populated during deserialization for diagnostics even when
+    /// a given code path does not read it directly.
+    #[allow(dead_code)]
     #[serde(default = "default_knowledge_db_path")]
     pub db_path: String,
     /// Maximum number of knowledge nodes. Default: 100000.

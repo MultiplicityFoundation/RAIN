@@ -65,6 +65,7 @@ enum QQSendSegment {
 #[derive(Debug, Deserialize)]
 struct QQUploadResponse {
     file_info: String,
+    // Returned by QQ upload API; stored for forward-compat/debug use.
     #[allow(dead_code)]
     file_uuid: Option<String>,
     ttl: Option<u64>,
