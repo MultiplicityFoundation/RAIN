@@ -20,7 +20,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-The R.A.I.N. Lab is an open-source multi-agentic research team of assistants built for **academic researchers, R&D teams, and privacy-conscious individuals** who need conclusions they can actually trust. It solves the fundamental problem with AI agents that either agree too quickly or argue in circles forever, by automatically settling unresolved debates with mathematical proof via a sandboxed SAT solver. It runs entirely on your own computer, and your data never leaves your machine.
+The R.A.I.N. Lab is an open-source multi-agentic research team of assistants built for **academic researchers, R&D teams, and privacy-conscious individuals** who need conclusions they can actually trust. It solves the fundamental problem with AI agents that either agree too quickly or argue in circles forever, by automatically settling unresolved debates with mathematical proof via a sandboxed SAT solver. It runs entirely locally on your computer; your data never leaves your machine.
 
 ---
 
