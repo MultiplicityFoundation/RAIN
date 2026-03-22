@@ -514,7 +514,7 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Acknowledgements
 
-R.A.I.N. Lab is a [Vers3Dynamics](https://vers3dynamics.com/) project, built on the high-performance [R.A.I.N.](https://github.com/R.A.I.N.-labs/R.A.I.N.) Rust runtime — inspired by research from MIT CSAIL. We're grateful to both teams for making this lab possible.
+R.A.I.N. Lab is a [Vers3Dynamics](https://vers3dynamics.com/) project, built on the high-performance [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) — inspired by research from MIT CSAIL. We're grateful to both teams for making this lab possible.
 
 Special thanks to Peter for releasing OpenClaw on my birthday.
 
