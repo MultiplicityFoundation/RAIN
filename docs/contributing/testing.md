@@ -58,6 +58,38 @@ cargo test --test integration agent
 ./dev/ci.sh test-system
 ```
 
+## Incremental Python Validation
+
+Python validation now rolls out in narrow allowlists so contributors can land focused cleanup PRs instead of tripping a repo-wide lint explosion. The baseline and staged lanes are:
+
+| Lane | Scope today | Command | Purpose |
+|------|-------------|---------|---------|
+| Ruff baseline | Whole repository | `ruff check . --output-format=full` | Keeps the existing `E/F/W` safety net in place for all Python files. |
+| Ruff stage 1 maintainability | `rain_lab.py`, `rain_preflight_check.py`, `tools.py`, `truth_layer.py` | `ruff check rain_lab.py rain_preflight_check.py tools.py truth_layer.py --select I,UP --output-format=full` | Adds import-order and modernization checks first, with low false-positive risk. |
+| Static typing stage 1 | `truth_layer.py`, `rain_preflight_check.py` | `mypy truth_layer.py rain_preflight_check.py` | Starts type checking on high-value entrypoints before widening to the rest of the repo. |
+
+### Allowlist Growth Path
+
+1. Keep the repo-wide Ruff baseline on `E/F/W`.
+2. Expand the `I`/`UP` allowlist across the next high-value entrypoints in this order: `rain_lab.py`, `rain_preflight_check.py`, `tools.py`, `truth_layer.py`, then additional modules one PR at a time.
+3. After those files stay green, add a bug-risk Ruff family such as `B` for the same allowlist before widening further.
+4. Grow the mypy allowlist module-by-module after each file is cleaned up, starting with `rain_lab.py` and `tools.py` once their immediate dependency issues are resolved.
+
+### Expected Local Python Commands
+
+Run these before opening a PR that touches Python code:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements-dev-pinned.txt
+ruff check . --output-format=full
+ruff check rain_lab.py rain_preflight_check.py tools.py truth_layer.py --select I,UP --output-format=full
+mypy truth_layer.py rain_preflight_check.py
+pytest tests/ -v -ra --tb=long
+```
+
+If your PR expands the allowlist, update the commands above and the matching CI workflow entries in the same change.
+
 ## How to Add a New Test
 
 1. **Testing one subsystem in isolation?** → `tests/component/`
