@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from library_compiler import compile_library
+from james_library.utilities.library_compiler import compile_library
 
 
 def test_compile_library_builds_artifacts(tmp_path: Path):

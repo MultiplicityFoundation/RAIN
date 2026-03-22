@@ -21,13 +21,13 @@ def test_preflight_does_not_crash(repo_root):
 
 def test_preflight_uses_env_var(repo_root):
     """LIBRARY_PATH should come from JAMES_LIBRARY_PATH, not a hardcoded string."""
-    source = (repo_root / "rain_preflight_check.py").read_text(encoding="utf-8")
+    source = (repo_root / "james_library" / "bootstrap" / "rain_preflight_check.py").read_text(encoding="utf-8")
     assert "JAMES_LIBRARY_PATH" in source
     assert r"C:\Users" not in source
 
 
 def test_preflight_duckduckgo_dual_import_support(repo_root):
     """Preflight should accept both legacy and current DuckDuckGo import names."""
-    source = (repo_root / "rain_preflight_check.py").read_text(encoding="utf-8")
+    source = (repo_root / "james_library" / "bootstrap" / "rain_preflight_check.py").read_text(encoding="utf-8")
     assert '"ddgs"' in source
     assert '"duckduckgo_search"' in source

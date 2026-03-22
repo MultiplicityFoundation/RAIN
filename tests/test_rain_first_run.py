@@ -1,11 +1,6 @@
 import subprocess
-import sys
-from pathlib import Path
 
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import rain_first_run
+from james_library.bootstrap import rain_first_run
 
 
 def test_main_success_prints_next_steps(monkeypatch, capsys):

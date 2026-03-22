@@ -1,13 +1,8 @@
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import deploy
+from james_library.bootstrap import deploy
 
 
 def test_run_allow_failure_ignores_called_process_error(monkeypatch):

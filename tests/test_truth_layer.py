@@ -1,6 +1,6 @@
 import pytest
 
-from truth_layer import Evidence, assert_grounded, build_grounded_response
+from james_library.utilities.truth_layer import Evidence, assert_grounded, build_grounded_response
 
 
 def test_grounded_response_with_evidence_passes():
