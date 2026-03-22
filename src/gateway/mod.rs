@@ -767,9 +767,13 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
 
     // Device registry and pairing store (only when pairing is required)
     let device_registry = if config.gateway.require_pairing {
-        Some(Arc::new(api_pairing::DeviceRegistry::new(
-            &config.workspace_dir,
-        )))
+        match api_pairing::DeviceRegistry::new(&config.workspace_dir) {
+            Ok(registry) => Some(Arc::new(registry)),
+            Err(e) => {
+                tracing::error!(error = %e, "failed to initialize device registry; pairing disabled");
+                None
+            }
+        }
     } else {
         None
     };

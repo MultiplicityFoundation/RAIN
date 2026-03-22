@@ -112,7 +112,7 @@ pub struct WebhookAuditHook {
 }
 
 impl WebhookAuditHook {
-    pub fn new(config: WebhookAuditConfig) -> Self {
+    pub fn new(config: WebhookAuditConfig) -> anyhow::Result<Self> {
         // Warn if enabled but no URL configured.
         if config.enabled && config.url.is_empty() {
             tracing::warn!(
@@ -125,19 +125,19 @@ impl WebhookAuditHook {
         if !config.url.is_empty() {
             if let Err(e) = validate_webhook_url(&config.url) {
                 tracing::error!(hook = "webhook-audit", error = %e, "webhook URL validation failed");
-                panic!("webhook-audit: {e}");
+                anyhow::bail!("webhook-audit: {e}");
             }
         }
 
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
-            .expect("failed to build webhook HTTP client");
-        Self {
+            .map_err(|e| anyhow::anyhow!("failed to build webhook HTTP client: {e}"))?;
+        Ok(Self {
             config,
             client,
             pending_args: Arc::new(Mutex::new(HashMap::new())),
-        }
+        })
     }
 }
 
@@ -410,6 +410,7 @@ mod tests {
             include_args,
             max_args_bytes: 4096,
         })
+        .expect("test hook creation should succeed")
     }
 
     #[tokio::test]
@@ -505,14 +506,15 @@ mod tests {
 
     #[tokio::test]
     async fn on_after_tool_call_skips_empty_url() {
-        // Empty URL + enabled triggers a warning, but should not panic.
+        // Empty URL + enabled triggers a warning, but should not error.
         let hook = WebhookAuditHook::new(WebhookAuditConfig {
             enabled: true,
             url: String::new(),
             tool_patterns: vec!["Bash".to_string()],
             include_args: false,
             max_args_bytes: 4096,
-        });
+        })
+        .expect("empty URL hook creation should succeed");
         let result = ToolResult {
             success: true,
             output: "ok".into(),

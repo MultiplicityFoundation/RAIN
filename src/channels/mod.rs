@@ -3811,9 +3811,14 @@ pub async fn start_channels(config: Config) -> Result<()> {
                 runner.register(Box::new(crate::hooks::builtin::CommandLoggerHook::new()));
             }
             if config.hooks.builtin.webhook_audit.enabled {
-                runner.register(Box::new(crate::hooks::builtin::WebhookAuditHook::new(
+                match crate::hooks::builtin::WebhookAuditHook::new(
                     config.hooks.builtin.webhook_audit.clone(),
-                )));
+                ) {
+                    Ok(hook) => runner.register(Box::new(hook)),
+                    Err(e) => {
+                        tracing::error!(hook = "webhook-audit", error = %e, "failed to initialize webhook-audit hook; skipping");
+                    }
+                }
             }
             Some(Arc::new(runner))
         } else {

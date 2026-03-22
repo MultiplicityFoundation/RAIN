@@ -32,9 +32,10 @@ pub struct DeviceRegistry {
 }
 
 impl DeviceRegistry {
-    pub fn new(workspace_dir: &Path) -> Self {
+    pub fn new(workspace_dir: &Path) -> anyhow::Result<Self> {
         let db_path = workspace_dir.join("devices.db");
-        let conn = Connection::open(&db_path).expect("Failed to open device registry database");
+        let conn = Connection::open(&db_path)
+            .map_err(|e| anyhow::anyhow!("failed to open device registry database: {e}"))?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS devices (
                 token_hash TEXT PRIMARY KEY,
@@ -46,13 +47,13 @@ impl DeviceRegistry {
                 ip_address TEXT
             )",
         )
-        .expect("Failed to create devices table");
+        .map_err(|e| anyhow::anyhow!("failed to create devices table: {e}"))?;
 
         // Warm the in-memory cache from DB
         let mut cache = HashMap::new();
         let mut stmt = conn
             .prepare("SELECT token_hash, id, name, device_type, paired_at, last_seen, ip_address FROM devices")
-            .expect("Failed to prepare device select");
+            .map_err(|e| anyhow::anyhow!("failed to prepare device select: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 let token_hash: String = row.get(0)?;
@@ -80,23 +81,24 @@ impl DeviceRegistry {
                     },
                 ))
             })
-            .expect("Failed to query devices");
+            .map_err(|e| anyhow::anyhow!("failed to query devices: {e}"))?;
         for (hash, info) in rows.flatten() {
             cache.insert(hash, info);
         }
 
-        Self {
+        Ok(Self {
             cache: Mutex::new(cache),
             db_path,
-        }
+        })
     }
 
-    fn open_db(&self) -> Connection {
-        Connection::open(&self.db_path).expect("Failed to open device registry database")
+    fn open_db(&self) -> anyhow::Result<Connection> {
+        Connection::open(&self.db_path)
+            .map_err(|e| anyhow::anyhow!("failed to open device registry database: {e}"))
     }
 
-    pub fn register(&self, token_hash: String, info: DeviceInfo) {
-        let conn = self.open_db();
+    pub fn register(&self, token_hash: String, info: DeviceInfo) -> anyhow::Result<()> {
+        let conn = self.open_db()?;
         conn.execute(
             "INSERT OR REPLACE INTO devices (token_hash, id, name, device_type, paired_at, last_seen, ip_address) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             rusqlite::params![
@@ -109,15 +111,16 @@ impl DeviceRegistry {
                 info.ip_address,
             ],
         )
-        .expect("Failed to insert device");
+        .map_err(|e| anyhow::anyhow!("failed to insert device: {e}"))?;
         self.cache.lock().insert(token_hash, info);
+        Ok(())
     }
 
-    pub fn list(&self) -> Vec<DeviceInfo> {
-        let conn = self.open_db();
+    pub fn list(&self) -> anyhow::Result<Vec<DeviceInfo>> {
+        let conn = self.open_db()?;
         let mut stmt = conn
             .prepare("SELECT token_hash, id, name, device_type, paired_at, last_seen, ip_address FROM devices")
-            .expect("Failed to prepare device select");
+            .map_err(|e| anyhow::anyhow!("failed to prepare device select: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 let id: String = row.get(1)?;
@@ -141,12 +144,18 @@ impl DeviceRegistry {
                     ip_address,
                 })
             })
-            .expect("Failed to query devices");
-        rows.filter_map(|r| r.ok()).collect()
+            .map_err(|e| anyhow::anyhow!("failed to query devices: {e}"))?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
     pub fn revoke(&self, device_id: &str) -> bool {
-        let conn = self.open_db();
+        let conn = match self.open_db() {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!(error = %e, "failed to open device registry for revoke");
+                return false;
+            }
+        };
         let deleted = conn
             .execute(
                 "DELETE FROM devices WHERE id = ?1",
@@ -170,7 +179,13 @@ impl DeviceRegistry {
 
     pub fn update_last_seen(&self, token_hash: &str) {
         let now = Utc::now();
-        let conn = self.open_db();
+        let conn = match self.open_db() {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!(error = %e, "failed to open device registry for update_last_seen");
+                return;
+            }
+        };
         conn.execute(
             "UPDATE devices SET last_seen = ?1 WHERE token_hash = ?2",
             rusqlite::params![now.to_rfc3339(), token_hash],
@@ -282,7 +297,7 @@ pub async fn submit_pairing_enhanced(
                 hex::encode(hash)
             };
             if let Some(ref registry) = state.device_registry {
-                registry.register(
+                if let Err(e) = registry.register(
                     token_hash,
                     DeviceInfo {
                         id: uuid::Uuid::new_v4().to_string(),
@@ -292,7 +307,9 @@ pub async fn submit_pairing_enhanced(
                         last_seen: Utc::now(),
                         ip_address: Some(client_id),
                     },
-                );
+                ) {
+                    tracing::error!(error = %e, "failed to register device in database");
+                }
             }
             Json(serde_json::json!({
                 "token": token,
@@ -315,11 +332,17 @@ pub async fn list_devices(State(state): State<AppState>, headers: HeaderMap) -> 
         return e.into_response();
     }
 
-    let devices = state
-        .device_registry
-        .as_ref()
-        .map(|r| r.list())
-        .unwrap_or_default();
+    let devices = match state.device_registry.as_ref() {
+        Some(r) => match r.list() {
+            Ok(devices) => devices,
+            Err(e) => {
+                tracing::error!(error = %e, "failed to list devices");
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to list devices")
+                    .into_response();
+            }
+        },
+        None => Vec::new(),
+    };
 
     let count = devices.len();
     Json(serde_json::json!({

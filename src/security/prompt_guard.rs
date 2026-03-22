@@ -12,7 +12,7 @@
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 /// Pattern detection result.
 #[derive(Debug, Clone)]
@@ -132,20 +132,20 @@ impl PromptGuard {
 
     /// Check for system prompt override attempts.
     fn check_system_override(&self, content: &str, patterns: &mut Vec<String>) -> f64 {
-        static SYSTEM_OVERRIDE_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-        let regexes = SYSTEM_OVERRIDE_PATTERNS.get_or_init(|| {
+        static SYSTEM_OVERRIDE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
             vec![
                 Regex::new(
                     r"(?i)ignore\s+((all\s+)?(previous|above|prior)|all)\s+(instructions?|prompts?|commands?)",
                 )
-                .unwrap(),
-                Regex::new(r"(?i)disregard\s+(previous|all|above|prior)").unwrap(),
-                Regex::new(r"(?i)forget\s+(previous|all|everything|above)").unwrap(),
-                Regex::new(r"(?i)new\s+(instructions?|rules?|system\s+prompt)").unwrap(),
-                Regex::new(r"(?i)override\s+(system|instructions?|rules?)").unwrap(),
-                Regex::new(r"(?i)reset\s+(instructions?|context|system)").unwrap(),
+                .expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)disregard\s+(previous|all|above|prior)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)forget\s+(previous|all|everything|above)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)new\s+(instructions?|rules?|system\s+prompt)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)override\s+(system|instructions?|rules?)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)reset\s+(instructions?|context|system)").expect("BUG: invalid regex literal"),
             ]
         });
+        let regexes = &*SYSTEM_OVERRIDE_PATTERNS;
 
         for regex in regexes {
             if regex.is_match(content) {
@@ -158,19 +158,21 @@ impl PromptGuard {
 
     /// Check for role confusion attacks.
     fn check_role_confusion(&self, content: &str, patterns: &mut Vec<String>) -> f64 {
-        static ROLE_CONFUSION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-        let regexes = ROLE_CONFUSION_PATTERNS.get_or_init(|| {
+        static ROLE_CONFUSION_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
             vec![
                 Regex::new(
                     r"(?i)(you\s+are\s+now|act\s+as|pretend\s+(you're|to\s+be))\s+(a|an|the)?",
                 )
-                .unwrap(),
-                Regex::new(r"(?i)(your\s+new\s+role|you\s+have\s+become|you\s+must\s+be)").unwrap(),
-                Regex::new(r"(?i)from\s+now\s+on\s+(you\s+are|act\s+as|pretend)").unwrap(),
+                .expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)(your\s+new\s+role|you\s+have\s+become|you\s+must\s+be)")
+                    .expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)from\s+now\s+on\s+(you\s+are|act\s+as|pretend)")
+                    .expect("BUG: invalid regex literal"),
                 Regex::new(r"(?i)(assistant|AI|system|model):\s*\[?(system|override|new\s+role)")
-                    .unwrap(),
+                    .expect("BUG: invalid regex literal"),
             ]
         });
+        let regexes = &*ROLE_CONFUSION_PATTERNS;
 
         for regex in regexes {
             if regex.is_match(content) {
@@ -203,15 +205,15 @@ impl PromptGuard {
 
     /// Check for secret extraction attempts.
     fn check_secret_extraction(&self, content: &str, patterns: &mut Vec<String>) -> f64 {
-        static SECRET_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-        let regexes = SECRET_PATTERNS.get_or_init(|| {
+        static SECRET_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
             vec![
-                Regex::new(r"(?i)(list|show|print|display|reveal|tell\s+me)\s+(all\s+)?(secrets?|credentials?|passwords?|tokens?|keys?)").unwrap(),
-                Regex::new(r"(?i)(what|show)\s+(are|is|me)\s+(all\s+)?(your|the)\s+(api\s+)?(keys?|secrets?|credentials?)").unwrap(),
-                Regex::new(r"(?i)contents?\s+of\s+(vault|secrets?|credentials?)").unwrap(),
-                Regex::new(r"(?i)(dump|export)\s+(vault|secrets?|credentials?)").unwrap(),
+                Regex::new(r"(?i)(list|show|print|display|reveal|tell\s+me)\s+(all\s+)?(secrets?|credentials?|passwords?|tokens?|keys?)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)(what|show)\s+(are|is|me)\s+(all\s+)?(your|the)\s+(api\s+)?(keys?|secrets?|credentials?)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)contents?\s+of\s+(vault|secrets?|credentials?)").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)(dump|export)\s+(vault|secrets?|credentials?)").expect("BUG: invalid regex literal"),
             ]
         });
+        let regexes = &*SECRET_PATTERNS;
 
         for regex in regexes {
             if regex.is_match(content) {
@@ -261,22 +263,22 @@ impl PromptGuard {
 
     /// Check for common jailbreak attempt patterns.
     fn check_jailbreak_attempts(&self, content: &str, patterns: &mut Vec<String>) -> f64 {
-        static JAILBREAK_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-        let regexes = JAILBREAK_PATTERNS.get_or_init(|| {
+        static JAILBREAK_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
             vec![
                 // DAN (Do Anything Now) and variants
-                Regex::new(r"(?i)\bDAN\b.*mode").unwrap(),
-                Regex::new(r"(?i)do\s+anything\s+now").unwrap(),
+                Regex::new(r"(?i)\bDAN\b.*mode").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)do\s+anything\s+now").expect("BUG: invalid regex literal"),
                 // Developer/debug mode
-                Regex::new(r"(?i)enter\s+(developer|debug|admin)\s+mode").unwrap(),
-                Regex::new(r"(?i)enable\s+(developer|debug|admin)\s+mode").unwrap(),
+                Regex::new(r"(?i)enter\s+(developer|debug|admin)\s+mode").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)enable\s+(developer|debug|admin)\s+mode").expect("BUG: invalid regex literal"),
                 // Hypothetical/fictional framing
-                Regex::new(r"(?i)in\s+this\s+hypothetical").unwrap(),
-                Regex::new(r"(?i)imagine\s+you\s+(have\s+no|don't\s+have)\s+(restrictions?|rules?|limits?)").unwrap(),
+                Regex::new(r"(?i)in\s+this\s+hypothetical").expect("BUG: invalid regex literal"),
+                Regex::new(r"(?i)imagine\s+you\s+(have\s+no|don't\s+have)\s+(restrictions?|rules?|limits?)").expect("BUG: invalid regex literal"),
                 // Base64/encoding tricks
-                Regex::new(r"(?i)decode\s+(this|the\s+following)\s+(base64|hex|rot13)").unwrap(),
+                Regex::new(r"(?i)decode\s+(this|the\s+following)\s+(base64|hex|rot13)").expect("BUG: invalid regex literal"),
             ]
         });
+        let regexes = &*JAILBREAK_PATTERNS;
 
         for regex in regexes {
             if regex.is_match(content) {
