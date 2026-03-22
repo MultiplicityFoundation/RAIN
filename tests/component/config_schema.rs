@@ -3,7 +3,7 @@
 //! Validates: config defaults, backward compatibility, invalid input rejection,
 //! and gateway/security/agent config boundary conditions.
 
-use R.A.I.N.::config::{AutonomyConfig, ChannelsConfig, Config, GatewayConfig, SecurityConfig};
+use rain_labs::config::{AutonomyConfig, ChannelsConfig, Config, GatewayConfig, SecurityConfig};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Invalid value fail-fast
@@ -383,7 +383,7 @@ default_temperature = 0.7
 
 [channels_config.telegram]
 bot_token = "test_token"
-allowed_users = ["R.A.I.N._user"]
+allowed_users = ["rain_user"]
 
 [channels_config.discord]
 bot_token = "test_token"

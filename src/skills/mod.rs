@@ -351,7 +351,7 @@ fn open_skills_enabled_from_sources(
         }
         if !raw.trim().is_empty() {
             tracing::warn!(
-                "Ignoring invalid R.A.I.N._OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
+                "Ignoring invalid rain_OPEN_SKILLS_ENABLED (valid: 1|0|true|false|yes|no|on|off)"
             );
         }
     }
@@ -360,7 +360,7 @@ fn open_skills_enabled_from_sources(
 }
 
 fn open_skills_enabled(config_open_skills_enabled: Option<bool>) -> bool {
-    let env_override = std::env::var("R.A.I.N._OPEN_SKILLS_ENABLED").ok();
+    let env_override = std::env::var("rain_OPEN_SKILLS_ENABLED").ok();
     open_skills_enabled_from_sources(config_open_skills_enabled, env_override.as_deref())
 }
 
@@ -388,7 +388,7 @@ fn resolve_open_skills_dir_from_sources(
 }
 
 fn resolve_open_skills_dir(config_open_skills_dir: Option<&str>) -> Option<PathBuf> {
-    let env_dir = std::env::var("R.A.I.N._OPEN_SKILLS_DIR").ok();
+    let env_dir = std::env::var("rain_OPEN_SKILLS_DIR").ok();
     let home_dir = UserDirs::new().map(|dirs| dirs.home_dir().to_path_buf());
     resolve_open_skills_dir_from_sources(
         env_dir.as_deref(),
@@ -792,8 +792,8 @@ pub fn init_skills_dir(workspace_dir: &Path) -> Result<()> {
              The agent will read it and follow the instructions.\n\n\
              ## Installing community skills\n\n\
              ```bash\n\
-             R.A.I.N. skills install <source>\n\
-             R.A.I.N. skills list\n\
+             rain skills install <source>\n\
+             rain skills list\n\
              ```\n",
         )?;
     }
@@ -1218,7 +1218,7 @@ pub fn handle_command(command: crate::SkillCommands, config: &crate::config::Con
                 println!("  Create one: mkdir -p ~/.R.A.I.N./workspace/skills/my-skill");
                 println!("              echo '# My Skill' > ~/.R.A.I.N./workspace/skills/my-skill/SKILL.md");
                 println!();
-                println!("  Or install: R.A.I.N. skills install <source>");
+                println!("  Or install: rain skills install <source>");
             } else {
                 println!("Installed skills ({}):", skills.len());
                 println!();
@@ -1887,8 +1887,8 @@ description = "Bare minimum"
     #[test]
     fn load_skills_with_config_reads_open_skills_dir_without_network() {
         let _env_guard = open_skills_env_lock().lock().unwrap();
-        let _enabled_guard = EnvVarGuard::unset("R.A.I.N._OPEN_SKILLS_ENABLED");
-        let _dir_guard = EnvVarGuard::unset("R.A.I.N._OPEN_SKILLS_DIR");
+        let _enabled_guard = EnvVarGuard::unset("rain_OPEN_SKILLS_ENABLED");
+        let _dir_guard = EnvVarGuard::unset("rain_OPEN_SKILLS_DIR");
 
         let dir = tempfile::tempdir().unwrap();
         let workspace_dir = dir.path().join("workspace");
@@ -1922,8 +1922,8 @@ description = "Bare minimum"
     #[test]
     fn load_open_skill_md_frontmatter_uses_metadata_and_strips_block() {
         let _env_guard = open_skills_env_lock().lock().unwrap();
-        let _enabled_guard = EnvVarGuard::unset("R.A.I.N._OPEN_SKILLS_ENABLED");
-        let _dir_guard = EnvVarGuard::unset("R.A.I.N._OPEN_SKILLS_DIR");
+        let _enabled_guard = EnvVarGuard::unset("rain_OPEN_SKILLS_ENABLED");
+        let _dir_guard = EnvVarGuard::unset("rain_OPEN_SKILLS_DIR");
 
         let dir = tempfile::tempdir().unwrap();
         let workspace_dir = dir.path().join("workspace");

@@ -6,8 +6,8 @@
 //! Tests Config::load_or_init() with isolated temp directories, env var overrides,
 //! and config file round-trips to verify workspace discovery and persistence.
 
+use rain_labs::config::{AgentConfig, Config, MemoryConfig};
 use std::fs;
-use R.A.I.N.::config::{AgentConfig, Config, MemoryConfig};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config default construction
@@ -72,11 +72,11 @@ fn agent_config_default_tool_dispatcher() {
 }
 
 #[test]
-fn agent_config_default_compact_context_off() {
+fn agent_config_default_compact_context_on() {
     let agent = AgentConfig::default();
     assert!(
-        !agent.compact_context,
-        "compact_context should default to false"
+        agent.compact_context,
+        "compact_context should default to true"
     );
 }
 
@@ -178,7 +178,7 @@ fn config_file_write_read_roundtrip() {
     let config = Config {
         default_provider: Some("mistral".into()),
         default_model: Some("mistral-large".into()),
-        agent: R.A.I.N.::config::AgentConfig {
+        agent: rain_labs::config::AgentConfig {
             max_tool_iterations: 15,
             ..Default::default()
         },
@@ -207,7 +207,7 @@ default_temperature = 0.7
     // Agent config should use defaults
     assert_eq!(parsed.agent.max_tool_iterations, 10);
     assert_eq!(parsed.agent.max_history_messages, 50);
-    assert!(!parsed.agent.compact_context);
+    assert!(parsed.agent.compact_context);
 }
 
 #[test]

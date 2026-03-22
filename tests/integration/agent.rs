@@ -12,8 +12,8 @@ use crate::support::helpers::{
     StaticMemoryLoader,
 };
 use crate::support::{CountingTool, EchoTool, MockProvider, RecordingProvider};
-use R.A.I.N.::providers::traits::ChatMessage;
-use R.A.I.N.::providers::{ChatResponse, ConversationMessage, ToolCall};
+use rain_labs::providers::traits::ChatMessage;
+use rain_labs::providers::{ChatResponse, ConversationMessage, ToolCall};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // E2E smoke tests — full agent turn cycle

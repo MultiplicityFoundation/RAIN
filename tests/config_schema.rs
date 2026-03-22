@@ -3,7 +3,7 @@
 //! Validates: config defaults, backward compatibility, invalid input rejection,
 //! and gateway/security/agent config boundary conditions.
 
-use R.A.I.N.::config::{AutonomyConfig, ChannelsConfig, Config, GatewayConfig, SecurityConfig};
+use rain_labs::config::{AutonomyConfig, ChannelsConfig, Config, GatewayConfig, SecurityConfig};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Invalid value fail-fast
@@ -220,11 +220,11 @@ fn autonomy_config_toml_roundtrip() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn config_empty_toml_requires_temperature() {
-    let result: Result<Config, _> = toml::from_str("");
+fn config_empty_toml_uses_default_temperature() {
+    let parsed: Config = toml::from_str("").expect("empty TOML should parse with defaults");
     assert!(
-        result.is_err(),
-        "empty TOML should fail because default_temperature is required"
+        (parsed.default_temperature - 0.7).abs() < f64::EPSILON,
+        "default_temperature should default to 0.7"
     );
 }
 
@@ -271,7 +271,7 @@ cli = true
 
 [channels_config.telegram]
 bot_token = "test_token"
-allowed_users = ["R.A.I.N._user"]
+allowed_users = ["rain_user"]
 
 [channels_config.discord]
 bot_token = "test_token"

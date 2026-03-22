@@ -3,8 +3,8 @@
 //! All tests in this module require real external API credentials and are
 //! marked with `#[ignore]`. Run with: `cargo test --test live -- --ignored`
 
-use R.A.I.N.::providers::traits::{ChatMessage, Provider};
-use R.A.I.N.::providers::ProviderRuntimeOptions;
+use rain_labs::providers::traits::{ChatMessage, Provider};
+use rain_labs::providers::ProviderRuntimeOptions;
 
 /// Sends a real multi-turn conversation to OpenAI Codex and verifies
 /// the model retains context from earlier messages.
@@ -14,7 +14,7 @@ use R.A.I.N.::providers::ProviderRuntimeOptions;
 #[tokio::test]
 #[ignore = "requires live OpenAI Codex OAuth credentials"]
 async fn e2e_live_openai_codex_multi_turn() {
-    use R.A.I.N.::providers::openai_codex::OpenAiCodexProvider;
+    use rain_labs::providers::openai_codex::OpenAiCodexProvider;
 
     let provider = OpenAiCodexProvider::new(&ProviderRuntimeOptions::default(), None).unwrap();
     let model = "gpt-5.3-codex";

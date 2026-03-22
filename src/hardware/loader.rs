@@ -318,7 +318,7 @@ binary = "tool.sh"
     }
 
     #[test]
-    fn plugin_tools_dir_returns_path_ending_in_R.A.I.N._tools() {
+    fn plugin_tools_dir_returns_path_ending_in_rain_tools() {
         let path = plugin_tools_dir().expect("should resolve");
         let display = path.to_string_lossy();
         let expected = std::path::Path::new(".R.A.I.N.").join("tools");

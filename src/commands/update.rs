@@ -96,7 +96,7 @@ pub async fn run(target_version: Option<&str>) -> Result<()> {
     // Phase 2: Download
     info!("Phase 2/6: Downloading...");
     let temp_dir = tempfile::tempdir().context("failed to create temp dir")?;
-    let download_path = temp_dir.path().join("R.A.I.N._new");
+    let download_path = temp_dir.path().join("rain_new");
     download_binary(&download_url, &download_path).await?;
 
     // Phase 3: Backup

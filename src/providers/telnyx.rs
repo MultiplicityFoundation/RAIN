@@ -27,8 +27,8 @@ use serde::Deserialize;
 /// # Example
 ///
 /// ```rust,ignore
-/// use R.A.I.N.::providers::telnyx::TelnyxProvider;
-/// use R.A.I.N.::providers::Provider;
+/// use rain_labs::providers::telnyx::TelnyxProvider;
+/// use rain_labs::providers::Provider;
 ///
 /// let provider = TelnyxProvider::new(Some("your-api-key"));
 /// let response = provider.chat("Hello!", "openai/gpt-4o", 0.7).await?;
@@ -48,7 +48,7 @@ impl TelnyxProvider {
     ///
     /// The API key can be provided directly or will be resolved from:
     /// 1. `TELNYX_API_KEY` environment variable
-    /// 2. `R.A.I.N._API_KEY` environment variable (fallback)
+    /// 2. `rain_API_KEY` environment variable (fallback)
     pub fn new(api_key: Option<&str>) -> Self {
         let resolved_key = resolve_telnyx_api_key(api_key);
         Self {
@@ -112,7 +112,7 @@ fn resolve_telnyx_api_key(api_key: Option<&str>) -> Option<String> {
     }
 
     // Fall back to generic env vars
-    for env_var in ["R.A.I.N._API_KEY", "API_KEY"] {
+    for env_var in ["rain_API_KEY", "API_KEY"] {
         if let Ok(key) = std::env::var(env_var) {
             let key = key.trim();
             if !key.is_empty() {

@@ -9,20 +9,20 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::json;
-use std::sync::{Arc, Mutex};
-use R.A.I.N.::agent::agent::Agent;
-use R.A.I.N.::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use R.A.I.N.::agent::memory_loader::MemoryLoader;
-use R.A.I.N.::config::MemoryConfig;
-use R.A.I.N.::memory;
-use R.A.I.N.::memory::Memory;
-use R.A.I.N.::observability::{NoopObserver, Observer};
-use R.A.I.N.::providers::traits::ChatMessage;
-use R.A.I.N.::providers::{
+use rain_labs::agent::agent::Agent;
+use rain_labs::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
+use rain_labs::agent::memory_loader::MemoryLoader;
+use rain_labs::config::MemoryConfig;
+use rain_labs::memory;
+use rain_labs::memory::Memory;
+use rain_labs::observability::{NoopObserver, Observer};
+use rain_labs::providers::traits::ChatMessage;
+use rain_labs::providers::{
     ChatRequest, ChatResponse, ConversationMessage, Provider, ProviderRuntimeOptions, ToolCall,
 };
-use R.A.I.N.::tools::{Tool, ToolResult};
+use rain_labs::tools::{Tool, ToolResult};
+use serde_json::json;
+use std::sync::{Arc, Mutex};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock infrastructure
@@ -676,8 +676,8 @@ async fn e2e_empty_memory_context_passthrough() {
 #[tokio::test]
 #[ignore]
 async fn e2e_live_openai_codex_multi_turn() {
-    use R.A.I.N.::providers::openai_codex::OpenAiCodexProvider;
-    use R.A.I.N.::providers::traits::Provider;
+    use rain_labs::providers::openai_codex::OpenAiCodexProvider;
+    use rain_labs::providers::traits::Provider;
 
     let provider = OpenAiCodexProvider::new(&ProviderRuntimeOptions::default(), None).unwrap();
     let model = "gpt-5.3-codex";

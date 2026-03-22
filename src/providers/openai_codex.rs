@@ -11,8 +11,8 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 const DEFAULT_CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
-const CODEX_RESPONSES_URL_ENV: &str = "R.A.I.N._CODEX_RESPONSES_URL";
-const CODEX_BASE_URL_ENV: &str = "R.A.I.N._CODEX_BASE_URL";
+const CODEX_RESPONSES_URL_ENV: &str = "rain_CODEX_RESPONSES_URL";
+const CODEX_BASE_URL_ENV: &str = "rain_CODEX_BASE_URL";
 const DEFAULT_CODEX_INSTRUCTIONS: &str =
     "You are R.A.I.N., a concise and helpful coding assistant.";
 
@@ -93,10 +93,7 @@ impl OpenAiCodexProvider {
         options: &ProviderRuntimeOptions,
         gateway_api_key: Option<&str>,
     ) -> anyhow::Result<Self> {
-        let state_dir = options
-            .R.A.I.N._dir
-            .clone()
-            .unwrap_or_else(default_R.A.I.N._dir);
+        let state_dir = options.rain_dir.clone().unwrap_or_else(default_rain_dir);
         let auth = AuthService::new(&state_dir, options.secrets_encrypt);
         let responses_url = resolve_responses_url(options)?;
 
@@ -116,7 +113,7 @@ impl OpenAiCodexProvider {
     }
 }
 
-fn default_R.A.I.N._dir() -> PathBuf {
+fn default_rain_dir() -> PathBuf {
     directories::UserDirs::new().map_or_else(
         || PathBuf::from(".R.A.I.N."),
         |dirs| dirs.home_dir().join(".R.A.I.N."),
@@ -309,7 +306,7 @@ fn clamp_reasoning_effort(model: &str, effort: &str) -> String {
 fn resolve_reasoning_effort(model_id: &str, configured: Option<&str>) -> String {
     let raw = configured
         .map(ToString::to_string)
-        .or_else(|| std::env::var("R.A.I.N._CODEX_REASONING_EFFORT").ok())
+        .or_else(|| std::env::var("rain_CODEX_REASONING_EFFORT").ok())
         .and_then(|value| first_nonempty(Some(&value)))
         .unwrap_or_else(|| "xhigh".to_string())
         .to_ascii_lowercase();
@@ -819,7 +816,7 @@ mod tests {
 
     #[test]
     fn default_state_dir_is_non_empty() {
-        let path = default_R.A.I.N._dir();
+        let path = default_rain_dir();
         assert!(!path.as_os_str().is_empty());
     }
 
@@ -959,7 +956,7 @@ mod tests {
 
     #[test]
     fn resolve_reasoning_effort_prefers_configured_override() {
-        let _guard = EnvGuard::set("R.A.I.N._CODEX_REASONING_EFFORT", Some("low"));
+        let _guard = EnvGuard::set("rain_CODEX_REASONING_EFFORT", Some("low"));
         assert_eq!(
             resolve_reasoning_effort("gpt-5-codex", Some("high")),
             "high".to_string()
@@ -968,7 +965,7 @@ mod tests {
 
     #[test]
     fn resolve_reasoning_effort_uses_legacy_env_when_unconfigured() {
-        let _guard = EnvGuard::set("R.A.I.N._CODEX_REASONING_EFFORT", Some("minimal"));
+        let _guard = EnvGuard::set("rain_CODEX_REASONING_EFFORT", Some("minimal"));
         assert_eq!(
             resolve_reasoning_effort("gpt-5-codex", None),
             "low".to_string()
@@ -1145,7 +1142,7 @@ data: [DONE]
     fn capabilities_includes_vision() {
         let options = ProviderRuntimeOptions {
             provider_api_url: None,
-            R.A.I.N._dir: None,
+            rain_dir: None,
             secrets_encrypt: false,
             auth_profile_override: None,
             reasoning_enabled: None,

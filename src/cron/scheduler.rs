@@ -467,7 +467,7 @@ pub(crate) async fn deliver_announcement(
                     .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("matrix channel not configured"))?;
                 let room_id = resolve_matrix_delivery_room(&mx.room_id, target);
-                let channel = MatrixChannel::new_with_session_hint_and_R.A.I.N._dir(
+                let channel = MatrixChannel::new_with_session_hint_and_rain_dir(
                     mx.homeserver.clone(),
                     mx.access_token.clone(),
                     room_id,

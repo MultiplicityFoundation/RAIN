@@ -14,7 +14,7 @@ pub struct RoleMapping {
     /// Nevis role name (case-insensitive matching).
     pub nevis_role: String,
     /// Tool names this role can access. Use `"all"` to grant all tools.
-    pub R.A.I.N._permissions: Vec<String>,
+    pub rain_permissions: Vec<String>,
     /// Workspace names this role can access. Use `"all"` for unrestricted.
     #[serde(default)]
     pub workspace_access: Vec<String>,
@@ -71,11 +71,11 @@ impl IamPolicy {
             }
 
             let all_tools = mapping
-                .R.A.I.N._permissions
+                .rain_permissions
                 .iter()
                 .any(|p| p.eq_ignore_ascii_case("all"));
             let allowed_tools: Vec<String> = mapping
-                .R.A.I.N._permissions
+                .rain_permissions
                 .iter()
                 .filter(|p| !p.eq_ignore_ascii_case("all"))
                 .map(|p| p.trim().to_ascii_lowercase())
@@ -218,12 +218,12 @@ mod tests {
         vec![
             RoleMapping {
                 nevis_role: "admin".into(),
-                R.A.I.N._permissions: vec!["all".into()],
+                rain_permissions: vec!["all".into()],
                 workspace_access: vec!["all".into()],
             },
             RoleMapping {
                 nevis_role: "operator".into(),
-                R.A.I.N._permissions: vec![
+                rain_permissions: vec![
                     "shell".into(),
                     "file_read".into(),
                     "file_write".into(),
@@ -233,7 +233,7 @@ mod tests {
             },
             RoleMapping {
                 nevis_role: "viewer".into(),
-                R.A.I.N._permissions: vec!["file_read".into(), "memory_search".into()],
+                rain_permissions: vec!["file_read".into(), "memory_search".into()],
                 workspace_access: vec!["staging".into()],
             },
         ]
@@ -241,7 +241,7 @@ mod tests {
 
     fn identity_with_roles(roles: Vec<&str>) -> NevisIdentity {
         NevisIdentity {
-            user_id: "R.A.I.N._user".into(),
+            user_id: "rain_user".into(),
             roles: roles.into_iter().map(String::from).collect(),
             scopes: vec!["openid".into()],
             mfa_verified: true,
@@ -420,12 +420,12 @@ mod tests {
         let mappings = vec![
             RoleMapping {
                 nevis_role: "admin".into(),
-                R.A.I.N._permissions: vec!["all".into()],
+                rain_permissions: vec!["all".into()],
                 workspace_access: vec!["all".into()],
             },
             RoleMapping {
                 nevis_role: " ADMIN ".into(),
-                R.A.I.N._permissions: vec!["file_read".into()],
+                rain_permissions: vec!["file_read".into()],
                 workspace_access: vec![],
             },
         ];
@@ -440,7 +440,7 @@ mod tests {
     fn empty_role_name_in_mapping_is_skipped() {
         let mappings = vec![RoleMapping {
             nevis_role: "  ".into(),
-            R.A.I.N._permissions: vec!["all".into()],
+            rain_permissions: vec!["all".into()],
             workspace_access: vec![],
         }];
         let policy = IamPolicy::from_mappings(&mappings).unwrap();

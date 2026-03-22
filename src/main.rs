@@ -78,7 +78,7 @@ mod channels;
 mod cli_input;
 mod commands;
 mod rag {
-    pub use R.A.I.N.::rag::*;
+    pub use rain_labs::rag::*;
 }
 mod config;
 mod cost;
@@ -115,7 +115,7 @@ mod verifiable_intent;
 use config::Config;
 
 // Re-export so binary modules can use crate::<CommandEnum> while keeping a single source of truth.
-pub use R.A.I.N.::{
+pub use rain_labs::{
     ChannelCommands, CronCommands, GatewayCommands, HardwareCommands, IntegrationCommands,
     MigrateCommands, PeripheralCommands, ServiceCommands, SkillCommands,
 };
@@ -199,10 +199,10 @@ Launches an interactive chat session with the configured AI provider. \
 Use --message for single-shot queries without entering interactive mode.
 
 Examples:
-  R.A.I.N. agent                              # interactive session
-  R.A.I.N. agent -m \"Summarize today's logs\"  # single message
-  R.A.I.N. agent -p anthropic --model claude-sonnet-4-20250514
-  R.A.I.N. agent --peripheral nucleo-f401re:/dev/ttyACM0")]
+  rain agent                              # interactive session
+  rain agent -m \"Summarize today's logs\"  # single message
+  rain agent -p anthropic --model claude-sonnet-4-20250514
+  rain agent --peripheral nucleo-f401re:/dev/ttyACM0")]
     Agent {
         /// Single message mode (don't enter interactive mode)
         #[arg(short, long)]
@@ -237,12 +237,12 @@ Start, restart, or inspect the HTTP/WebSocket gateway that accepts \
 incoming webhook events and WebSocket connections.
 
 Examples:
-  R.A.I.N. gateway start              # start gateway
-  R.A.I.N. gateway restart            # restart gateway
-  R.A.I.N. gateway get-paircode       # show pairing code")]
+  rain gateway start              # start gateway
+  rain gateway restart            # restart gateway
+  rain gateway get-paircode       # show pairing code")]
     Gateway {
         #[command(subcommand)]
-        gateway_command: Option<R.A.I.N.::GatewayCommands>,
+        gateway_command: Option<rain_labs::GatewayCommands>,
     },
 
     /// Start long-running autonomous runtime (gateway + channels + heartbeat + scheduler)
@@ -258,9 +258,9 @@ Use 'R.A.I.N. service install' to register the daemon as an OS \
 service (systemd/launchd) for auto-start on boot.
 
 Examples:
-  R.A.I.N. daemon                   # use config defaults
-  R.A.I.N. daemon -p 9090           # gateway on port 9090
-  R.A.I.N. daemon --host 127.0.0.1  # localhost only")]
+  rain daemon                   # use config defaults
+  rain daemon -p 9090           # gateway on port 9090
+  rain daemon --host 127.0.0.1  # localhost only")]
     Daemon {
         /// Port to listen on (use 0 for random available port); defaults to config gateway.port
         #[arg(short, long)]
@@ -334,15 +334,15 @@ Cron expressions use the standard 5-field format: \
 override with --tz and an IANA timezone name.
 
 Examples:
-  R.A.I.N. cron list
-  R.A.I.N. cron add '0 9 * * 1-5' 'Good morning' --tz America/New_York --agent
-  R.A.I.N. cron add '*/30 * * * *' 'Check system health' --agent
-  R.A.I.N. cron add '*/5 * * * *' 'echo ok'
-  R.A.I.N. cron add-at 2025-01-15T14:00:00Z 'Send reminder' --agent
-  R.A.I.N. cron add-every 60000 'Ping heartbeat'
-  R.A.I.N. cron once 30m 'Run backup in 30 minutes' --agent
-  R.A.I.N. cron pause <task-id>
-  R.A.I.N. cron update <task-id> --expression '0 8 * * *' --tz Europe/London")]
+  rain cron list
+  rain cron add '0 9 * * 1-5' 'Good morning' --tz America/New_York --agent
+  rain cron add '*/30 * * * *' 'Check system health' --agent
+  rain cron add '*/5 * * * *' 'echo ok'
+  rain cron add-at 2025-01-15T14:00:00Z 'Send reminder' --agent
+  rain cron add-every 60000 'Ping heartbeat'
+  rain cron once 30m 'Run backup in 30 minutes' --agent
+  rain cron pause <task-id>
+  rain cron update <task-id> --expression '0 8 * * *' --tz Europe/London")]
     Cron {
         #[command(subcommand)]
         cron_command: CronCommands,
@@ -366,12 +366,12 @@ to messaging platforms. Supported channel types: telegram, discord, \
 slack, whatsapp, matrix, imessage, email.
 
 Examples:
-  R.A.I.N. channel list
-  R.A.I.N. channel doctor
-  R.A.I.N. channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
-  R.A.I.N. channel remove my-bot
-  R.A.I.N. channel bind-telegram R.A.I.N._user
-  R.A.I.N. channel send 'Alert!' --channel-id telegram --recipient 123456789")]
+  rain channel list
+  rain channel doctor
+  rain channel add telegram '{\"bot_token\":\"...\",\"name\":\"my-bot\"}'
+  rain channel remove my-bot
+  rain channel bind-telegram rain_user
+  rain channel send 'Alert!' --channel-id telegram --recipient 123456789")]
     Channel {
         #[command(subcommand)]
         channel_command: ChannelCommands,
@@ -410,12 +410,12 @@ Enumerate connected USB devices, identify known development boards \
 probe-rs / ST-Link.
 
 Examples:
-  R.A.I.N. hardware discover
-  R.A.I.N. hardware introspect /dev/ttyACM0
-  R.A.I.N. hardware info --chip STM32F401RETx")]
+  rain hardware discover
+  rain hardware introspect /dev/ttyACM0
+  rain hardware info --chip STM32F401RETx")]
     Hardware {
         #[command(subcommand)]
-        hardware_command: R.A.I.N.::HardwareCommands,
+        hardware_command: rain_labs::HardwareCommands,
     },
 
     /// Manage hardware peripherals (STM32, RPi GPIO, etc.)
@@ -427,14 +427,14 @@ to the agent (GPIO, sensors, actuators). Supported boards: \
 nucleo-f401re, rpi-gpio, esp32, arduino-uno.
 
 Examples:
-  R.A.I.N. peripheral list
-  R.A.I.N. peripheral add nucleo-f401re /dev/ttyACM0
-  R.A.I.N. peripheral add rpi-gpio native
-  R.A.I.N. peripheral flash --port /dev/cu.usbmodem12345
-  R.A.I.N. peripheral flash-nucleo")]
+  rain peripheral list
+  rain peripheral add nucleo-f401re /dev/ttyACM0
+  rain peripheral add rpi-gpio native
+  rain peripheral flash --port /dev/cu.usbmodem12345
+  rain peripheral flash-nucleo")]
     Peripheral {
         #[command(subcommand)]
-        peripheral_command: R.A.I.N.::PeripheralCommands,
+        peripheral_command: rain_labs::PeripheralCommands,
     },
 
     /// Manage agent memory (list, get, stats, clear)
@@ -446,11 +446,11 @@ Supports filtering by category and session, pagination, and \
 batch clearing with confirmation.
 
 Examples:
-  R.A.I.N. memory stats
-  R.A.I.N. memory list
-  R.A.I.N. memory list --category core --limit 10
-  R.A.I.N. memory get <key>
-  R.A.I.N. memory clear --category conversation --yes")]
+  rain memory stats
+  rain memory list
+  rain memory list --category core --limit 10
+  rain memory get <key>
+  rain memory clear --category conversation --yes")]
     Memory {
         #[command(subcommand)]
         memory_command: MemoryCommands,
@@ -458,15 +458,15 @@ Examples:
 
     /// Manage configuration
     #[command(long_about = "\
-Manage R.A.I.N. configuration.
+Manage rain configuration.
 
 Inspect and export configuration settings. Use 'schema' to dump \
 the full JSON Schema for the config file, which documents every \
 available key, type, and default value.
 
 Examples:
-  R.A.I.N. config schema              # print JSON Schema to stdout
-  R.A.I.N. config schema > schema.json")]
+  rain config schema              # print JSON Schema to stdout
+  rain config schema > schema.json")]
     Config {
         #[command(subcommand)]
         config_command: ConfigCommands,
@@ -474,7 +474,7 @@ Examples:
 
     /// Check for and apply updates
     #[command(long_about = "\
-Check for and apply R.A.I.N. updates.
+Check for and apply rain updates.
 
 By default, downloads and installs the latest release with a \
 6-phase pipeline: preflight, download, backup, validate, swap, \
@@ -485,10 +485,10 @@ Use --force to skip the confirmation prompt.
 Use --version to target a specific release instead of latest.
 
 Examples:
-  R.A.I.N. update                      # download and install latest
-  R.A.I.N. update --check              # check only, don't install
-  R.A.I.N. update --force              # install without confirmation
-  R.A.I.N. update --version 0.6.0      # install specific version")]
+  rain update                      # download and install latest
+  rain update --check              # check only, don't install
+  rain update --force              # install without confirmation
+  rain update --version 0.6.0      # install specific version")]
     Update {
         /// Only check for updates, don't install
         #[arg(long)]
@@ -510,8 +510,8 @@ By default, runs the full test suite including network checks \
 checks for faster offline validation.
 
 Examples:
-  R.A.I.N. self-test             # full suite
-  R.A.I.N. self-test --quick     # quick checks only (no network)")]
+  rain self-test             # full suite
+  rain self-test --quick     # quick checks only (no network)")]
     SelfTest {
         /// Run quick checks only (no network)
         #[arg(long)]
@@ -525,9 +525,9 @@ Generate shell completion scripts for `R.A.I.N.`.
 The script is printed to stdout so it can be sourced directly:
 
 Examples:
-  source <(R.A.I.N. completions bash)
-  R.A.I.N. completions zsh > ~/.zfunc/_R.A.I.N.
-  R.A.I.N. completions fish > ~/.config/fish/completions/R.A.I.N..fish")]
+  source <(rain completions bash)
+  rain completions zsh > ~/.zfunc/_rain
+  rain completions fish > ~/.config/fish/completions/R.A.I.N..fish")]
     Completions {
         /// Target shell
         #[arg(value_enum)]
@@ -788,7 +788,7 @@ async fn main() -> Result<()> {
         if config_dir.trim().is_empty() {
             bail!("--config-dir cannot be empty");
         }
-        std::env::set_var("R.A.I.N._CONFIG_DIR", config_dir);
+        std::env::set_var("rain_CONFIG_DIR", config_dir);
     }
 
     // Completions must remain stdout-only and should not load config or initialize logging.
@@ -845,15 +845,15 @@ async fn main() -> Result<()> {
 
         // Handle --reinit: backup and reset configuration
         if reinit {
-            let (R.A.I.N._dir, _) =
+            let (rain_dir, _) =
                 crate::config::schema::resolve_runtime_dirs_for_onboarding().await?;
 
-            if R.A.I.N._dir.exists() {
+            if rain_dir.exists() {
                 let timestamp = chrono::Local::now().format("%Y%m%d%H%M%S");
-                let backup_dir = format!("{}.backup.{}", R.A.I.N._dir.display(), timestamp);
+                let backup_dir = format!("{}.backup.{}", rain_dir.display(), timestamp);
 
-                println!("⚠️  Reinitializing R.A.I.N. configuration...");
-                println!("   Current config directory: {}", R.A.I.N._dir.display());
+                println!("⚠️  Reinitializing rain configuration...");
+                println!("   Current config directory: {}", rain_dir.display());
                 println!(
                     "   This will back up your existing config to: {}",
                     backup_dir
@@ -873,7 +873,7 @@ async fn main() -> Result<()> {
                 println!();
 
                 // Rename existing directory as backup
-                tokio::fs::rename(&R.A.I.N._dir, &backup_dir)
+                tokio::fs::rename(&rain_dir, &backup_dir)
                     .await
                     .with_context(|| {
                         format!("Failed to backup existing config to {}", backup_dir)
@@ -914,7 +914,7 @@ async fn main() -> Result<()> {
         }
 
         // Auto-start channels if user said yes during wizard
-        if std::env::var("R.A.I.N._AUTOSTART_CHANNELS").as_deref() == Ok("1") {
+        if std::env::var("rain_AUTOSTART_CHANNELS").as_deref() == Ok("1") {
             Box::pin(channels::start_channels(config)).await?;
         }
         return Ok(());
@@ -968,7 +968,7 @@ async fn main() -> Result<()> {
 
         Commands::Gateway { gateway_command } => {
             match gateway_command {
-                Some(R.A.I.N.::GatewayCommands::Restart { port, host }) => {
+                Some(rain_labs::GatewayCommands::Restart { port, host }) => {
                     let (port, host) = resolve_gateway_addr(&config, port, host);
                     let addr = format!("{host}:{port}");
                     info!("🔄 Restarting R.A.I.N. Gateway on {addr}");
@@ -1004,7 +1004,7 @@ async fn main() -> Result<()> {
                     log_gateway_start(&host, port);
                     Box::pin(gateway::run_gateway(&host, port, config)).await
                 }
-                Some(R.A.I.N.::GatewayCommands::GetPaircode { new }) => {
+                Some(rain_labs::GatewayCommands::GetPaircode { new }) => {
                     let port = config.gateway.port;
                     let host = &config.gateway.host;
 
@@ -1043,12 +1043,12 @@ async fn main() -> Result<()> {
                             println!("   Error: {e}");
                             println!();
                             println!("   Is the gateway running? Start it with:");
-                            println!("     R.A.I.N. gateway start");
+                            println!("     rain gateway start");
                         }
                     }
                     Ok(())
                 }
-                Some(R.A.I.N.::GatewayCommands::Start { port, host }) => {
+                Some(rain_labs::GatewayCommands::Start { port, host }) => {
                     let (port, host) = resolve_gateway_addr(&config, port, host);
                     log_gateway_start(&host, port);
                     Box::pin(gateway::run_gateway(&host, port, config)).await
@@ -1372,7 +1372,7 @@ async fn main() -> Result<()> {
         #[cfg(feature = "plugins-wasm")]
         Commands::Plugin { plugin_command } => match plugin_command {
             PluginCommands::List => {
-                let host = R.A.I.N.::plugins::host::PluginHost::new(&config.workspace_dir)?;
+                let host = rain_labs::plugins::host::PluginHost::new(&config.workspace_dir)?;
                 let plugins = host.list_plugins();
                 if plugins.is_empty() {
                     println!("No plugins installed.");
@@ -1390,19 +1390,19 @@ async fn main() -> Result<()> {
                 Ok(())
             }
             PluginCommands::Install { source } => {
-                let mut host = R.A.I.N.::plugins::host::PluginHost::new(&config.workspace_dir)?;
+                let mut host = rain_labs::plugins::host::PluginHost::new(&config.workspace_dir)?;
                 host.install(&source)?;
                 println!("Plugin installed from {source}");
                 Ok(())
             }
             PluginCommands::Remove { name } => {
-                let mut host = R.A.I.N.::plugins::host::PluginHost::new(&config.workspace_dir)?;
+                let mut host = rain_labs::plugins::host::PluginHost::new(&config.workspace_dir)?;
                 host.remove(&name)?;
                 println!("Plugin '{name}' removed.");
                 Ok(())
             }
             PluginCommands::Info { name } => {
-                let host = R.A.I.N.::plugins::host::PluginHost::new(&config.workspace_dir)?;
+                let host = rain_labs::plugins::host::PluginHost::new(&config.workspace_dir)?;
                 match host.get_plugin(&name) {
                     Some(info) => {
                         println!("Plugin: {} v{}", info.name, info.version);

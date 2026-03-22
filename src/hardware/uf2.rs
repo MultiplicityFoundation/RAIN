@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn pico_main_py_contains_R.A.I.N._marker() {
+    fn pico_main_py_contains_rain_marker() {
         let src = std::str::from_utf8(PICO_MAIN_PY).expect("main.py is not valid UTF-8");
         assert!(
             src.contains("R.A.I.N."),

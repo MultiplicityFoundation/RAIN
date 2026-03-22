@@ -271,7 +271,9 @@ fn collect_vars(cnf: &Cnf) -> Vec<String> {
 }
 
 fn eval_literal(lit: &Literal, assignment: &HashMap<String, bool>) -> Option<bool> {
-    assignment.get(&lit.var).map(|&v| if lit.negated { !v } else { v })
+    assignment
+        .get(&lit.var)
+        .map(|&v| if lit.negated { !v } else { v })
 }
 
 fn eval_clause(clause: &Clause, assignment: &HashMap<String, bool>) -> Option<bool> {
@@ -474,7 +476,8 @@ mod tests {
 
     #[test]
     fn sat_three_vars() {
-        let result = run_solver(r#"{"formula": "(A OR B OR C) AND (NOT A OR NOT B) AND (NOT C OR A)"}"#);
+        let result =
+            run_solver(r#"{"formula": "(A OR B OR C) AND (NOT A OR NOT B) AND (NOT C OR A)"}"#);
         let v: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(v["satisfiable"], true);
     }

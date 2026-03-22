@@ -22,10 +22,10 @@ pub struct OtpValidator {
 impl OtpValidator {
     pub fn from_config(
         config: &OtpConfig,
-        R.A.I.N._dir: &Path,
+        rain_dir: &Path,
         store: &SecretStore,
     ) -> Result<(Self, Option<String>)> {
-        let secret_path = secret_file_path(R.A.I.N._dir);
+        let secret_path = secret_file_path(rain_dir);
         let (secret, generated) = if secret_path.exists() {
             let encoded = fs::read_to_string(&secret_path).with_context(|| {
                 format!("Failed to read OTP secret file {}", secret_path.display())
@@ -121,8 +121,8 @@ impl OtpValidator {
     }
 }
 
-pub fn secret_file_path(R.A.I.N._dir: &Path) -> PathBuf {
-    R.A.I.N._dir.join(OTP_SECRET_FILE)
+pub fn secret_file_path(rain_dir: &Path) -> PathBuf {
+    rain_dir.join(OTP_SECRET_FILE)
 }
 
 fn write_secret_file(path: &Path, value: &str) -> Result<()> {

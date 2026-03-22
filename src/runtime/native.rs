@@ -85,7 +85,7 @@ mod tests {
     }
 
     #[test]
-    fn native_storage_path_contains_R.A.I.N.() {
+    fn native_storage_path_contains_rain() {
         let path = NativeRuntime::new().storage_path();
         assert!(path.to_string_lossy().contains("R.A.I.N."));
     }

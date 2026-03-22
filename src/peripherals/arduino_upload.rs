@@ -70,8 +70,8 @@ impl Tool for ArduinoUploadTool {
             });
         }
 
-        let sketch_name = "R.A.I.N._sketch";
-        let temp_dir = std::env::temp_dir().join(format!("R.A.I.N._{}", uuid::Uuid::new_v4()));
+        let sketch_name = "rain_sketch";
+        let temp_dir = std::env::temp_dir().join(format!("rain_{}", uuid::Uuid::new_v4()));
         let sketch_dir = temp_dir.join(sketch_name);
         let ino_path = sketch_dir.join(format!("{}.ino", sketch_name));
 

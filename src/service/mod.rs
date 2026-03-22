@@ -492,13 +492,13 @@ fn install_macos(config: &Config) -> Result<()> {
     let stdout = logs_dir.join("daemon.stdout.log");
     let stderr = logs_dir.join("daemon.stderr.log");
 
-    // When running under Homebrew, inject R.A.I.N._CONFIG_DIR and
+    // When running under Homebrew, inject rain_CONFIG_DIR and
     // WorkingDirectory so the daemon finds its data in the Homebrew prefix.
     let env_section = if let Some(ref var_dir) = homebrew_var_dir {
         format!(
             r#"  <key>EnvironmentVariables</key>
   <dict>
-    <key>R.A.I.N._CONFIG_DIR</key>
+    <key>rain_CONFIG_DIR</key>
     <string>{config_dir}</string>
   </dict>
   <key>WorkingDirectory</key>
@@ -611,7 +611,7 @@ fn is_root() -> bool {
 /// Check if the R.A.I.N. user exists and has expected properties.
 /// Returns Ok if user doesn't exist (OpenRC will handle creation or fail gracefully).
 /// Returns error if user exists but has unexpected properties.
-fn check_R.A.I.N._user() -> Result<()> {
+fn check_rain_user() -> Result<()> {
     let output = Command::new("getent").args(["passwd", "R.A.I.N."]).output();
     let is_alpine = Path::new("/etc/alpine-release").exists();
 
@@ -652,9 +652,9 @@ fn check_R.A.I.N._user() -> Result<()> {
                     );
                 }
 
-                if home != "/var/lib/R.A.I.N." && home != "/nonexistent" {
+                if home != "/var/lib/rain" && home != "/nonexistent" {
                     eprintln!(
-                        "⚠️  Warning: R.A.I.N. user has home directory '{}' (expected /var/lib/R.A.I.N. or /nonexistent)",
+                        "⚠️  Warning: R.A.I.N. user has home directory '{}' (expected /var/lib/rain or /nonexistent)",
                         home
                     );
                 }
@@ -667,11 +667,11 @@ fn check_R.A.I.N._user() -> Result<()> {
     }
 }
 
-fn ensure_R.A.I.N._user() -> Result<()> {
+fn ensure_rain_user() -> Result<()> {
     let output = Command::new("getent").args(["passwd", "R.A.I.N."]).output();
     if let Ok(output) = output {
         if output.status.success() {
-            return check_R.A.I.N._user();
+            return check_rain_user();
         }
     }
 
@@ -730,7 +730,7 @@ fn ensure_R.A.I.N._user() -> Result<()> {
 
 /// Change ownership of a path to R.A.I.N.:R.A.I.N.
 #[cfg(unix)]
-fn chown_to_R.A.I.N.(path: &Path) -> Result<()> {
+fn chown_to_rain(path: &Path) -> Result<()> {
     let output = Command::new("chown")
         .args(["R.A.I.N.:R.A.I.N.", &path.to_string_lossy()])
         .output()
@@ -748,12 +748,12 @@ fn chown_to_R.A.I.N.(path: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn chown_to_R.A.I.N.(_path: &Path) -> Result<()> {
+fn chown_to_rain(_path: &Path) -> Result<()> {
     Ok(())
 }
 
 #[cfg(unix)]
-fn chown_recursive_to_R.A.I.N.(path: &Path) -> Result<()> {
+fn chown_recursive_to_rain(path: &Path) -> Result<()> {
     let output = Command::new("chown")
         .args(["-R", "R.A.I.N.:R.A.I.N.", &path.to_string_lossy()])
         .output()
@@ -772,7 +772,7 @@ fn chown_recursive_to_R.A.I.N.(path: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn chown_recursive_to_R.A.I.N.(_path: &Path) -> Result<()> {
+fn chown_recursive_to_rain(_path: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -954,7 +954,7 @@ fn warn_if_binary_in_home(exe_path: &Path) {
         eprintln!(
             "⚠️  Warning: Binary path '{}' appears to be in a user home directory.\n\
              For system-wide OpenRC service, consider installing to /usr/local/bin:\n\
-             sudo cp '{}' /usr/local/bin/R.A.I.N.",
+             sudo cp '{}' /usr/local/bin/rain",
             exe_path.display(),
             exe_path.display()
         );
@@ -980,7 +980,7 @@ error_log="/var/log/R.A.I.N./error.log"
 
 # Provide HOME so headless browsers can create profile/cache directories.
 # Without this, Chromium/Firefox fail with sandbox or profile errors.
-export HOME="/var/lib/R.A.I.N."
+export HOME="/var/lib/rain"
 
 depend() {{
     need net
@@ -988,7 +988,7 @@ depend() {{
 }}
 
 start_pre() {{
-    checkpath --directory --owner R.A.I.N.:R.A.I.N. --mode 0750 /var/lib/R.A.I.N.
+    checkpath --directory --owner rain:rain --mode 0750 /var/lib/rain
 }}
 "#,
         exe = exe_path.display(),
@@ -997,7 +997,7 @@ start_pre() {{
 }
 
 fn resolve_openrc_executable() -> Result<PathBuf> {
-    let preferred = Path::new("/usr/local/bin/R.A.I.N.");
+    let preferred = Path::new("/usr/local/bin/rain");
     if preferred.exists() {
         return Ok(preferred.to_path_buf());
     }
@@ -1014,7 +1014,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
         );
     }
 
-    ensure_R.A.I.N._user()?;
+    ensure_rain_user()?;
 
     let exe = resolve_openrc_executable()?;
     warn_if_binary_in_home(&exe);
@@ -1048,7 +1048,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
                 || format!("Failed to set permissions on {}", workspace_dir.display()),
             )?;
         }
-        chown_to_R.A.I.N.(&workspace_dir)?;
+        chown_to_rain(&workspace_dir)?;
         println!(
             "✅ Created directory: {} (owned by R.A.I.N.:R.A.I.N.)",
             workspace_dir.display()
@@ -1081,7 +1081,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
         }
     }
 
-    chown_recursive_to_R.A.I.N.(config_dir)?;
+    chown_recursive_to_rain(config_dir)?;
 
     let created_log_dir = !log_dir.exists();
     if created_log_dir {
@@ -1095,7 +1095,7 @@ fn install_linux_openrc(config: &Config) -> Result<()> {
         }
     }
 
-    chown_to_R.A.I.N.(log_dir)?;
+    chown_to_rain(log_dir)?;
 
     ensure_openrc_runtime_dirs_writable(config_dir, &workspace_dir, log_dir)?;
 
@@ -1236,7 +1236,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn run_capture_reads_stdout() {
-        let out = run_capture(Command::new("sh").args(["-lc", "echo hello"]))
+        let out = run_capture(Command::new("sh").args(["-c", "echo hello"]))
             .expect("stdout capture should succeed");
         assert_eq!(out.trim(), "hello");
     }
@@ -1244,7 +1244,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn run_capture_falls_back_to_stderr() {
-        let out = run_capture(Command::new("sh").args(["-lc", "echo warn 1>&2"]))
+        let out = run_capture(Command::new("sh").args(["-c", "echo warn 1>&2"]))
             .expect("stderr capture should succeed");
         assert_eq!(out.trim(), "warn");
     }
@@ -1329,16 +1329,16 @@ mod tests {
     fn generate_openrc_script_contains_required_directives() {
         use std::path::PathBuf;
 
-        let exe_path = PathBuf::from("/usr/local/bin/R.A.I.N.");
+        let exe_path = PathBuf::from("/usr/local/bin/rain");
         let script = generate_openrc_script(&exe_path, Path::new("/etc/R.A.I.N."));
 
         assert!(script.starts_with("#!/sbin/openrc-run"));
         assert!(script.contains("name=\"R.A.I.N.\""));
         assert!(script.contains("description=\"R.A.I.N. daemon\""));
-        assert!(script.contains("command=\"/usr/local/bin/R.A.I.N.\""));
+        assert!(script.contains("command=\"/usr/local/bin/rain\""));
         assert!(script.contains("command_args=\"--config-dir /etc/R.A.I.N. daemon\""));
-        assert!(!script.contains("env R.A.I.N._CONFIG_DIR"));
-        assert!(!script.contains("env R.A.I.N._WORKSPACE"));
+        assert!(!script.contains("env rain_CONFIG_DIR"));
+        assert!(!script.contains("env rain_WORKSPACE"));
         assert!(script.contains("command_background=\"yes\""));
         assert!(script.contains("command_user=\"R.A.I.N.:R.A.I.N.\""));
         assert!(script.contains("pidfile=\"/run/${RC_SVCNAME}.pid\""));
@@ -1354,11 +1354,11 @@ mod tests {
     fn generate_openrc_script_sets_home_for_browser() {
         use std::path::PathBuf;
 
-        let exe_path = PathBuf::from("/usr/local/bin/R.A.I.N.");
+        let exe_path = PathBuf::from("/usr/local/bin/rain");
         let script = generate_openrc_script(&exe_path, Path::new("/etc/R.A.I.N."));
 
         assert!(
-            script.contains("export HOME=\"/var/lib/R.A.I.N.\""),
+            script.contains("export HOME=\"/var/lib/rain\""),
             "OpenRC script must set HOME for headless browser support"
         );
     }
@@ -1367,7 +1367,7 @@ mod tests {
     fn generate_openrc_script_creates_home_directory() {
         use std::path::PathBuf;
 
-        let exe_path = PathBuf::from("/usr/local/bin/R.A.I.N.");
+        let exe_path = PathBuf::from("/usr/local/bin/rain");
         let script = generate_openrc_script(&exe_path, Path::new("/etc/R.A.I.N."));
 
         assert!(
@@ -1375,8 +1375,8 @@ mod tests {
             "OpenRC script must have start_pre to create HOME dir"
         );
         assert!(
-            script.contains("checkpath --directory --owner R.A.I.N.:R.A.I.N."),
-            "start_pre must ensure /var/lib/R.A.I.N. exists with correct ownership"
+            script.contains("checkpath --directory --owner rain:rain"),
+            "start_pre must ensure /var/lib/rain exists with correct ownership"
         );
     }
 
@@ -1388,7 +1388,7 @@ mod tests {
              \n\
              [Service]\n\
              Type=simple\n\
-             ExecStart=/usr/local/bin/R.A.I.N. daemon\n\
+             ExecStart=/usr/local/bin/rain daemon\n\
              Restart=always\n\
              RestartSec=3\n\
              # Ensure HOME is set so headless browsers can create profile/cache dirs.\n\
@@ -1422,7 +1422,7 @@ mod tests {
         let cargo_path = PathBuf::from("/home/user/.cargo/bin/R.A.I.N.");
         assert!(cargo_path.to_string_lossy().contains(".cargo/bin"));
 
-        let system_path = PathBuf::from("/usr/local/bin/R.A.I.N.");
+        let system_path = PathBuf::from("/usr/local/bin/rain");
         assert!(!system_path.to_string_lossy().contains("/home/"));
         assert!(!system_path.to_string_lossy().contains(".cargo/bin"));
     }

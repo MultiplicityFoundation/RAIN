@@ -9,16 +9,16 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
+use rain_labs::agent::agent::Agent;
+use rain_labs::agent::dispatcher::NativeToolDispatcher;
+use rain_labs::config::MemoryConfig;
+use rain_labs::memory;
+use rain_labs::memory::Memory;
+use rain_labs::observability::{NoopObserver, Observer};
+use rain_labs::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
+use rain_labs::tools::{Tool, ToolResult};
 use serde_json::json;
 use std::sync::{Arc, Mutex};
-use R.A.I.N.::agent::agent::Agent;
-use R.A.I.N.::agent::dispatcher::NativeToolDispatcher;
-use R.A.I.N.::config::MemoryConfig;
-use R.A.I.N.::memory;
-use R.A.I.N.::memory::Memory;
-use R.A.I.N.::observability::{NoopObserver, Observer};
-use R.A.I.N.::providers::{ChatRequest, ChatResponse, Provider, ToolCall};
-use R.A.I.N.::tools::{Tool, ToolResult};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock infrastructure

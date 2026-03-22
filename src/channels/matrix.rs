@@ -34,7 +34,7 @@ pub struct MatrixChannel {
     allowed_users: Vec<String>,
     session_owner_hint: Option<String>,
     session_device_id_hint: Option<String>,
-    R.A.I.N._dir: Option<PathBuf>,
+    rain_dir: Option<PathBuf>,
     resolved_room_id_cache: Arc<RwLock<Option<String>>>,
     sdk_client: Arc<OnceCell<MatrixSdkClient>>,
     http_client: Client,
@@ -132,7 +132,7 @@ impl MatrixChannel {
         owner_hint: Option<String>,
         device_id_hint: Option<String>,
     ) -> Self {
-        Self::new_with_session_hint_and_R.A.I.N._dir(
+        Self::new_with_session_hint_and_rain_dir(
             homeserver,
             access_token,
             room_id,
@@ -143,14 +143,14 @@ impl MatrixChannel {
         )
     }
 
-    pub fn new_with_session_hint_and_R.A.I.N._dir(
+    pub fn new_with_session_hint_and_rain_dir(
         homeserver: String,
         access_token: String,
         room_id: String,
         allowed_users: Vec<String>,
         owner_hint: Option<String>,
         device_id_hint: Option<String>,
-        R.A.I.N._dir: Option<PathBuf>,
+        rain_dir: Option<PathBuf>,
     ) -> Self {
         let homeserver = homeserver.trim_end_matches('/').to_string();
         let access_token = access_token.trim().to_string();
@@ -168,7 +168,7 @@ impl MatrixChannel {
             allowed_users,
             session_owner_hint: Self::normalize_optional_field(owner_hint),
             session_device_id_hint: Self::normalize_optional_field(device_id_hint),
-            R.A.I.N._dir,
+            rain_dir,
             resolved_room_id_cache: Arc::new(RwLock::new(None)),
             sdk_client: Arc::new(OnceCell::new()),
             http_client: Client::new(),
@@ -203,7 +203,7 @@ impl MatrixChannel {
     }
 
     fn matrix_store_dir(&self) -> Option<PathBuf> {
-        self.R.A.I.N._dir
+        self.rain_dir
             .as_ref()
             .map(|dir| dir.join("state").join("matrix"))
     }
@@ -767,7 +767,7 @@ impl Channel for MatrixChannel {
                 let body = if let Some((url, filename)) = media_download {
                     let workspace = std::path::PathBuf::from(
                         shellexpand::tilde(
-                            &std::env::var("R.A.I.N._WORKSPACE")
+                            &std::env::var("rain_WORKSPACE")
                                 .unwrap_or_else(|_| "/tmp/R.A.I.N.-uploads".to_string()),
                         )
                         .as_ref(),
@@ -1212,8 +1212,8 @@ mod tests {
     }
 
     #[test]
-    fn matrix_store_dir_is_derived_from_R.A.I.N._dir() {
-        let ch = MatrixChannel::new_with_session_hint_and_R.A.I.N._dir(
+    fn matrix_store_dir_is_derived_from_rain_dir() {
+        let ch = MatrixChannel::new_with_session_hint_and_rain_dir(
             "https://matrix.org".to_string(),
             "tok".to_string(),
             "!r:m".to_string(),
@@ -1230,7 +1230,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_store_dir_absent_without_R.A.I.N._dir() {
+    fn matrix_store_dir_absent_without_rain_dir() {
         let ch = MatrixChannel::new_with_session_hint(
             "https://matrix.org".to_string(),
             "tok".to_string(),
