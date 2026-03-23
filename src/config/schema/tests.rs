@@ -2737,6 +2737,30 @@ default_model = "persisted-profile"
 }
 
 #[test]
+async fn apply_env_overrides_warns_for_reserved_conversational_ai_config() {
+    let capture = SharedLogBuffer::default();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .without_time()
+        .with_target(false)
+        .with_writer(capture.clone())
+        .finish();
+    let dispatch = tracing::Dispatch::new(subscriber);
+    let guard = tracing::dispatcher::set_default(&dispatch);
+
+    let mut config = Config::default();
+    config.conversational_ai.enabled = true;
+    config.apply_env_overrides();
+
+    drop(guard);
+    let logs = capture.captured();
+    assert!(
+        logs.contains("conversational_ai.enabled = true"),
+        "expected reserved-config warning, got: {logs}"
+    );
+}
+
+#[test]
 async fn env_override_empty_values_ignored() {
     let _env_guard = env_override_lock().await;
     let mut config = Config::default();
@@ -3158,14 +3182,12 @@ async fn google_workspace_allowed_operations_reject_invalid_sub_resource_charact
 }
 
 fn runtime_proxy_cache_contains(cache_key: &str) -> bool {
-    match runtime_proxy_client_cache().read() {
-        Ok(guard) => guard.contains_key(cache_key),
-        Err(poisoned) => poisoned.into_inner().contains_key(cache_key),
-    }
+    current_runtime_proxy_state().is_some_and(|state| state.contains_cached_client(cache_key))
 }
 
 #[test]
 async fn runtime_proxy_client_cache_reuses_default_profile_key() {
+    let state = RuntimeProxyStateHandle::default();
     let service_key = format!(
         "provider.cache_test.{}",
         std::time::SystemTime::now()
@@ -3175,18 +3197,22 @@ async fn runtime_proxy_client_cache_reuses_default_profile_key() {
     );
     let cache_key = runtime_proxy_cache_key(&service_key, None, None);
 
-    clear_runtime_proxy_client_cache();
-    assert!(!runtime_proxy_cache_contains(&cache_key));
+    with_runtime_proxy_state(state, async {
+        clear_runtime_proxy_client_cache();
+        assert!(!runtime_proxy_cache_contains(&cache_key));
 
-    let _ = build_runtime_proxy_client(&service_key);
-    assert!(runtime_proxy_cache_contains(&cache_key));
+        let _ = build_runtime_proxy_client(&service_key);
+        assert!(runtime_proxy_cache_contains(&cache_key));
 
-    let _ = build_runtime_proxy_client(&service_key);
-    assert!(runtime_proxy_cache_contains(&cache_key));
+        let _ = build_runtime_proxy_client(&service_key);
+        assert!(runtime_proxy_cache_contains(&cache_key));
+    })
+    .await;
 }
 
 #[test]
 async fn set_runtime_proxy_config_clears_runtime_proxy_client_cache() {
+    let state = RuntimeProxyStateHandle::default();
     let service_key = format!(
         "provider.cache_timeout_test.{}",
         std::time::SystemTime::now()
@@ -3196,12 +3222,15 @@ async fn set_runtime_proxy_config_clears_runtime_proxy_client_cache() {
     );
     let cache_key = runtime_proxy_cache_key(&service_key, Some(30), Some(5));
 
-    clear_runtime_proxy_client_cache();
-    let _ = build_runtime_proxy_client_with_timeouts(&service_key, 30, 5);
-    assert!(runtime_proxy_cache_contains(&cache_key));
+    with_runtime_proxy_state(state, async {
+        clear_runtime_proxy_client_cache();
+        let _ = build_runtime_proxy_client_with_timeouts(&service_key, 30, 5);
+        assert!(runtime_proxy_cache_contains(&cache_key));
 
-    set_runtime_proxy_config(ProxyConfig::default());
-    assert!(!runtime_proxy_cache_contains(&cache_key));
+        set_runtime_proxy_config(ProxyConfig::default());
+        assert!(!runtime_proxy_cache_contains(&cache_key));
+    })
+    .await;
 }
 
 #[test]

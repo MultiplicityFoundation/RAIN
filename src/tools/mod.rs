@@ -158,6 +158,7 @@ pub use web_fetch::WebFetchTool;
 pub use web_search_tool::WebSearchTool;
 pub use workspace_tool::WorkspaceTool;
 
+use crate::agent::loop_::ModelSwitchState;
 use crate::config::{Config, DelegateAgentConfig};
 use crate::memory::Memory;
 use crate::runtime::{NativeRuntime, RuntimeAdapter};
@@ -277,6 +278,7 @@ pub fn all_tools(
         agents,
         fallback_api_key,
         root_config,
+        ModelSwitchState::default(),
     )
 }
 
@@ -296,6 +298,7 @@ pub fn all_tools_with_runtime(
     agents: &HashMap<String, DelegateAgentConfig>,
     fallback_api_key: Option<&str>,
     root_config: &crate::config::Config,
+    model_switch_state: ModelSwitchState,
 ) -> (Vec<Box<dyn Tool>>, Option<DelegateParentToolsHandle>) {
     let has_shell_access = runtime.has_shell_access();
     let sandbox = create_sandbox(&root_config.security);
@@ -324,7 +327,7 @@ pub fn all_tools_with_runtime(
             config.clone(),
             security.clone(),
         )),
-        Arc::new(ModelSwitchTool::new(security.clone())),
+        Arc::new(ModelSwitchTool::new(security.clone(), model_switch_state)),
         Arc::new(ProxyConfigTool::new(config.clone(), security.clone())),
         Arc::new(GitOperationsTool::new(
             security.clone(),
@@ -882,6 +885,43 @@ mod tests {
         assert!(names.contains(&"model_routing_config"));
         assert!(names.contains(&"pushover"));
         assert!(names.contains(&"proxy_config"));
+    }
+
+    #[test]
+    fn all_tools_registers_runtime_wired_ops_tools_when_enabled() {
+        let tmp = TempDir::new().unwrap();
+        let security = Arc::new(SecurityPolicy::default());
+        let mem_cfg = MemoryConfig {
+            backend: "markdown".into(),
+            ..MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> =
+            Arc::from(crate::memory::create_memory(&mem_cfg, tmp.path(), None).unwrap());
+
+        let browser = BrowserConfig::default();
+        let http = crate::config::HttpRequestConfig::default();
+        let mut cfg = test_config(&tmp);
+        cfg.cloud_ops.enabled = true;
+        cfg.security_ops.enabled = true;
+
+        let (tools, _) = all_tools(
+            Arc::new(Config::default()),
+            &security,
+            mem,
+            None,
+            None,
+            &browser,
+            &http,
+            &crate::config::WebFetchConfig::default(),
+            tmp.path(),
+            &HashMap::new(),
+            None,
+            &cfg,
+        );
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(names.contains(&"cloud_ops"));
+        assert!(names.contains(&"cloud_patterns"));
+        assert!(names.contains(&"security_ops"));
     }
 
     #[test]

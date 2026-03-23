@@ -67,6 +67,107 @@ const DEFAULT_MAX_TOOL_ITERATIONS: usize = 10;
 /// Matches the channel-side constant in `channels/mod.rs`.
 const AUTOSAVE_MIN_MESSAGE_CHARS: usize = 20;
 
+/// Callback type for checking if model has been switched during tool execution.
+/// Returns Some((provider, model)) if a switch was requested, None otherwise.
+pub type ModelSwitchCallback = Arc<Mutex<Option<(String, String)>>>;
+
+/// Per-runtime model switch request state shared by the tool registry and agent loop.
+#[derive(Clone, Default)]
+pub struct ModelSwitchState {
+    inner: ModelSwitchCallback,
+}
+
+impl ModelSwitchState {
+    pub fn callback(&self) -> ModelSwitchCallback {
+        Arc::clone(&self.inner)
+    }
+
+    pub fn pending_request(&self) -> Option<(String, String)> {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn request_switch(&self, provider: impl Into<String>, model: impl Into<String>) {
+        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some((provider.into(), model.into()));
+    }
+
+    pub fn clear(&self) {
+        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+}
+
+static SENSITIVE_KV_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?i)(token|api[_-]?key|password|secret|user[_-]?key|bearer|credential)["']?\s*[:=]\s*(?:"([^"]{8,})"|'([^']{8,})'|([a-zA-Z0-9_\-\.]{8,}))"#).unwrap()
+});
+
+/// Scrub credentials from tool output to prevent accidental exfiltration.
+/// Replaces known credential patterns with a redacted placeholder while preserving
+/// a small prefix for context.
+pub(crate) fn scrub_credentials(input: &str) -> String {
+    SENSITIVE_KV_REGEX
+        .replace_all(input, |caps: &regex::Captures| {
+            let full_match = &caps[0];
+            let key = &caps[1];
+            let val = caps
+                .get(2)
+                .or(caps.get(3))
+                .or(caps.get(4))
+                .map(|m| m.as_str())
+                .unwrap_or("");
+
+            // Preserve first 4 chars for context, then redact.
+            // Use char_indices to find the byte offset of the 4th character
+            // so we never slice in the middle of a multi-byte UTF-8 sequence.
+            let prefix = if val.len() > 4 {
+                val.char_indices()
+                    .nth(4)
+                    .map(|(byte_idx, _)| &val[..byte_idx])
+                    .unwrap_or(val)
+            } else {
+                ""
+            };
+
+            if full_match.contains(':') {
+                if full_match.contains('"') {
+                    format!("\"{}\": \"{}*[REDACTED]\"", key, prefix)
+                } else {
+                    format!("{}: {}*[REDACTED]", key, prefix)
+                }
+            } else if full_match.contains('=') {
+                if full_match.contains('"') {
+                    format!("{}=\"{}*[REDACTED]\"", key, prefix)
+                } else {
+                    format!("{}={}*[REDACTED]", key, prefix)
+                }
+            } else {
+                format!("{}: {}*[REDACTED]", key, prefix)
+            }
+        })
+        .to_string()
+}
+
+/// Build a short hint string from a tool's JSON arguments for progress display.
+/// Returns the most informative single argument value, truncated to `max_chars`.
+fn truncate_tool_args_for_progress(
+    _tool_name: &str,
+    args: &serde_json::Value,
+    max_chars: usize,
+) -> String {
+    let hint = match args {
+        serde_json::Value::Object(map) => map
+            .values()
+            .find_map(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        serde_json::Value::String(s) => s.clone(),
+        _ => return String::new(),
+    };
+    if hint.is_empty() {
+        return String::new();
+    }
+    truncate_with_ellipsis(&scrub_credentials(&hint), max_chars)
+}
+
 /// Find a tool by name in the registry.
 fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> Option<&'a dyn Tool> {
     tools.iter().find(|t| t.name() == name).map(|t| t.as_ref())
@@ -87,10 +188,32 @@ pub(crate) fn is_tool_loop_cancelled(err: &anyhow::Error) -> bool {
     err.chain().any(|source| source.is::<ToolLoopCancelled>())
 }
 
-/// Execute a single turn of the agent loop: send messages, parse tool calls,
-/// execute tools, and loop until the LLM produces a final text response.
-/// When `silent` is true, suppresses stdout (for channel use).
-pub(crate) struct AgentTurnRequest<'a> {
+#[derive(Debug)]
+pub(crate) struct ModelSwitchRequested {
+    pub provider: String,
+    pub model: String,
+}
+
+impl std::fmt::Display for ModelSwitchRequested {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "model switch requested to {} {}",
+            self.provider, self.model
+        )
+    }
+}
+
+impl std::error::Error for ModelSwitchRequested {}
+
+pub(crate) fn is_model_switch_requested(err: &anyhow::Error) -> Option<(String, String)> {
+    err.chain()
+        .filter_map(|source| source.downcast_ref::<ModelSwitchRequested>())
+        .map(|e| (e.provider.clone(), e.model.clone()))
+        .next()
+}
+
+pub(crate) struct AgentTurnContext<'a> {
     pub provider: &'a dyn Provider,
     pub history: &'a mut Vec<ChatMessage>,
     pub tools_registry: &'a [Box<dyn Tool>],
@@ -106,33 +229,35 @@ pub(crate) struct AgentTurnRequest<'a> {
     pub approval: Option<&'a ApprovalManager>,
     pub excluded_tools: &'a [String],
     pub dedup_exempt_tools: &'a [String],
-    pub activated_tools:
-        Option<&'a std::sync::Arc<std::sync::Mutex<crate::tools::ActivatedToolSet>>>,
+    pub activated_tools: Option<&'a Arc<Mutex<crate::tools::ActivatedToolSet>>>,
     pub model_switch_callback: Option<ModelSwitchCallback>,
 }
 
-pub(crate) async fn agent_turn(request: AgentTurnRequest<'_>) -> Result<String> {
+/// Execute a single turn of the agent loop: send messages, parse tool calls,
+/// execute tools, and loop until the LLM produces a final text response.
+/// When `silent` is true, suppresses stdout (for channel use).
+pub(crate) async fn agent_turn(context: AgentTurnContext<'_>) -> Result<String> {
     run_tool_call_loop(
-        request.provider,
-        request.history,
-        request.tools_registry,
-        request.observer,
-        request.provider_name,
-        request.model,
-        request.temperature,
-        request.silent,
-        request.approval,
-        request.channel_name,
-        request.channel_reply_target,
-        request.multimodal_config,
-        request.max_tool_iterations,
+        context.provider,
+        context.history,
+        context.tools_registry,
+        context.observer,
+        context.provider_name,
+        context.model,
+        context.temperature,
+        context.silent,
+        context.approval,
+        context.channel_name,
+        context.channel_reply_target,
+        context.multimodal_config,
+        context.max_tool_iterations,
         None,
         None,
         None,
-        request.excluded_tools,
-        request.dedup_exempt_tools,
-        request.activated_tools,
-        request.model_switch_callback,
+        context.excluded_tools,
+        context.dedup_exempt_tools,
+        context.activated_tools,
+        context.model_switch_callback,
         &crate::config::PacingConfig::default(),
     )
     .await
@@ -1331,6 +1456,7 @@ pub async fn run(
     } else {
         (None, None)
     };
+    let model_switch_state = ModelSwitchState::default();
     let (mut tools_registry, delegate_handle) = tools::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
@@ -1345,6 +1471,7 @@ pub async fn run(
         &config.agents,
         config.api_key.as_deref(),
         &config,
+        model_switch_state.clone(),
     );
 
     let peripheral_tools: Vec<Box<dyn Tool>> =
@@ -1475,7 +1602,7 @@ pub async fn run(
         &provider_runtime_options,
     )?;
 
-    let model_switch_callback = get_model_switch_state();
+    let model_switch_callback = model_switch_state.callback();
 
     observer.record_event(&ObserverEvent::AgentStart {
         provider: provider_name.to_string(),
@@ -1778,7 +1905,7 @@ pub async fn run(
                         provider_name = new_provider;
                         model_name = new_model;
 
-                        clear_model_switch_request();
+                        model_switch_state.clear();
 
                         observer.record_event(&ObserverEvent::AgentStart {
                             provider: provider_name.to_string(),
@@ -2003,7 +2130,7 @@ pub async fn run(
                             provider_name = new_provider;
                             model_name = new_model;
 
-                            clear_model_switch_request();
+                            model_switch_state.clear();
 
                             observer.record_event(&ObserverEvent::AgentStart {
                                 provider: provider_name.to_string(),
@@ -2114,6 +2241,7 @@ pub async fn process_message(
         &config.agents,
         config.api_key.as_deref(),
         &config,
+        ModelSwitchState::default(),
     );
     let peripheral_tools: Vec<Box<dyn Tool>> =
         crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
@@ -2349,7 +2477,7 @@ pub async fn process_message(
         excluded_tools.extend(config.autonomy.non_cli_excluded_tools.iter().cloned());
     }
 
-    agent_turn(AgentTurnRequest {
+    agent_turn(AgentTurnContext {
         provider: provider.as_ref(),
         history: &mut history,
         tools_registry: &tools_registry,
@@ -3734,7 +3862,7 @@ mod tests {
             ];
             let observer = NoopObserver;
 
-            let result = agent_turn(AgentTurnRequest {
+            let result = agent_turn(AgentTurnContext {
                 provider: &provider,
                 history: &mut history,
                 tools_registry: &tools_registry,
