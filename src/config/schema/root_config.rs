@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports)]
 use super::*;
 
 /// Top-level R.A.I.N. configuration, loaded from `config.toml`.
