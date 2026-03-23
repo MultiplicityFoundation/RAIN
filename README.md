@@ -35,7 +35,6 @@ Under the hood, R.A.I.N. Lab is built from two core layers:
 - **James Library** — the research and reasoning workflow layer that drives debate, synthesis, and analysis.
 - **ZeroClaw** — the runtime engine that handles execution, orchestration, networking, and security.
 
-These names reflect the system's history and architecture. This repository brings them together under the **R.A.I.N. Lab** open-source project while preserving credit to the underlying systems.
 
 If you are new here, you can think of it like this:
 
