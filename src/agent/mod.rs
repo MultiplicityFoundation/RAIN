@@ -8,6 +8,7 @@ pub mod memory_loader;
 pub mod prompt;
 pub(crate) mod runtime_support;
 pub(crate) mod tool_call_parser;
+pub(crate) mod tool_execution;
 pub(crate) mod tool_filter;
 
 #[cfg(test)]
