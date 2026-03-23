@@ -20,7 +20,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-The R.A.I.N. Lab is an open-source multi-agentic research team of assistants built for **academic researchers, R&D teams, and privacy-conscious individuals** who need conclusions they can actually trust. It solves the fundamental problem with AI agents that either agree too quickly or argue in circles forever, by automatically settling unresolved debates with mathematical proof via a sandboxed SAT solver. It runs entirely locally on your computer; your data never leaves your machine.
+Vers3Dynamics' R.A.I.N. Lab is the multi-agentic research team of assistants built for **academic researchers, R&D teams, and privacy-conscious individuals** who need conclusions they can actually trust. It solves the fundamental problem with AI agents that either agree too quickly or argue in circles forever, by automatically settling unresolved debates with mathematical proof via a sandboxed SAT solver. It runs entirely locally on your computer; your data never leaves your machine.
 
 ---
 
@@ -59,7 +59,7 @@ All you need to know is the **R.A.I.N. Lab**. Everything else just works.
 
 ---
 
-## Why R.A.I.N. Lab?
+## Why the R.A.I.N. Lab?
 
 * **Runs on almost anything:** The core engine is ZeroClaw, a 3.1 MB program that works on laptops, desktops, and even low-powered devices.
 * **Your data stays on your machine:** All conversations and files are stored locally with strong encryption. Nothing is sent to the cloud unless you choose to connect a cloud AI provider.
