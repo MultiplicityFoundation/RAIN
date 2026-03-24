@@ -17,6 +17,29 @@ pub struct DefaultMemoryLoader {
     min_relevance_score: f64,
 }
 
+pub struct ManifestMemoryLoader {
+    recall_limit: usize,
+    min_relevance_score: f64,
+    category: Option<memory::MemoryCategory>,
+    session_scope: crate::agent::manifest::SessionScope,
+}
+
+impl ManifestMemoryLoader {
+    pub fn new(
+        recall_limit: usize,
+        min_relevance_score: f64,
+        category: Option<memory::MemoryCategory>,
+        session_scope: crate::agent::manifest::SessionScope,
+    ) -> Self {
+        Self {
+            recall_limit: recall_limit.max(1),
+            min_relevance_score,
+            category,
+            session_scope,
+        }
+    }
+}
+
 impl Default for DefaultMemoryLoader {
     fn default() -> Self {
         Self {
@@ -76,6 +99,61 @@ impl MemoryLoader for DefaultMemoryLoader {
     }
 }
 
+#[async_trait]
+impl MemoryLoader for ManifestMemoryLoader {
+    async fn load_context(
+        &self,
+        memory: &dyn Memory,
+        user_message: &str,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<String> {
+        let scoped_session_id = match self.session_scope {
+            crate::agent::manifest::SessionScope::Current => session_id,
+            crate::agent::manifest::SessionScope::CrossSession => None,
+        };
+
+        let entries = memory
+            .recall(
+                user_message,
+                self.recall_limit,
+                scoped_session_id,
+                None,
+                None,
+            )
+            .await?;
+        if entries.is_empty() {
+            return Ok(String::new());
+        }
+
+        let mut context = String::from("[Memory context]\n");
+        for entry in entries {
+            if memory::is_assistant_autosave_key(&entry.key) {
+                continue;
+            }
+            if memory::should_skip_autosave_content(&entry.content) {
+                continue;
+            }
+            if let Some(required_category) = &self.category {
+                if &entry.category != required_category {
+                    continue;
+                }
+            }
+            if let Some(score) = entry.score {
+                if score < self.min_relevance_score {
+                    continue;
+                }
+            }
+            let _ = writeln!(context, "- {}: {}", entry.key, entry.content);
+        }
+
+        if context == "[Memory context]\n" {
+            return Ok(String::new());
+        }
+        context.push('\n');
+        Ok(context)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,6 +163,8 @@ mod tests {
     struct MockMemory;
     struct MockMemoryWithEntries {
         entries: Arc<Vec<MemoryEntry>>,
+        last_session_id: Arc<std::sync::Mutex<Option<String>>>,
+        last_limit: Arc<std::sync::Mutex<Option<usize>>>,
     }
 
     #[async_trait]
@@ -165,11 +245,13 @@ mod tests {
         async fn recall(
             &self,
             _query: &str,
-            _limit: usize,
-            _session_id: Option<&str>,
+            limit: usize,
+            session_id: Option<&str>,
             _since: Option<&str>,
             _until: Option<&str>,
         ) -> anyhow::Result<Vec<MemoryEntry>> {
+            *self.last_limit.lock().unwrap() = Some(limit);
+            *self.last_session_id.lock().unwrap() = session_id.map(ToOwned::to_owned);
             Ok(self.entries.as_ref().clone())
         }
 
@@ -237,6 +319,8 @@ mod tests {
                     score: Some(0.9),
                 },
             ]),
+            last_session_id: Arc::new(std::sync::Mutex::new(None)),
+            last_limit: Arc::new(std::sync::Mutex::new(None)),
         };
 
         let context = loader
@@ -246,5 +330,82 @@ mod tests {
         assert!(context.contains("user_fact"));
         assert!(!context.contains("assistant_resp_legacy"));
         assert!(!context.contains("fabricated detail"));
+    }
+
+    #[tokio::test]
+    async fn manifest_loader_honors_recall_limit_and_category_filter() {
+        let memory = MockMemoryWithEntries {
+            entries: Arc::new(vec![
+                MemoryEntry {
+                    id: "1".into(),
+                    key: "k1".into(),
+                    content: "core".into(),
+                    category: MemoryCategory::Core,
+                    timestamp: "now".into(),
+                    session_id: None,
+                    score: Some(0.9),
+                },
+                MemoryEntry {
+                    id: "2".into(),
+                    key: "k2".into(),
+                    content: "daily".into(),
+                    category: MemoryCategory::Daily,
+                    timestamp: "now".into(),
+                    session_id: None,
+                    score: Some(0.9),
+                },
+            ]),
+            last_session_id: Arc::new(std::sync::Mutex::new(None)),
+            last_limit: Arc::new(std::sync::Mutex::new(None)),
+        };
+
+        let loader = ManifestMemoryLoader::new(
+            7,
+            0.1,
+            Some(MemoryCategory::Core),
+            crate::agent::manifest::SessionScope::Current,
+        );
+        let context = loader
+            .load_context(&memory, "query", Some("session-123"))
+            .await
+            .unwrap();
+
+        assert_eq!(*memory.last_limit.lock().unwrap(), Some(7));
+        assert_eq!(
+            *memory.last_session_id.lock().unwrap(),
+            Some("session-123".into())
+        );
+        assert!(context.contains("k1"));
+        assert!(!context.contains("k2"));
+    }
+
+    #[tokio::test]
+    async fn manifest_loader_cross_session_ignores_session_id() {
+        let memory = MockMemoryWithEntries {
+            entries: Arc::new(vec![MemoryEntry {
+                id: "1".into(),
+                key: "k".into(),
+                content: "v".into(),
+                category: MemoryCategory::Conversation,
+                timestamp: "now".into(),
+                session_id: Some("other".into()),
+                score: Some(0.9),
+            }]),
+            last_session_id: Arc::new(std::sync::Mutex::new(None)),
+            last_limit: Arc::new(std::sync::Mutex::new(None)),
+        };
+        let loader = ManifestMemoryLoader::new(
+            3,
+            0.5,
+            None,
+            crate::agent::manifest::SessionScope::CrossSession,
+        );
+
+        let _ = loader
+            .load_context(&memory, "query", Some("session-123"))
+            .await
+            .unwrap();
+
+        assert_eq!(*memory.last_session_id.lock().unwrap(), None);
     }
 }

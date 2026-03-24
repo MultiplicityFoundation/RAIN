@@ -18,6 +18,7 @@ pub struct PromptContext<'a> {
     pub skills: &'a [Skill],
     pub skills_prompt_mode: crate::config::SkillsPromptInjectionMode,
     pub identity_config: Option<&'a IdentityConfig>,
+    pub manifest_identity_prompt: Option<&'a str>,
     pub dispatcher_instructions: &'a str,
     /// Locale-aware tool descriptions. When present, tool descriptions in
     /// prompts are resolved from the locale file instead of hardcoded values.
@@ -96,6 +97,13 @@ impl PromptSection for IdentitySection {
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let mut prompt = String::from("## Project Context\n\n");
+        if let Some(manifest_prompt) = ctx.manifest_identity_prompt {
+            let trimmed = manifest_prompt.trim();
+            if !trimmed.is_empty() {
+                prompt.push_str(trimmed);
+                prompt.push_str("\n\n");
+            }
+        }
         let mut has_aieos = false;
         if let Some(config) = ctx.identity_config {
             if identity::is_aieos_configured(config) {
@@ -394,6 +402,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: Some(&identity_config),
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -425,6 +434,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "instr",
             tool_descriptions: None,
             security_summary: None,
@@ -463,6 +473,7 @@ mod tests {
             skills: &skills,
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -504,6 +515,7 @@ mod tests {
             skills: &skills,
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Compact,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -532,6 +544,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "instr",
             tool_descriptions: None,
             security_summary: None,
@@ -573,6 +586,7 @@ mod tests {
             skills: &skills,
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -607,6 +621,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: Some(summary.clone()),
@@ -642,6 +657,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -669,6 +685,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,
@@ -704,6 +721,7 @@ mod tests {
             skills: &[],
             skills_prompt_mode: crate::config::SkillsPromptInjectionMode::Full,
             identity_config: None,
+            manifest_identity_prompt: None,
             dispatcher_instructions: "",
             tool_descriptions: None,
             security_summary: None,

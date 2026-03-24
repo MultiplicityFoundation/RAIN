@@ -4,6 +4,8 @@ pub mod classifier;
 pub mod dispatcher;
 pub(crate) mod history;
 pub mod loop_;
+pub mod manifest;
+pub mod manifest_loader;
 pub mod memory_loader;
 pub mod prompt;
 pub(crate) mod runtime_support;
