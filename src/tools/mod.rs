@@ -871,11 +871,11 @@ pub fn all_tools_with_runtime(
     #[cfg(feature = "plugins-wasm")]
     {
         let plugin_dir = config.plugins.plugins_dir.clone();
-        let plugin_path = if plugin_dir.starts_with("~/") {
+        let plugin_path = if let Some(stripped) = plugin_dir.strip_prefix("~/") {
             let home = directories::UserDirs::new()
                 .map(|u| u.home_dir().to_path_buf())
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
-            home.join(&plugin_dir[2..])
+            home.join(stripped)
         } else {
             std::path::PathBuf::from(&plugin_dir)
         };

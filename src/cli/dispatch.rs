@@ -455,7 +455,11 @@ pub(crate) async fn dispatch_command(command: Commands, config: Config) -> Resul
             }
             PluginCommands::Install { source } => {
                 let mut host = rain_labs::plugins::host::PluginHost::new(&config.workspace_dir)?;
-                host.install(&source)?;
+                host.install_with_policy(
+                    &source,
+                    config.plugins.marketplace_enabled,
+                    &config.plugins.allowed_permissions,
+                )?;
                 println!("Plugin installed from {source}");
                 Ok(())
             }
