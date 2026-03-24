@@ -67,6 +67,61 @@ const DEFAULT_MAX_TOOL_ITERATIONS: usize = 10;
 /// Matches the channel-side constant in `channels/mod.rs`.
 const AUTOSAVE_MIN_MESSAGE_CHARS: usize = 20;
 
+fn glob_match_ci(pattern: &str, name: &str) -> bool {
+    match pattern.find('*') {
+        None => pattern.eq_ignore_ascii_case(name),
+        Some(star) => {
+            let prefix = &pattern[..star];
+            let suffix = &pattern[star + 1..];
+            name.len() >= prefix.len() + suffix.len()
+                && name[..prefix.len()].eq_ignore_ascii_case(prefix)
+                && name[name.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+        }
+    }
+}
+
+fn mcp_aliases(prefixed_name: &str) -> Vec<String> {
+    let mut out = vec![prefixed_name.to_string()];
+    if let Some((namespace, tool)) = prefixed_name.split_once("__") {
+        out.push(format!("mcp:{namespace}/{tool}"));
+        out.push(format!("mcp:{namespace}/*"));
+        out.push("mcp:*".to_string());
+    }
+    out
+}
+
+fn mcp_selector_match(selector: &str, prefixed_name: &str) -> bool {
+    let selector = selector.trim();
+    !selector.is_empty()
+        && mcp_aliases(prefixed_name)
+            .iter()
+            .any(|alias| glob_match_ci(selector, alias))
+}
+
+fn mcp_tool_enabled(prefixed_name: &str, cfg: &crate::config::AgentConfig) -> bool {
+    let mut allow = crate::tools::expand_profiles(&cfg.tool_profiles);
+    allow.extend(
+        cfg.tool_allowlist
+            .iter()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty()),
+    );
+    let deny: Vec<&str> = cfg
+        .tool_denylist
+        .iter()
+        .map(String::as_str)
+        .filter(|v| !v.trim().is_empty())
+        .collect();
+
+    if cfg.strict_tool_allowlist && allow.is_empty() {
+        return false;
+    }
+
+    let allowed = allow.is_empty() || allow.iter().any(|s| mcp_selector_match(s, prefixed_name));
+    let denied = deny.iter().any(|s| mcp_selector_match(s, prefixed_name));
+    allowed && !denied
+}
+
 /// Per-runtime model switch request state shared by the tool registry and agent loop.
 #[derive(Clone, Default)]
 pub struct ModelSwitchState {
@@ -1153,10 +1208,13 @@ pub async fn run(
                 let registry = std::sync::Arc::new(registry);
                 if config.mcp.deferred_loading {
                     // Deferred path: build stubs and register tool_search
-                    let deferred_set = crate::tools::DeferredMcpToolSet::from_registry(
+                    let mut deferred_set = crate::tools::DeferredMcpToolSet::from_registry(
                         std::sync::Arc::clone(&registry),
                     )
                     .await;
+                    deferred_set
+                        .stubs
+                        .retain(|stub| mcp_tool_enabled(&stub.prefixed_name, &config.agent));
                     tracing::info!(
                         "MCP deferred: {} tool stub(s) from {} server(s)",
                         deferred_set.len(),
@@ -1177,6 +1235,9 @@ pub async fn run(
                     let names = registry.tool_names();
                     let mut registered = 0usize;
                     for name in names {
+                        if !mcp_tool_enabled(&name, &config.agent) {
+                            continue;
+                        }
                         if let Some(def) = registry.get_tool_def(&name).await {
                             let wrapper: std::sync::Arc<dyn Tool> =
                                 std::sync::Arc::new(crate::tools::McpToolWrapper::new(
@@ -1891,10 +1952,13 @@ pub async fn process_message(
             Ok(registry) => {
                 let registry = std::sync::Arc::new(registry);
                 if config.mcp.deferred_loading {
-                    let deferred_set = crate::tools::DeferredMcpToolSet::from_registry(
+                    let mut deferred_set = crate::tools::DeferredMcpToolSet::from_registry(
                         std::sync::Arc::clone(&registry),
                     )
                     .await;
+                    deferred_set
+                        .stubs
+                        .retain(|stub| mcp_tool_enabled(&stub.prefixed_name, &config.agent));
                     tracing::info!(
                         "MCP deferred: {} tool stub(s) from {} server(s)",
                         deferred_set.len(),
@@ -1914,6 +1978,9 @@ pub async fn process_message(
                     let names = registry.tool_names();
                     let mut registered = 0usize;
                     for name in names {
+                        if !mcp_tool_enabled(&name, &config.agent) {
+                            continue;
+                        }
                         if let Some(def) = registry.get_tool_def(&name).await {
                             let wrapper: std::sync::Arc<dyn Tool> =
                                 std::sync::Arc::new(crate::tools::McpToolWrapper::new(

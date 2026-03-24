@@ -196,6 +196,23 @@ Notes:
 - Corrupted/unreadable estop state falls back to fail-closed `kill_all`.
 - Use CLI command `R.A.I.N. estop` to engage and `R.A.I.N. estop resume` to clear levels.
 
+## `[plugins]`
+
+| Key | Default | Purpose |
+|---|---|---|
+| `enabled` | `false` | Enables WASM plugin discovery and registration |
+| `plugins_dir` | `~/.R.A.I.N./plugins` | Filesystem location scanned for plugin `manifest.toml` files |
+| `auto_discover` | `false` | Automatically discover plugin metadata at startup |
+| `max_plugins` | `50` | Upper bound for loaded plugin entries |
+| `marketplace_enabled` | `false` | Allows `plugin install` from remote `http(s)` marketplace sources |
+| `allowed_permissions` | `["http_client","file_read","file_write","env_read","memory_read","memory_write"]` | Install-time allowlist for plugin-declared permissions |
+
+Notes:
+
+- Remote marketplace install is fail-closed by default. Set `marketplace_enabled = true` explicitly to allow network plugin sources.
+- `allowed_permissions` is enforced at install time: if a plugin requests a permission outside this list, installation is rejected.
+- Plugin metadata can expose agent packs via `agent_manifests`; these are discovered even when the WASM execution bridge is unavailable.
+
 ## `[agents.<name>]`
 
 Delegate sub-agent configurations. Each key under `[agents]` defines a named sub-agent that the primary agent can delegate to.

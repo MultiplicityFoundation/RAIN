@@ -825,6 +825,21 @@ pub struct AgentConfig {
     /// Default: `[]` (no filtering — all tools included).
     #[serde(default)]
     pub tool_filter_groups: Vec<ToolFilterGroup>,
+
+    /// Named tool profiles to include in the effective runtime tool set.
+    #[serde(default)]
+    pub tool_profiles: Vec<String>,
+    /// Explicit tool allowlist (supports glob patterns and MCP aliases like `mcp:*`).
+    #[serde(default)]
+    pub tool_allowlist: Vec<String>,
+    /// Explicit tool denylist (supports glob patterns and MCP aliases like `mcp:browser/*`).
+    #[serde(default)]
+    pub tool_denylist: Vec<String>,
+    /// Deny-by-default mode for high-security agents.
+    ///
+    /// When `true` and no explicit allowlist/profile entries are set, no tools are exposed.
+    #[serde(default)]
+    pub strict_tool_allowlist: bool,
 }
 
 fn default_agent_max_tool_iterations() -> usize {
@@ -854,6 +869,10 @@ impl Default for AgentConfig {
             tool_dispatcher: default_agent_tool_dispatcher(),
             tool_call_dedup_exempt: Vec::new(),
             tool_filter_groups: Vec::new(),
+            tool_profiles: Vec::new(),
+            tool_allowlist: Vec::new(),
+            tool_denylist: Vec::new(),
+            strict_tool_allowlist: false,
         }
     }
 }
@@ -2296,6 +2315,12 @@ pub struct PluginsConfig {
     /// Maximum number of plugins that can be loaded
     #[serde(default = "default_max_plugins")]
     pub max_plugins: usize,
+    /// Allow network marketplace sources (`http(s)`) during plugin install.
+    #[serde(default)]
+    pub marketplace_enabled: bool,
+    /// Permissions explicitly allowed during plugin installation.
+    #[serde(default = "default_allowed_plugin_permissions")]
+    pub allowed_permissions: Vec<String>,
 }
 
 fn default_plugins_dir() -> String {
@@ -2306,6 +2331,17 @@ fn default_max_plugins() -> usize {
     50
 }
 
+fn default_allowed_plugin_permissions() -> Vec<String> {
+    vec![
+        "http_client".to_string(),
+        "file_read".to_string(),
+        "file_write".to_string(),
+        "env_read".to_string(),
+        "memory_read".to_string(),
+        "memory_write".to_string(),
+    ]
+}
+
 impl Default for PluginsConfig {
     fn default() -> Self {
         Self {
@@ -2313,6 +2349,8 @@ impl Default for PluginsConfig {
             plugins_dir: default_plugins_dir(),
             auto_discover: false,
             max_plugins: default_max_plugins(),
+            marketplace_enabled: false,
+            allowed_permissions: default_allowed_plugin_permissions(),
         }
     }
 }

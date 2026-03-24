@@ -11,6 +11,9 @@ pub mod wasm_tool;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Current supported schema version for plugin-provided agent manifests.
+pub const AGENT_MANIFEST_SCHEMA_VERSION: u32 = 1;
+
 /// A plugin's declared manifest (loaded from manifest.toml alongside the .wasm).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginManifest {
@@ -24,6 +27,16 @@ pub struct PluginManifest {
     pub author: Option<String>,
     /// Path to the .wasm file (relative to manifest)
     pub wasm_path: String,
+    /// Optional plugin-provided agent manifest paths (relative to manifest)
+    #[serde(default)]
+    pub agent_manifests: Vec<String>,
+    /// Optional discoverability tags
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Optional minimum required runtime version
+    pub min_runtime_version: Option<String>,
+    /// Optional signature used for plugin integrity verification
+    pub signature: Option<String>,
     /// Capabilities this plugin provides
     pub capabilities: Vec<PluginCapability>,
     /// Permissions this plugin requests
@@ -69,8 +82,22 @@ pub struct PluginInfo {
     pub name: String,
     pub version: String,
     pub description: Option<String>,
+    pub tags: Vec<String>,
+    pub min_runtime_version: Option<String>,
+    pub signature: Option<String>,
     pub capabilities: Vec<PluginCapability>,
     pub permissions: Vec<PluginPermission>,
     pub wasm_path: PathBuf,
     pub loaded: bool,
+}
+
+/// Discovery metadata for a plugin-provided agent manifest.
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentPackInfo {
+    pub plugin: String,
+    pub manifest_path: PathBuf,
+    pub schema_version: u32,
+    pub tags: Vec<String>,
+    pub min_runtime_version: Option<String>,
+    pub signature: Option<String>,
 }

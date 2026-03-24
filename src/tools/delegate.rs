@@ -465,22 +465,31 @@ impl DelegateTool {
             });
         }
 
-        let allowed = agent_config
-            .allowed_tools
-            .iter()
-            .map(|name| name.trim())
-            .filter(|name| !name.is_empty())
-            .collect::<std::collections::HashSet<_>>();
+        let mut profiles = Vec::new();
+        let mut allowlist = Vec::new();
+        let mut denylist = Vec::new();
+        for raw in &agent_config.allowed_tools {
+            let entry = raw.trim();
+            if entry.is_empty() {
+                continue;
+            }
+            if let Some(profile) = entry.strip_prefix("profile:") {
+                profiles.push(profile.trim().to_string());
+                continue;
+            }
+            if let Some(deny) = entry.strip_prefix("deny:") {
+                denylist.push(deny.trim().to_string());
+                continue;
+            }
+            allowlist.push(entry.to_string());
+        }
 
-        let sub_tools: Vec<Box<dyn Tool>> = {
+        let mut sub_tools = {
             let parent_tools = self.parent_tools.read();
-            parent_tools
-                .iter()
-                .filter(|tool| allowed.contains(tool.name()))
-                .filter(|tool| tool.name() != "delegate")
-                .map(|tool| Box::new(ToolArcRef::new(tool.clone())) as Box<dyn Tool>)
-                .collect()
+            let pool: Vec<Arc<dyn Tool>> = parent_tools.iter().cloned().collect();
+            crate::tools::filter_tool_pool(pool, &allowlist, &denylist, &profiles)
         };
+        sub_tools.retain(|tool| tool.name() != "delegate");
 
         if sub_tools.is_empty() {
             return Ok(ToolResult {
