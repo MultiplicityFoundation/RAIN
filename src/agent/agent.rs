@@ -14,7 +14,6 @@ use crate::runtime;
 use crate::security::SecurityPolicy;
 use crate::tools::{self, Tool, ToolSpec};
 use anyhow::Result;
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
 use std::io::Write as IoWrite;
@@ -52,38 +51,6 @@ pub struct Agent {
     /// Autonomy level from config; controls safety prompt instructions.
     autonomy_level: crate::security::AutonomyLevel,
     manifest: Option<AgentManifest>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct AgentManifest {
-    pub schema_version: String,
-    pub identity: AgentIdentityManifest,
-    #[serde(default)]
-    pub tools: AgentToolScopeManifest,
-    #[serde(default)]
-    pub memory: AgentMemoryRoutingManifest,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct AgentIdentityManifest {
-    pub id: String,
-    pub display_name: String,
-    pub role: String,
-    pub system_prompt: String,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
-pub struct AgentToolScopeManifest {
-    #[serde(default)]
-    pub allowed: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
-pub struct AgentMemoryRoutingManifest {
-    #[serde(default)]
-    pub categories: Vec<String>,
-    #[serde(default)]
-    pub session_id: Option<String>,
 }
 
 fn load_agent_manifest(workspace_dir: &Path) -> Result<Option<AgentManifest>> {
@@ -369,7 +336,7 @@ impl AgentBuilder {
             autonomy_level: self
                 .autonomy_level
                 .unwrap_or(crate::security::AutonomyLevel::Supervised),
-            manifest: None,
+            manifest: self.manifest,
         })
     }
 }
@@ -458,11 +425,11 @@ impl Agent {
 
         let manifest = load_agent_manifest(&config.workspace_dir)?;
         if let Some(agent_manifest) = manifest.as_ref() {
-            if !agent_manifest.tools.allowed.is_empty() {
+            if !agent_manifest.tools.allow.is_empty() {
                 tools.retain(|tool| {
                     agent_manifest
                         .tools
-                        .allowed
+                        .allow
                         .iter()
                         .any(|allowed| allowed == tool.name())
                 });
@@ -608,7 +575,6 @@ impl Agent {
             .build()?;
 
         if let Some(agent_manifest) = manifest {
-            agent.memory_session_id = agent_manifest.memory.session_id.clone();
             agent.manifest = Some(agent_manifest);
         }
 
@@ -665,11 +631,22 @@ impl Agent {
             prompt.push_str("\n\n## Agent Manifest Identity\n\n");
             let _ = write!(
                 prompt,
-                "- Agent: {} ({})\n- Role: {}\n\n{}",
-                manifest.identity.display_name,
-                manifest.identity.id,
-                manifest.identity.role,
-                manifest.identity.system_prompt
+                "- Agent: {}\n- Role: {}\n\n{}",
+                manifest
+                    .identity
+                    .name
+                    .as_deref()
+                    .unwrap_or("unknown"),
+                manifest
+                    .identity
+                    .role
+                    .as_deref()
+                    .unwrap_or("unknown"),
+                manifest
+                    .identity
+                    .system_prompt
+                    .as_deref()
+                    .unwrap_or_default()
             );
         }
         Ok(prompt)
@@ -1573,17 +1550,17 @@ mod tests {
 schema_version = "1.0"
 
 [identity]
-id = "james"
-display_name = "James"
+name = "James"
 role = "Lead Scientist"
 system_prompt = "Focus on resonance."
 
 [tools]
-allowed = ["file_read", "web_search"]
+allow = ["file_read", "web_search"]
 
 [memory]
-categories = ["research", "notes"]
-session_id = "lab-session"
+recall_limit = 8
+min_relevance_score = 0.6
+category = "core"
 "#;
         std::fs::write(dir.path().join("agent_manifest.toml"), manifest)
             .expect("manifest should be written");
@@ -1592,12 +1569,11 @@ session_id = "lab-session"
             .expect("manifest should parse")
             .expect("manifest should exist");
 
-        assert_eq!(parsed.identity.id, "james");
-        assert_eq!(parsed.tools.allowed, vec!["file_read", "web_search"]);
-        assert_eq!(
-            parsed.memory.categories,
-            vec!["research".to_string(), "notes".to_string()]
-        );
-        assert_eq!(parsed.memory.session_id.as_deref(), Some("lab-session"));
+        assert_eq!(parsed.identity.name.as_deref(), Some("James"));
+        assert_eq!(parsed.tools.allow, vec!["file_read", "web_search"]);
+        let memory = parsed.memory.expect("memory config should be present");
+        assert_eq!(memory.recall_limit, Some(8));
+        assert_eq!(memory.min_relevance_score, Some(0.6));
+        assert_eq!(memory.category, Some(MemoryCategory::Core));
     }
 }
