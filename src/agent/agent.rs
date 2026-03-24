@@ -638,21 +638,7 @@ impl Agent {
             let _ = write!(
                 prompt,
                 "- Agent: {}\n- Role: {}\n\n{}",
-                manifest
-                    .identity
-                    .name
-                    .as_deref()
-                    .unwrap_or("unknown"),
-                manifest
-                    .identity
-                    .role
-                    .as_deref()
-                    .unwrap_or("unknown"),
-                manifest
-                    .identity
-                    .system_prompt
-                    .as_deref()
-                    .unwrap_or_default()
+                name, role, system_prompt
             );
         }
         Ok(prompt)
