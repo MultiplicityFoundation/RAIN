@@ -825,6 +825,21 @@ pub struct AgentConfig {
     /// Default: `[]` (no filtering — all tools included).
     #[serde(default)]
     pub tool_filter_groups: Vec<ToolFilterGroup>,
+
+    /// Named tool profiles to include in the effective runtime tool set.
+    #[serde(default)]
+    pub tool_profiles: Vec<String>,
+    /// Explicit tool allowlist (supports glob patterns and MCP aliases like `mcp:*`).
+    #[serde(default)]
+    pub tool_allowlist: Vec<String>,
+    /// Explicit tool denylist (supports glob patterns and MCP aliases like `mcp:browser/*`).
+    #[serde(default)]
+    pub tool_denylist: Vec<String>,
+    /// Deny-by-default mode for high-security agents.
+    ///
+    /// When `true` and no explicit allowlist/profile entries are set, no tools are exposed.
+    #[serde(default)]
+    pub strict_tool_allowlist: bool,
 }
 
 fn default_agent_max_tool_iterations() -> usize {
@@ -854,6 +869,10 @@ impl Default for AgentConfig {
             tool_dispatcher: default_agent_tool_dispatcher(),
             tool_call_dedup_exempt: Vec::new(),
             tool_filter_groups: Vec::new(),
+            tool_profiles: Vec::new(),
+            tool_allowlist: Vec::new(),
+            tool_denylist: Vec::new(),
+            strict_tool_allowlist: false,
         }
     }
 }

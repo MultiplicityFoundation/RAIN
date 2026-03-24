@@ -66,6 +66,7 @@ pub mod model_switch;
 pub mod node_tool;
 pub mod notion_tool;
 pub mod pdf_read;
+pub mod profile_registry;
 pub mod project_intel;
 pub mod proxy_config;
 pub mod pushover;
@@ -136,6 +137,7 @@ pub use model_switch::ModelSwitchTool;
 pub use node_tool::NodeTool;
 pub use notion_tool::NotionTool;
 pub use pdf_read::PdfReadTool;
+pub use profile_registry::expand_profiles;
 pub use project_intel::ProjectIntelTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
@@ -165,7 +167,7 @@ use crate::runtime::{NativeRuntime, RuntimeAdapter};
 use crate::security::{create_sandbox, SecurityPolicy};
 use async_trait::async_trait;
 use parking_lot::RwLock;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// Shared handle to the delegate tool's parent-tools list.
@@ -226,6 +228,149 @@ impl Tool for ArcDelegatingTool {
 
 fn boxed_registry_from_arcs(tools: Vec<Arc<dyn Tool>>) -> Vec<Box<dyn Tool>> {
     tools.into_iter().map(ArcDelegatingTool::boxed).collect()
+}
+
+fn glob_match(pattern: &str, name: &str) -> bool {
+    match pattern.find('*') {
+        None => pattern.eq_ignore_ascii_case(name),
+        Some(star) => {
+            let prefix = &pattern[..star];
+            let suffix = &pattern[star + 1..];
+            name.len() >= prefix.len() + suffix.len()
+                && name[..prefix.len()].eq_ignore_ascii_case(prefix)
+                && name[name.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+        }
+    }
+}
+
+fn tool_aliases(name: &str) -> Vec<String> {
+    let mut aliases = vec![name.to_string()];
+    if let Some((namespace, tool_name)) = name.split_once("__") {
+        aliases.push(format!("mcp:{namespace}/{tool_name}"));
+        aliases.push(format!("mcp:{namespace}/*"));
+        aliases.push("mcp:*".to_string());
+    }
+    aliases
+}
+
+fn selector_matches_tool(selector: &str, tool_name: &str) -> bool {
+    let selector = selector.trim();
+    if selector.is_empty() {
+        return false;
+    }
+    tool_aliases(tool_name)
+        .iter()
+        .any(|alias| glob_match(selector, alias))
+}
+
+/// Build the global tool pool (Arc-backed) before policy filtering.
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
+pub fn build_global_tool_pool(
+    config: Arc<Config>,
+    security: &Arc<SecurityPolicy>,
+    runtime: Arc<dyn RuntimeAdapter>,
+    memory: Arc<dyn Memory>,
+    _composio_key: Option<&str>,
+    _composio_entity_id: Option<&str>,
+    _browser_config: &crate::config::BrowserConfig,
+    _http_config: &crate::config::HttpRequestConfig,
+    _web_fetch_config: &crate::config::WebFetchConfig,
+    workspace_dir: &std::path::Path,
+    _fallback_api_key: Option<&str>,
+    root_config: &crate::config::Config,
+    model_switch_state: ModelSwitchState,
+) -> Vec<Arc<dyn Tool>> {
+    let sandbox = create_sandbox(&root_config.security);
+    let tool_arcs: Vec<Arc<dyn Tool>> = vec![
+        Arc::new(ShellTool::new_with_sandbox(
+            security.clone(),
+            runtime,
+            sandbox,
+        )),
+        Arc::new(FileReadTool::new(security.clone())),
+        Arc::new(FileWriteTool::new(security.clone())),
+        Arc::new(FileEditTool::new(security.clone())),
+        Arc::new(GlobSearchTool::new(security.clone())),
+        Arc::new(ContentSearchTool::new(security.clone())),
+        Arc::new(CronAddTool::new(config.clone(), security.clone())),
+        Arc::new(CronListTool::new(config.clone())),
+        Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
+        Arc::new(CronUpdateTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunsTool::new(config.clone())),
+        Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
+        Arc::new(MemoryRecallTool::new(memory.clone())),
+        Arc::new(MemoryForgetTool::new(memory, security.clone())),
+        Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
+        Arc::new(ModelRoutingConfigTool::new(
+            config.clone(),
+            security.clone(),
+        )),
+        Arc::new(ModelSwitchTool::new(security.clone(), model_switch_state)),
+        Arc::new(ProxyConfigTool::new(config.clone(), security.clone())),
+        Arc::new(GitOperationsTool::new(
+            security.clone(),
+            workspace_dir.to_path_buf(),
+        )),
+        Arc::new(PushoverTool::new(
+            security.clone(),
+            workspace_dir.to_path_buf(),
+        )),
+        Arc::new(CalculatorTool::new()),
+        Arc::new(WeatherTool::new()),
+    ];
+    // remaining assembly lives in all_tools_with_runtime and appends to this base list.
+    tool_arcs
+}
+
+/// Filter tool pool with profile expansion and explicit allow/deny selectors.
+fn filter_tool_pool_arcs(
+    pool: Vec<Arc<dyn Tool>>,
+    allowlist: &[String],
+    denylist: &[String],
+    profiles: &[String],
+) -> Vec<Arc<dyn Tool>> {
+    let mut allow_selectors = expand_profiles(profiles);
+    allow_selectors.extend(
+        allowlist
+            .iter()
+            .map(|item| item.trim())
+            .filter(|item| !item.is_empty())
+            .map(ToOwned::to_owned),
+    );
+    let deny_selectors: HashSet<String> = denylist
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+
+    let has_allow = !allow_selectors.is_empty();
+    let allow_vec: Vec<String> = allow_selectors.into_iter().collect();
+    let deny_vec: Vec<String> = deny_selectors.into_iter().collect();
+
+    pool.into_iter()
+        .filter(|tool| {
+            let name = tool.name();
+            let allowed = !has_allow
+                || allow_vec
+                    .iter()
+                    .any(|selector| selector_matches_tool(selector, name));
+            let denied = deny_vec
+                .iter()
+                .any(|selector| selector_matches_tool(selector, name));
+            allowed && !denied
+        })
+        .collect()
+}
+
+pub fn filter_tool_pool(
+    pool: Vec<Arc<dyn Tool>>,
+    allowlist: &[String],
+    denylist: &[String],
+    profiles: &[String],
+) -> Vec<Box<dyn Tool>> {
+    boxed_registry_from_arcs(filter_tool_pool_arcs(pool, allowlist, denylist, profiles))
 }
 
 /// Create the default tool registry
@@ -301,45 +446,21 @@ pub fn all_tools_with_runtime(
     model_switch_state: ModelSwitchState,
 ) -> (Vec<Box<dyn Tool>>, Option<DelegateParentToolsHandle>) {
     let has_shell_access = runtime.has_shell_access();
-    let sandbox = create_sandbox(&root_config.security);
-    let mut tool_arcs: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(ShellTool::new_with_sandbox(
-            security.clone(),
-            runtime,
-            sandbox,
-        )),
-        Arc::new(FileReadTool::new(security.clone())),
-        Arc::new(FileWriteTool::new(security.clone())),
-        Arc::new(FileEditTool::new(security.clone())),
-        Arc::new(GlobSearchTool::new(security.clone())),
-        Arc::new(ContentSearchTool::new(security.clone())),
-        Arc::new(CronAddTool::new(config.clone(), security.clone())),
-        Arc::new(CronListTool::new(config.clone())),
-        Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
-        Arc::new(CronUpdateTool::new(config.clone(), security.clone())),
-        Arc::new(CronRunTool::new(config.clone(), security.clone())),
-        Arc::new(CronRunsTool::new(config.clone())),
-        Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
-        Arc::new(MemoryRecallTool::new(memory.clone())),
-        Arc::new(MemoryForgetTool::new(memory, security.clone())),
-        Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
-        Arc::new(ModelRoutingConfigTool::new(
-            config.clone(),
-            security.clone(),
-        )),
-        Arc::new(ModelSwitchTool::new(security.clone(), model_switch_state)),
-        Arc::new(ProxyConfigTool::new(config.clone(), security.clone())),
-        Arc::new(GitOperationsTool::new(
-            security.clone(),
-            workspace_dir.to_path_buf(),
-        )),
-        Arc::new(PushoverTool::new(
-            security.clone(),
-            workspace_dir.to_path_buf(),
-        )),
-        Arc::new(CalculatorTool::new()),
-        Arc::new(WeatherTool::new()),
-    ];
+    let mut tool_arcs: Vec<Arc<dyn Tool>> = build_global_tool_pool(
+        config.clone(),
+        security,
+        runtime,
+        memory,
+        composio_key,
+        composio_entity_id,
+        browser_config,
+        http_config,
+        web_fetch_config,
+        workspace_dir,
+        fallback_api_key,
+        root_config,
+        model_switch_state,
+    );
 
     if matches!(
         root_config.skills.prompt_injection_mode,
@@ -646,6 +767,20 @@ pub fn all_tools_with_runtime(
         }
     }
 
+    // Apply root agent tool manifest filtering before delegate/swarm registration.
+    let has_explicit_allow =
+        !root_config.agent.tool_allowlist.is_empty() || !root_config.agent.tool_profiles.is_empty();
+    if root_config.agent.strict_tool_allowlist && !has_explicit_allow {
+        tool_arcs.clear();
+    } else if has_explicit_allow || !root_config.agent.tool_denylist.is_empty() {
+        tool_arcs = filter_tool_pool_arcs(
+            tool_arcs,
+            &root_config.agent.tool_allowlist,
+            &root_config.agent.tool_denylist,
+            &root_config.agent.tool_profiles,
+        );
+    }
+
     // Add delegation tool when agents are configured
     let delegate_fallback_credential = fallback_api_key.and_then(|value| {
         let trimmed_value = value.trim();
@@ -786,6 +921,7 @@ pub fn all_tools_with_runtime(
 mod tests {
     use super::*;
     use crate::config::{BrowserConfig, Config, MemoryConfig};
+    use async_trait::async_trait;
     use tempfile::TempDir;
 
     fn test_config(tmp: &TempDir) -> Config {
@@ -1172,5 +1308,105 @@ mod tests {
         );
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(!names.contains(&"read_skill"));
+    }
+
+    #[derive(Clone)]
+    struct DummyTool {
+        name: String,
+    }
+
+    #[async_trait]
+    impl Tool for DummyTool {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn description(&self) -> &str {
+            "dummy"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult {
+                success: true,
+                output: String::new(),
+                error: None,
+            })
+        }
+    }
+
+    #[test]
+    fn filter_tool_pool_expands_profiles_and_applies_denylist() {
+        let pool: Vec<Arc<dyn Tool>> = vec![
+            Arc::new(DummyTool {
+                name: "shell".into(),
+            }),
+            Arc::new(DummyTool {
+                name: "file_read".into(),
+            }),
+            Arc::new(DummyTool {
+                name: "weather".into(),
+            }),
+        ];
+        let filtered = filter_tool_pool(
+            pool,
+            &[],
+            &[String::from("shell")],
+            &[String::from("coder_tools")],
+        );
+        let names: Vec<&str> = filtered.iter().map(|t| t.name()).collect();
+        assert!(names.contains(&"file_read"));
+        assert!(!names.contains(&"shell"));
+        assert!(!names.contains(&"weather"));
+    }
+
+    #[test]
+    fn filter_tool_pool_matches_mcp_alias_patterns() {
+        let pool: Vec<Arc<dyn Tool>> = vec![
+            Arc::new(DummyTool {
+                name: "browser__navigate".into(),
+            }),
+            Arc::new(DummyTool {
+                name: "filesystem__read_file".into(),
+            }),
+        ];
+        let filtered = filter_tool_pool(
+            pool,
+            &[String::from("mcp:browser/*")],
+            &[],
+            &[String::from("mcp_all")],
+        );
+        let names: Vec<&str> = filtered.iter().map(|t| t.name()).collect();
+        assert_eq!(names, vec!["browser__navigate"]);
+    }
+
+    #[test]
+    fn all_tools_strict_without_allowlist_returns_empty_pool() {
+        let tmp = TempDir::new().unwrap();
+        let security = Arc::new(SecurityPolicy::default());
+        let mem_cfg = MemoryConfig {
+            backend: "markdown".into(),
+            ..MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> =
+            Arc::from(crate::memory::create_memory(&mem_cfg, tmp.path(), None).unwrap());
+        let mut cfg = test_config(&tmp);
+        cfg.agent.strict_tool_allowlist = true;
+
+        let (tools, _) = all_tools(
+            Arc::new(Config::default()),
+            &security,
+            mem,
+            None,
+            None,
+            &BrowserConfig::default(),
+            &crate::config::HttpRequestConfig::default(),
+            &crate::config::WebFetchConfig::default(),
+            tmp.path(),
+            &HashMap::new(),
+            None,
+            &cfg,
+        );
+        assert!(tools.is_empty());
     }
 }
