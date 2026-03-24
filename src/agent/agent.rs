@@ -2,7 +2,8 @@ use crate::agent::dispatcher::{
     NativeToolDispatcher, ParsedToolCall, ToolDispatcher, ToolExecutionResult, XmlToolDispatcher,
 };
 use crate::agent::loop_::ModelSwitchState;
-use crate::agent::memory_loader::{DefaultMemoryLoader, MemoryLoader};
+use crate::agent::manifest::AgentManifest;
+use crate::agent::memory_loader::{DefaultMemoryLoader, ManifestMemoryLoader, MemoryLoader};
 use crate::agent::prompt::{PromptContext, SystemPromptBuilder};
 use crate::config::Config;
 use crate::i18n::ToolDescriptions;
@@ -120,6 +121,7 @@ pub struct AgentBuilder {
     tool_descriptions: Option<ToolDescriptions>,
     security_summary: Option<String>,
     autonomy_level: Option<crate::security::AutonomyLevel>,
+    manifest: Option<AgentManifest>,
 }
 
 impl AgentBuilder {
@@ -149,6 +151,7 @@ impl AgentBuilder {
             tool_descriptions: None,
             security_summary: None,
             autonomy_level: None,
+            manifest: None,
         }
     }
 
@@ -281,15 +284,48 @@ impl AgentBuilder {
         self
     }
 
+    pub fn manifest(mut self, manifest: AgentManifest) -> Self {
+        self.manifest = Some(manifest);
+        self
+    }
+
     pub fn build(self) -> Result<Agent> {
         let mut tools = self
             .tools
             .ok_or_else(|| anyhow::anyhow!("tools are required"))?;
-        let allowed = self.allowed_tools.clone();
+        let manifest_allowed = self
+            .manifest
+            .as_ref()
+            .map(|manifest| manifest.tools.allow.clone());
+        let allowed = match (self.allowed_tools.clone(), manifest_allowed) {
+            (Some(existing), Some(manifest)) => Some(
+                existing
+                    .into_iter()
+                    .filter(|tool| manifest.iter().any(|allowed| allowed == tool))
+                    .collect(),
+            ),
+            (None, Some(manifest)) => Some(manifest),
+            (existing, None) => existing,
+        };
         if let Some(ref allow_list) = allowed {
             tools.retain(|t| allow_list.iter().any(|name| name == t.name()));
         }
         let tool_specs = tools.iter().map(|tool| tool.spec()).collect();
+
+        let default_memory_loader: Box<dyn MemoryLoader> = if let Some(memory) = self
+            .manifest
+            .as_ref()
+            .and_then(|manifest| manifest.memory.as_ref())
+        {
+            Box::new(ManifestMemoryLoader::new(
+                memory.recall_limit.unwrap_or(5),
+                memory.min_relevance_score.unwrap_or(0.4),
+                memory.category.clone(),
+                memory.session_scope,
+            ))
+        } else {
+            Box::new(DefaultMemoryLoader::default())
+        };
 
         Ok(Agent {
             provider: self
@@ -309,9 +345,7 @@ impl AgentBuilder {
             tool_dispatcher: self
                 .tool_dispatcher
                 .ok_or_else(|| anyhow::anyhow!("tool_dispatcher is required"))?,
-            memory_loader: self
-                .memory_loader
-                .unwrap_or_else(|| Box::new(DefaultMemoryLoader::default())),
+            memory_loader: self.memory_loader.unwrap_or(default_memory_loader),
             config: self.config.unwrap_or_default(),
             model_name: self
                 .model_name
@@ -617,6 +651,10 @@ impl Agent {
             skills: &self.skills,
             skills_prompt_mode: self.skills_prompt_mode,
             identity_config: Some(&self.identity_config),
+            manifest_identity_prompt: self
+                .manifest
+                .as_ref()
+                .and_then(|manifest| manifest.identity.system_prompt.as_deref()),
             dispatcher_instructions: &instructions,
             tool_descriptions: self.tool_descriptions.as_ref(),
             security_summary: self.security_summary.clone(),
@@ -1042,6 +1080,7 @@ mod tests {
     }
 
     struct MockTool;
+    struct MockOtherTool;
 
     #[async_trait]
     impl Tool for MockTool {
@@ -1061,6 +1100,29 @@ mod tests {
             Ok(crate::tools::ToolResult {
                 success: true,
                 output: "tool-out".into(),
+                error: None,
+            })
+        }
+    }
+
+    #[async_trait]
+    impl Tool for MockOtherTool {
+        fn name(&self) -> &str {
+            "file_list"
+        }
+
+        fn description(&self) -> &str {
+            "file_list"
+        }
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+
+        async fn execute(&self, _args: serde_json::Value) -> Result<crate::tools::ToolResult> {
+            Ok(crate::tools::ToolResult {
+                success: true,
+                output: "files".into(),
                 error: None,
             })
         }
@@ -1356,6 +1418,106 @@ mod tests {
             agent.tool_specs.is_empty(),
             "No tools should match a non-existent allowlist entry"
         );
+    }
+
+    #[test]
+    fn builder_manifest_allowlist_is_narrowing_gate() {
+        let provider = Box::new(MockProvider {
+            responses: Mutex::new(vec![]),
+        });
+
+        let memory_cfg = crate::config::MemoryConfig {
+            backend: "none".into(),
+            ..crate::config::MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> = Arc::from(
+            crate::memory::create_memory(&memory_cfg, std::path::Path::new("/tmp"), None)
+                .expect("memory creation should succeed with valid config"),
+        );
+        let observer: Arc<dyn Observer> = Arc::from(crate::observability::NoopObserver {});
+        let manifest = crate::agent::manifest::AgentManifest {
+            schema_version: "1".into(),
+            identity: crate::agent::manifest::IdentitySection::default(),
+            tools: crate::agent::manifest::ToolScope {
+                allow: vec!["echo".into()],
+                deny: vec![],
+                session_scope: crate::agent::manifest::SessionScope::Current,
+            },
+            memory: None,
+            rag: None,
+            orchestration: None,
+            provider_defaults: None,
+        };
+
+        let agent = Agent::builder()
+            .provider(provider)
+            .tools(vec![Box::new(MockTool), Box::new(MockOtherTool)])
+            .memory(mem)
+            .observer(observer)
+            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .workspace_dir(std::path::PathBuf::from("/tmp"))
+            .allowed_tools(Some(vec!["echo".to_string(), "file_list".to_string()]))
+            .manifest(manifest)
+            .build()
+            .expect("agent builder should succeed with valid config");
+
+        assert_eq!(agent.tool_specs.len(), 1);
+        assert_eq!(agent.tool_specs[0].name, "echo");
+    }
+
+    #[test]
+    fn builder_system_prompt_prefers_manifest_identity_prompt() {
+        let provider = Box::new(MockProvider {
+            responses: Mutex::new(vec![]),
+        });
+
+        let memory_cfg = crate::config::MemoryConfig {
+            backend: "none".into(),
+            ..crate::config::MemoryConfig::default()
+        };
+        let mem: Arc<dyn Memory> = Arc::from(
+            crate::memory::create_memory(&memory_cfg, std::path::Path::new("/tmp"), None)
+                .expect("memory creation should succeed with valid config"),
+        );
+        let observer: Arc<dyn Observer> = Arc::from(crate::observability::NoopObserver {});
+        let manifest = crate::agent::manifest::AgentManifest {
+            schema_version: "1".into(),
+            identity: crate::agent::manifest::IdentitySection {
+                name: None,
+                role: None,
+                system_prompt: Some("Manifest identity comes first.".into()),
+            },
+            tools: crate::agent::manifest::ToolScope {
+                allow: vec!["echo".into()],
+                deny: vec![],
+                session_scope: crate::agent::manifest::SessionScope::Current,
+            },
+            memory: None,
+            rag: None,
+            orchestration: None,
+            provider_defaults: None,
+        };
+
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(workspace.join("AGENTS.md"), "Workspace fallback identity").unwrap();
+
+        let agent = Agent::builder()
+            .provider(provider)
+            .tools(vec![Box::new(MockTool)])
+            .memory(mem)
+            .observer(observer)
+            .tool_dispatcher(Box::new(NativeToolDispatcher))
+            .workspace_dir(workspace)
+            .manifest(manifest)
+            .build()
+            .expect("agent builder should succeed with valid config");
+
+        let prompt = agent.build_system_prompt().unwrap();
+        let manifest_pos = prompt.find("Manifest identity comes first.").unwrap();
+        let fallback_pos = prompt.find("Workspace fallback identity").unwrap();
+        assert!(manifest_pos < fallback_pos);
     }
 
     #[test]

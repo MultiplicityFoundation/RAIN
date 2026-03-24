@@ -454,6 +454,10 @@ pub struct DelegateAgentConfig {
     /// Allowlist of tool names available to the sub-agent in agentic mode.
     #[serde(default)]
     pub allowed_tools: Vec<String>,
+    /// Optional manifest path (relative to workspace root or absolute path) used
+    /// to load structured identity/tool/memory routing for this delegate agent.
+    #[serde(default)]
+    pub manifest_path: Option<String>,
     /// Maximum tool-call iterations in agentic mode.
     #[serde(default = "default_max_tool_iterations")]
     pub max_iterations: usize,

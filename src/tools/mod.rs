@@ -1184,6 +1184,7 @@ mod tests {
                 max_depth: 3,
                 agentic: false,
                 allowed_tools: Vec::new(),
+                manifest_path: None,
                 max_iterations: 10,
                 timeout_secs: None,
                 agentic_timeout_secs: None,

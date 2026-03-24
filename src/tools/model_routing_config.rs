@@ -704,6 +704,7 @@ impl ModelRoutingConfigTool {
                 max_depth: DEFAULT_AGENT_MAX_DEPTH,
                 agentic: false,
                 allowed_tools: Vec::new(),
+                manifest_path: None,
                 max_iterations: DEFAULT_AGENT_MAX_ITERATIONS,
                 timeout_secs: None,
                 agentic_timeout_secs: None,
