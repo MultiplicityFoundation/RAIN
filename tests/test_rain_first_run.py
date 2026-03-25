@@ -13,7 +13,8 @@ def test_main_success_prints_next_steps(monkeypatch, capsys):
 
     assert rc == 0
     assert "Preflight passed" in out
-    assert '--mode chat --topic "resonance"' in out
+    assert '--mode beginner --topic "resonance"' in out
+    assert "--mode demo --preset startup-debate" in out
 
 
 def test_main_failure_prints_retry_guidance(monkeypatch, capsys):
@@ -32,3 +33,4 @@ def test_main_failure_prints_retry_guidance(monkeypatch, capsys):
     assert rc == 1
     assert "Preflight reported actionable issues" in out
     assert "--mode first-run" in out
+    assert "--mode demo --preset startup-debate" in out

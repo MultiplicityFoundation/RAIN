@@ -26,6 +26,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from html import escape as html_escape
 from pathlib import Path
 
 ANSI_RESET = "\033[0m"
@@ -67,6 +68,63 @@ BEGINNER_DEBATE_HINTS = (
     "roundtable",
     "panel",
 )
+
+
+@dataclass(frozen=True)
+class BeginnerPreset:
+    slug: str
+    title: str
+    summary: str
+    default_topic: str
+    topic_template: str
+    recommended_mode: str
+    demo_hook: str
+
+
+BEGINNER_PRESETS: dict[str, BeginnerPreset] = {
+    "startup-debate": BeginnerPreset(
+        slug="startup-debate",
+        title="Startup Debate",
+        summary="Turn one idea into a sharp founder-vs-investor showdown.",
+        default_topic="an AI tutor for overwhelmed college students",
+        topic_template=(
+            "Run this like a punchy startup debate. Pressure-test the idea, call out weak spots,"
+            " defend what is strong, and end with the single strongest version of it: {topic}"
+        ),
+        recommended_mode="rlm",
+        demo_hook="A founder pitches. A skeptic attacks. The room still lands on a clearer version.",
+    ),
+    "idea-roast": BeginnerPreset(
+        slug="idea-roast",
+        title="Idea Roast",
+        summary="Roast the concept hard, then rescue it with concrete fixes.",
+        default_topic="a social app for roommates who never answer texts",
+        topic_template=(
+            "Roast this idea with wit, but stay useful. Point out what is weak, boring, risky,"
+            " or confusing, then give three concrete ways to make it actually work: {topic}"
+        ),
+        recommended_mode="chat",
+        demo_hook="The first draft gets roasted. The second draft suddenly sounds worth building.",
+    ),
+    "explain-like-im-12": BeginnerPreset(
+        slug="explain-like-im-12",
+        title="Explain Like I'm 12",
+        summary="Use concrete analogies, short sentences, and zero jargon.",
+        default_topic="resonance in simple everyday language",
+        topic_template=(
+            "Explain this like I am 12 years old. Use vivid analogies, short sentences, and plain"
+            " language, but do not talk down to me: {topic}"
+        ),
+        recommended_mode="chat",
+        demo_hook="A hard idea gets translated into something a curious kid could actually repeat.",
+    ),
+}
+BEGINNER_PRESET_CHOICES = tuple(sorted(BEGINNER_PRESETS))
+BEGINNER_PROMPT_SHORTCUTS = {
+    "1": "startup-debate",
+    "2": "idea-roast",
+    "3": "explain-like-im-12",
+}
 
 
 def _console_safe(text: str) -> str:
@@ -166,6 +224,38 @@ def _split_passthrough_args(argv: list[str]) -> tuple[list[str], list[str]]:
     return argv, []
 
 
+def _resolve_beginner_preset(preset_name: str | None) -> BeginnerPreset | None:
+    if not preset_name:
+        return None
+    return BEGINNER_PRESETS.get(preset_name)
+
+
+def _beginner_topic_prompt() -> str:
+    return (
+        "Pick a quick starter: 1) Startup Debate  2) Roast My Idea  3) Explain Like I'm 12"
+        "  4) Instant Demo\nOr type your own topic: "
+    )
+
+
+def _apply_beginner_shortcut(raw_input: str) -> tuple[str | None, str | None, bool]:
+    trimmed = raw_input.strip()
+    if trimmed == "4":
+        return None, None, True
+    if trimmed in BEGINNER_PROMPT_SHORTCUTS:
+        return BEGINNER_PROMPT_SHORTCUTS[trimmed], None, False
+    if trimmed:
+        return None, trimmed, False
+    return "explain-like-im-12", None, False
+
+
+def _render_beginner_topic(topic: str | None, preset_name: str | None) -> tuple[str, str]:
+    preset = _resolve_beginner_preset(preset_name)
+    display_topic = (topic or (preset.default_topic if preset else "Help me explore a new idea")).strip()
+    if preset is None:
+        return display_topic, display_topic
+    return display_topic, preset.topic_template.format(topic=display_topic)
+
+
 def _choose_beginner_mode(topic: str | None) -> str:
     if not topic:
         return "chat"
@@ -182,8 +272,12 @@ def _prepare_beginner_args(
     *,
     ui_was_explicit: bool = False,
 ) -> argparse.Namespace:
-    beginner_mode = _choose_beginner_mode(args.topic)
+    preset = _resolve_beginner_preset(getattr(args, "preset", None))
+    beginner_mode = preset.recommended_mode if preset else _choose_beginner_mode(args.topic)
     prepared = _copy_args_with_mode(args, beginner_mode)
+    display_topic, effective_topic = _render_beginner_topic(args.topic, getattr(args, "preset", None))
+    prepared.display_topic = display_topic
+    prepared.topic = effective_topic
 
     if not ui_was_explicit and prepared.ui == "off":
         prepared.ui = "auto"
@@ -191,6 +285,16 @@ def _prepare_beginner_args(
     if prepared.mode == "rlm" and prepared.turns is None:
         prepared.turns = 4
 
+    return prepared
+
+
+def _prepare_demo_args(args: argparse.Namespace) -> argparse.Namespace:
+    prepared = _copy_args_with_mode(args, "demo")
+    if not getattr(prepared, "preset", None):
+        prepared.preset = "startup-debate"
+    display_topic, effective_topic = _render_beginner_topic(prepared.topic, prepared.preset)
+    prepared.display_topic = display_topic
+    prepared.topic = effective_topic
     return prepared
 
 
@@ -218,6 +322,706 @@ def _read_share_excerpt(path: Path, max_chars: int = 700) -> str:
     return excerpt
 
 
+def _build_beginner_share_html(
+    *,
+    title: str,
+    topic: str,
+    session_label: str,
+    caption: str,
+    preset_title: str,
+    demo_mode: bool,
+    excerpt: str,
+    session_log: Path,
+    launcher_log: Path | str,
+    rerun_command: str,
+) -> str:
+    accent = "#f97316" if demo_mode else "#14b8a6"
+    accent_soft = "#fed7aa" if demo_mode else "#99f6e4"
+    label = "Instant Demo" if demo_mode else "Beginner Session"
+    hook = "No model setup required." if demo_mode else "Saved as a shareable local artifact."
+    safe_excerpt = html_escape(excerpt).replace("\n", "<br>")
+    safe_caption = html_escape(caption)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html_escape(title)}</title>
+  <style>
+    :root {{
+      --bg: #f5efe4;
+      --panel: #fffaf2;
+      --ink: #1f2937;
+      --muted: #5b6472;
+      --accent: {accent};
+      --accent-soft: {accent_soft};
+      --shadow: rgba(31, 41, 55, 0.16);
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(20,184,166,0.18), transparent 34%),
+        radial-gradient(circle at top right, rgba(249,115,22,0.18), transparent 28%),
+        linear-gradient(160deg, #fff8ef 0%, var(--bg) 55%, #efe6d8 100%);
+      min-height: 100vh;
+      padding: 24px;
+    }}
+    .shell {{
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }}
+    .hero, .card {{
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,250,242,0.94));
+      border: 1px solid rgba(31,41,55,0.08);
+      border-radius: 28px;
+      box-shadow: 0 24px 48px -28px var(--shadow);
+      overflow: hidden;
+    }}
+    .hero {{
+      padding: 30px;
+      position: relative;
+    }}
+    .hero::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 100%);
+      pointer-events: none;
+    }}
+    .eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: var(--accent-soft);
+      color: var(--ink);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }}
+    h1 {{
+      margin: 18px 0 12px;
+      font-size: clamp(34px, 7vw, 60px);
+      line-height: 0.95;
+      max-width: 12ch;
+    }}
+    .lede {{
+      font-size: 18px;
+      line-height: 1.5;
+      max-width: 60ch;
+      color: var(--muted);
+      margin: 0;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      padding: 0 30px 30px;
+    }}
+    .card {{
+      padding: 22px;
+    }}
+    .label {{
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }}
+    .value {{
+      font-size: 18px;
+      line-height: 1.45;
+    }}
+    .caption {{
+      font-size: 22px;
+      line-height: 1.45;
+      margin: 0 0 16px;
+    }}
+    .controls {{
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }}
+    button, .link {{
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }}
+    .link.secondary {{
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid rgba(31,41,55,0.14);
+    }}
+    .excerpt {{
+      background: rgba(255,255,255,0.7);
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px dashed rgba(31,41,55,0.14);
+      line-height: 1.65;
+      color: var(--ink);
+    }}
+    code {{
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(31,41,55,0.06);
+      border-radius: 16px;
+      padding: 14px;
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      font-size: 14px;
+    }}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">{label} · {html_escape(preset_title)}</div>
+      <h1>{html_escape(topic)}</h1>
+      <p class="lede">{html_escape(session_label)}. {html_escape(hook)}</p>
+    </section>
+    <section class="grid">
+      <article class="card">
+        <div class="label">Caption</div>
+        <p class="caption" id="caption">{safe_caption}</p>
+        <div class="controls">
+          <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('caption').innerText)">Copy Caption</button>
+          <a class="link secondary" href="{session_log.as_uri()}">Open Session Log</a>
+        </div>
+      </article>
+      <article class="card">
+        <div class="label">Session Flavor</div>
+        <div class="value">{html_escape(session_label)}</div>
+        <div class="label" style="margin-top:18px;">Launcher Log</div>
+        <div class="value">{html_escape(str(launcher_log))}</div>
+      </article>
+      <article class="card">
+        <div class="label">Quick Re-run</div>
+        <code>{html_escape(rerun_command)}</code>
+      </article>
+      <article class="card">
+        <div class="label">Highlight</div>
+        <div class="excerpt">{safe_excerpt or 'Run the session again to capture a fresh highlight.'}</div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+
+def _share_pull_quote(excerpt: str, max_chars: int = 220) -> str:
+    if not excerpt:
+        return ""
+
+    compact = " ".join(excerpt.split())
+    if len(compact) <= max_chars:
+        return compact
+
+    clipped = compact[:max_chars].rsplit(" ", 1)[0].strip()
+    return f"{clipped}..."
+
+
+def _build_beginner_share_html_v2(
+    *,
+    title: str,
+    topic: str,
+    session_label: str,
+    caption: str,
+    preset_title: str,
+    demo_mode: bool,
+    excerpt: str,
+    session_log: Path,
+    launcher_log: Path | str,
+    rerun_command: str,
+) -> str:
+    accent = "#f97316" if demo_mode else "#14b8a6"
+    accent_soft = "#fed7aa" if demo_mode else "#99f6e4"
+    accent_deep = "#9a3412" if demo_mode else "#115e59"
+    label = "Instant Demo" if demo_mode else "Beginner Session"
+    hook = "No model setup required." if demo_mode else "Saved as a shareable local artifact."
+    safe_excerpt = html_escape(excerpt).replace("\n", "<br>")
+    safe_caption = html_escape(caption)
+    pull_quote = html_escape(_share_pull_quote(excerpt) or hook)
+    session_log_uri = session_log.as_uri()
+    launcher_log_value = html_escape(str(launcher_log))
+    safe_topic = html_escape(topic)
+    safe_title = html_escape(title)
+    safe_session_label = html_escape(session_label)
+    safe_preset_title = html_escape(preset_title)
+    safe_rerun_command = html_escape(rerun_command)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title}</title>
+  <style>
+    :root {{
+      --bg: #f6efe6;
+      --paper: rgba(255, 250, 243, 0.92);
+      --paper-strong: rgba(255, 255, 255, 0.97);
+      --ink: #1f2937;
+      --muted: #586271;
+      --accent: {accent};
+      --accent-soft: {accent_soft};
+      --accent-deep: {accent_deep};
+      --shadow: rgba(31, 41, 55, 0.14);
+      --line: rgba(31, 41, 55, 0.08);
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 10%, rgba(20,184,166,0.22), transparent 28%),
+        radial-gradient(circle at 92% 12%, rgba(249,115,22,0.24), transparent 26%),
+        radial-gradient(circle at 50% 100%, rgba(15,23,42,0.08), transparent 38%),
+        linear-gradient(160deg, #fff8ef 0%, var(--bg) 54%, #eadfce 100%);
+      min-height: 100vh;
+      padding: 28px 20px 36px;
+      position: relative;
+      overflow-x: hidden;
+    }}
+    body::before {{
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(transparent 0%, rgba(255,255,255,0.28) 100%),
+        repeating-linear-gradient(
+          115deg,
+          rgba(255,255,255,0.12) 0,
+          rgba(255,255,255,0.12) 1px,
+          transparent 1px,
+          transparent 16px
+        );
+      pointer-events: none;
+      opacity: 0.45;
+    }}
+    .shell {{
+      max-width: 1080px;
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+      position: relative;
+      z-index: 1;
+    }}
+    .hero, .card {{
+      background: linear-gradient(180deg, var(--paper-strong), var(--paper));
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      box-shadow: 0 28px 80px -42px var(--shadow);
+      overflow: hidden;
+    }}
+    .hero {{
+      padding: 30px;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.85fr);
+      gap: 20px;
+    }}
+    .hero::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.5), transparent 38%),
+        linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.42) 100%);
+      pointer-events: none;
+    }}
+    .hero-copy {{
+      position: relative;
+      z-index: 1;
+    }}
+    .eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, var(--accent-soft), rgba(255,255,255,0.88));
+      color: var(--ink);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }}
+    h1 {{
+      margin: 18px 0 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(40px, 7.6vw, 78px);
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      max-width: 10ch;
+    }}
+    .lede {{
+      font-size: 18px;
+      line-height: 1.55;
+      max-width: 54ch;
+      color: var(--muted);
+      margin: 0;
+    }}
+    .chips {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }}
+    .chip {{
+      border-radius: 999px;
+      border: 1px solid rgba(31,41,55,0.1);
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.64);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-deep);
+      backdrop-filter: blur(8px);
+    }}
+    .poster {{
+      position: relative;
+      z-index: 1;
+      display: grid;
+      align-content: end;
+      min-height: 320px;
+      padding: 24px;
+      border-radius: 26px;
+      color: white;
+      background:
+        linear-gradient(155deg, rgba(255,255,255,0.14), transparent 28%),
+        radial-gradient(circle at top left, rgba(255,255,255,0.18), transparent 30%),
+        linear-gradient(145deg, var(--accent) 0%, var(--accent-deep) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.24);
+      transform: rotate(-1.2deg);
+    }}
+    .poster::before {{
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px solid rgba(255,255,255,0.26);
+      border-radius: 22px;
+      pointer-events: none;
+    }}
+    .poster-kicker {{
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      opacity: 0.9;
+    }}
+    .poster-quote {{
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.08;
+      margin: 14px 0 16px;
+      max-width: 15ch;
+    }}
+    .poster-foot {{
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: end;
+      font-size: 13px;
+      opacity: 0.9;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+    }}
+    .card {{
+      padding: 22px;
+      position: relative;
+    }}
+    .card-primary {{
+      grid-column: span 7;
+    }}
+    .card-side {{
+      grid-column: span 5;
+    }}
+    .card-wide {{
+      grid-column: span 12;
+    }}
+    .label {{
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }}
+    .caption {{
+      font-size: clamp(24px, 2.3vw, 32px);
+      line-height: 1.25;
+      margin: 0 0 18px;
+      font-weight: 700;
+      max-width: 20ch;
+    }}
+    .controls {{
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }}
+    button, .link {{
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+      color: white;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }}
+    .link.secondary {{
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid rgba(31,41,55,0.14);
+    }}
+    .microcopy {{
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0 0 18px;
+      max-width: 56ch;
+    }}
+    .quote-block {{
+      position: relative;
+      padding: 24px 24px 22px 28px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.66));
+      border: 1px solid rgba(31,41,55,0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+    }}
+    .quote-block::before {{
+      content: '"';
+      position: absolute;
+      left: 18px;
+      top: 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 68px;
+      line-height: 1;
+      color: rgba(31,41,55,0.14);
+    }}
+    .quote-text {{
+      position: relative;
+      z-index: 1;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(22px, 2.3vw, 30px);
+      line-height: 1.22;
+      max-width: 24ch;
+      margin: 0 0 10px;
+    }}
+    .quote-meta {{
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    .stat-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .stat {{
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.62);
+      border: 1px solid rgba(31,41,55,0.08);
+    }}
+    .stat strong {{
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }}
+    .stat span {{
+      display: block;
+      font-size: 18px;
+      line-height: 1.4;
+      font-weight: 700;
+    }}
+    .excerpt {{
+      background: rgba(255,255,255,0.78);
+      border-radius: 24px;
+      padding: 22px;
+      border: 1px dashed rgba(31,41,55,0.16);
+      line-height: 1.72;
+      color: var(--ink);
+      font-size: 16px;
+    }}
+    code {{
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(31,41,55,0.06);
+      border-radius: 16px;
+      padding: 14px;
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      font-size: 14px;
+    }}
+    .footer-note {{
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }}
+    .fade-up {{
+      opacity: 0;
+      transform: translateY(18px);
+      animation: fadeUp 560ms ease forwards;
+    }}
+    .fade-up.delay-1 {{ animation-delay: 70ms; }}
+    .fade-up.delay-2 {{ animation-delay: 140ms; }}
+    .fade-up.delay-3 {{ animation-delay: 210ms; }}
+    @keyframes fadeUp {{
+      to {{
+        opacity: 1;
+        transform: translateY(0);
+      }}
+    }}
+    @media (max-width: 860px) {{
+      .hero {{
+        grid-template-columns: 1fr;
+      }}
+      .poster {{
+        min-height: 220px;
+        transform: none;
+      }}
+      .card-primary,
+      .card-side,
+      .card-wide {{
+        grid-column: span 12;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero fade-up">
+      <div class="hero-copy">
+        <div class="eyebrow">{label} / {safe_preset_title}</div>
+        <h1>{safe_topic}</h1>
+        <p class="lede">{safe_session_label}. {html_escape(hook)}</p>
+        <div class="chips">
+          <span class="chip">Shareable artifact</span>
+          <span class="chip">Local-first flow</span>
+          <span class="chip">{safe_preset_title}</span>
+        </div>
+      </div>
+      <aside class="poster">
+        <div class="poster-kicker">Best line from the session</div>
+        <div class="poster-quote">"{pull_quote}"</div>
+        <div class="poster-foot">
+          <span>{safe_session_label}</span>
+          <span>{safe_preset_title}</span>
+        </div>
+      </aside>
+    </section>
+    <section class="grid">
+      <article class="card card-primary fade-up delay-1">
+        <div class="label">Caption</div>
+        <p class="caption" id="caption">{safe_caption}</p>
+        <p class="microcopy">This page is designed to be screenshot-friendly. Copy the caption, grab the highlight, and send the result to someone immediately.</p>
+        <div class="controls">
+          <button id="copy-caption" type="button">Copy Caption</button>
+          <a class="link secondary" href="{session_log_uri}">Open Session Log</a>
+        </div>
+        <div class="footer-note">Tip: the best social posts use the caption plus the pull-quote poster from the top of this page.</div>
+      </article>
+      <article class="card card-side fade-up delay-1">
+        <div class="label">Spotlight Quote</div>
+        <div class="quote-block">
+          <p class="quote-text">{pull_quote}</p>
+          <div class="quote-meta">{safe_preset_title} / {safe_session_label}</div>
+        </div>
+      </article>
+      <article class="card card-side fade-up delay-2">
+        <div class="label">Session Details</div>
+        <div class="stat-grid">
+          <div class="stat">
+            <strong>Mode</strong>
+            <span>{safe_session_label}</span>
+          </div>
+          <div class="stat">
+            <strong>Preset</strong>
+            <span>{safe_preset_title}</span>
+          </div>
+          <div class="stat">
+            <strong>Topic</strong>
+            <span>{safe_topic}</span>
+          </div>
+          <div class="stat">
+            <strong>Log</strong>
+            <span>{launcher_log_value}</span>
+          </div>
+        </div>
+      </article>
+      <article class="card card-primary fade-up delay-2">
+        <div class="label">Quick Re-run</div>
+        <code id="rerun-command">{safe_rerun_command}</code>
+        <div class="controls" style="margin-top:14px;">
+          <button id="copy-rerun" type="button">Copy Command</button>
+        </div>
+      </article>
+      <article class="card card-wide fade-up delay-3">
+        <div class="label">Session Highlight</div>
+        <div class="excerpt">{safe_excerpt or 'Run the session again to capture a fresh highlight.'}</div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const wireCopy = (buttonId, targetId, readyText) => {{
+      const button = document.getElementById(buttonId);
+      const target = document.getElementById(targetId);
+      if (!button || !target || !navigator.clipboard) return;
+      button.addEventListener("click", async () => {{
+        const original = button.textContent;
+        try {{
+          await navigator.clipboard.writeText(target.innerText);
+          button.textContent = readyText;
+        }} catch (_error) {{
+          button.textContent = "Copy failed";
+        }}
+        window.setTimeout(() => {{
+          button.textContent = original;
+        }}, 1400);
+      }});
+    }};
+    wireCopy("copy-caption", "caption", "Caption copied");
+    wireCopy("copy-rerun", "rerun-command", "Command copied");
+  </script>
+</body>
+</html>
+"""
+
+
 def _write_beginner_share_card(
     args: argparse.Namespace,
     repo_root: Path,
@@ -225,8 +1029,9 @@ def _write_beginner_share_card(
     requested_mode: str,
     launched_mode: str,
     exit_code: int,
+    session_log_path: Path | None = None,
 ) -> Path | None:
-    if requested_mode != "beginner":
+    if requested_mode not in {"beginner", "demo"}:
         return None
 
     library_root = _resolve_library_root(args, repo_root)
@@ -234,24 +1039,42 @@ def _write_beginner_share_card(
     share_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    share_path = share_dir / f"BEGINNER_SHARE_{timestamp}.md"
-    session_log = library_root / "RAIN_LAB_MEETING_LOG.md"
+    share_markdown_path = share_dir / f"BEGINNER_SHARE_{timestamp}.md"
+    share_html_path = share_dir / f"BEGINNER_SHARE_{timestamp}.html"
+    session_log = session_log_path or (library_root / "RAIN_LAB_MEETING_LOG.md")
     excerpt = _read_share_excerpt(session_log)
-    topic = args.topic or "Open exploration"
-    session_label = "debate" if launched_mode == "rlm" else "chat"
+    topic = getattr(args, "display_topic", args.topic or "Open exploration")
+    preset = _resolve_beginner_preset(getattr(args, "preset", None))
+    preset_title = preset.title if preset else "Custom Prompt"
+    demo_mode = requested_mode == "demo"
+    if demo_mode:
+        session_label = "Instant demo, no setup required"
+    else:
+        session_label = "Research debate" if launched_mode == "rlm" else "Guided chat"
+    launcher_log = _resolve_launcher_log_path(args, repo_root) or "[disabled]"
+    rerun_command = f'python rain_lab.py --mode {requested_mode} --topic "{topic}"'
+    if preset is not None:
+        rerun_command += f" --preset {preset.slug}"
+    caption = (
+        f'I just tried the instant R.A.I.N. Lab demo for "{topic}".'
+        if demo_mode
+        else f'I explored "{topic}" with R.A.I.N. Lab in beginner mode.'
+    )
+    if preset is not None:
+        caption += f" It used the {preset.title.lower()} preset."
 
     lines = [
         "# Beginner Session Share Card",
         "",
         f"Topic: {topic}",
-        f"Mode chosen automatically: {session_label}",
+        f"Preset: {preset_title}",
+        f"Session style: {session_label}",
         f"UI preference used: {args.ui}",
         f"Exit code: {exit_code}",
         "",
         "## Suggested Share Caption",
         "",
-        f'I explored "{topic}" with R.A.I.N. Lab in beginner mode.',
-        f"It picked a {session_label} flow automatically and saved the session notes for me.",
+        caption,
         "",
     ]
 
@@ -270,17 +1093,154 @@ def _write_beginner_share_card(
             "## Files",
             "",
             f"- Session log: {session_log}",
-            f"- Launcher events: {_resolve_launcher_log_path(args, repo_root) or '[disabled]'}",
+            f"- Launcher events: {launcher_log}",
+            f"- HTML card: {share_html_path}",
             "",
             "## Quick Re-run",
             "",
-            f'python rain_lab.py --mode beginner --topic "{topic}"',
+            rerun_command,
             "",
         ]
     )
 
-    share_path.write_text("\n".join(lines), encoding="utf-8")
-    return share_path
+    share_markdown_path.write_text("\n".join(lines), encoding="utf-8")
+    share_html_path.write_text(
+        _build_beginner_share_html_v2(
+            title=f"R.A.I.N. Lab Share Card · {topic}",
+            topic=topic,
+            session_label=session_label,
+            caption=caption,
+            preset_title=preset_title,
+            demo_mode=demo_mode,
+            excerpt=excerpt,
+            session_log=session_log,
+            launcher_log=launcher_log,
+            rerun_command=rerun_command,
+        ),
+        encoding="utf-8",
+    )
+    return share_html_path
+
+
+def _build_demo_session_markdown(args: argparse.Namespace) -> str:
+    preset = _resolve_beginner_preset(getattr(args, "preset", None)) or BEGINNER_PRESETS["startup-debate"]
+    topic = getattr(args, "display_topic", args.topic or preset.default_topic)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if preset.slug == "startup-debate":
+        body = f"""
+## Opening Spark
+
+James frames the idea as a real startup pitch: {topic}.
+
+## Demo Exchange
+
+Founder Voice:
+This could win because the pain is obvious, the value is easy to repeat, and the best version is surprisingly memorable.
+
+Skeptic Voice:
+Right now it still sounds generic. The wedge is weak, the first user is blurry, and the retention story is doing too much hand-waving.
+
+Builder Voice:
+Shrink the surface. Make one painful job dramatically easier. Then give it one line that a user would actually say to a friend.
+
+## Punchy Takeaway
+
+The demo says the concept is not dead. It just needs a more precise buyer, a stronger promise, and one feature people would immediately miss.
+""".strip()
+    elif preset.slug == "idea-roast":
+        body = f"""
+## Opening Spark
+
+James takes a swing at the idea: {topic}.
+
+## Demo Exchange
+
+Roast:
+This version feels like three products wearing the same hoodie. It wants to be clever, social, premium, and frictionless all at once.
+
+Rescue:
+Keep the strongest emotional hook. Cut the rest. If the pitch cannot survive in one sentence, the product is still hiding from itself.
+
+## Punchy Takeaway
+
+The roast lands, but the fix is clear: sharper audience, smaller promise, faster payoff.
+""".strip()
+    else:
+        body = f"""
+## Opening Spark
+
+James explains the topic in plain language: {topic}.
+
+## Demo Exchange
+
+Simple Version:
+Think of it like pushing someone on a swing. Tiny pushes do almost nothing unless you hit the timing just right. When the timing matches, the motion suddenly gets bigger.
+
+Why It Matters:
+That is the difference between noise and resonance. Same effort, much bigger effect.
+
+## Punchy Takeaway
+
+The demo turns a dense concept into something concrete enough to retell.
+""".strip()
+
+    return f"""# R.A.I.N. Lab Instant Demo
+
+Date: {timestamp}
+Preset: {preset.title}
+Topic: {topic}
+Mode Feel: {preset.recommended_mode}
+
+Note: This is a no-model demo generated locally so new users can try the product flow before setup.
+
+{body}
+"""
+
+
+def _run_demo_session(
+    args: argparse.Namespace,
+    repo_root: Path,
+    log_path: Path | None,
+) -> int:
+    preset = _resolve_beginner_preset(getattr(args, "preset", None)) or BEGINNER_PRESETS["startup-debate"]
+    library_root = _resolve_library_root(args, repo_root)
+    archive_dir = library_root / "meeting_archives"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_log_path = archive_dir / f"DEMO_SESSION_{timestamp}.md"
+    session_log_path.write_text(_build_demo_session_markdown(args), encoding="utf-8")
+
+    print(f"{ANSI_CYAN}Instant demo mode: no local model required.{ANSI_RESET}")
+    print(f"{ANSI_DIM}{preset.summary}{ANSI_RESET}")
+    print(f"{ANSI_GREEN}Demo session saved to: {session_log_path}{ANSI_RESET}")
+    _append_launcher_event(
+        log_path,
+        "demo_session_generated",
+        preset=preset.slug,
+        topic=getattr(args, "display_topic", args.topic),
+        session_log=str(session_log_path),
+    )
+
+    share_card_path = _write_beginner_share_card(
+        args,
+        repo_root,
+        requested_mode="demo",
+        launched_mode=preset.recommended_mode,
+        exit_code=0,
+        session_log_path=session_log_path,
+    )
+    if share_card_path is not None:
+        print(f"{ANSI_GREEN}Share card ready: {share_card_path}{ANSI_RESET}")
+        _append_launcher_event(
+            log_path,
+            "beginner_share_card_created",
+            path=str(share_card_path),
+            launched_mode="demo",
+        )
+
+    return 0
 
 
 def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
@@ -295,6 +1255,7 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--mode",
         choices=[
             "beginner",
+            "demo",
             "rlm",
             "chat",
             "godot",
@@ -313,14 +1274,21 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         default="chat",
         help=(
             "Which engine to run: beginner (easy mode), wizard (guided help),"
-            " start (same as wizard), chat (talk to AI), validate (check system),"
-            " models (list AI models), status (show status), onboard (first-time"
+            " demo (no-setup preview), start (same as wizard), chat (talk to AI),"
+            " validate (check system), models (list AI models), status (show status),"
+            " onboard (first-time"
             " setup), rlm (tool-exec), godot (chat + visual), hello-os"
             " (executable), compile (build knowledge), preflight (env checks),"
             " backup (snapshot), first-run (onboarding)"
         ),
     )
     parser.add_argument("--topic", type=str, default=None, help="Meeting topic")
+    parser.add_argument(
+        "--preset",
+        choices=BEGINNER_PRESET_CHOICES,
+        default=None,
+        help="Beginner/demo preset. Adds a playful prompt frame and default topic.",
+    )
     parser.add_argument(
         "--library",
         type=str,
@@ -884,6 +1852,7 @@ def main(argv: list[str] | None = None) -> int:
         mode_map = {
             "start": "wizard",
             "easy": "beginner",
+            "try": "demo",
             "onboard": "first-run",
             "validate": "preflight",
             "models": "preflight",  # Will show models after preflight
@@ -912,9 +1881,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {ANSI_GREEN}4{ANSI_RESET} - First-time setup")
         print(f"  {ANSI_GREEN}5{ANSI_RESET} - Run a research debate")
         print(f"  {ANSI_GREEN}6{ANSI_RESET} - Validate my environment")
+        print(f"  {ANSI_GREEN}7{ANSI_RESET} - Try an instant demo (no setup)")
 
         try:
-            choice = input(f"\n{ANSI_YELLOW}Enter number (1-6): {ANSI_RESET}").strip()
+            choice = input(f"\n{ANSI_YELLOW}Enter number (1-7): {ANSI_RESET}").strip()
         except KeyboardInterrupt:
             print(f"\n{ANSI_RED}Goodbye!{ANSI_RESET}")
             return 0
@@ -945,6 +1915,10 @@ def main(argv: list[str] | None = None) -> int:
         elif choice == "6":
             print(f"\n{ANSI_GREEN}Validating environment...{ANSI_RESET}")
             args.mode = "preflight"
+        elif choice == "7":
+            print(f"\n{ANSI_GREEN}Starting instant demo...{ANSI_RESET}")
+            args.mode = "demo"
+            args.preset = "startup-debate"
         else:
             print(f"\n{ANSI_YELLOW}Starting in beginner mode (default)...{ANSI_RESET}")
             args.mode = "beginner"
@@ -952,28 +1926,50 @@ def main(argv: list[str] | None = None) -> int:
         requested_mode = args.mode
 
     if requested_mode == "beginner":
-        if not args.topic and "-h" not in passthrough and "--help" not in passthrough:
+        if not args.topic and not getattr(args, "preset", None) and "-h" not in passthrough and "--help" not in passthrough:
             if not banner_printed:
                 _print_banner()
                 banner_printed = True
             print(f"\n{ANSI_CYAN}Beginner mode keeps this simple.{ANSI_RESET}")
-            print(f"{ANSI_DIM}Tell James what you want to explore, explain, or debate.{ANSI_RESET}")
-            print(f"{ANSI_DIM}Examples: 'Explain resonance simply', 'Debate two startup ideas'{ANSI_RESET}")
+            print(f"{ANSI_DIM}Pick a fun starter, type your own idea, or jump into an instant demo.{ANSI_RESET}")
             try:
-                topic_input = input(f"{ANSI_GREEN}What should James help with? {ANSI_RESET}").strip()
-                if topic_input:
-                    args.topic = topic_input
+                starter_input = input(f"{ANSI_GREEN}{_beginner_topic_prompt()}{ANSI_RESET}")
+                preset_name, typed_topic, wants_demo = _apply_beginner_shortcut(starter_input)
+                if wants_demo:
+                    args.mode = "demo"
+                    requested_mode = "demo"
+                    args.preset = "startup-debate"
                 else:
-                    args.topic = "Help me explore a new idea"
+                    if preset_name is not None:
+                        args.preset = preset_name
+                    if typed_topic is not None:
+                        args.topic = typed_topic
             except KeyboardInterrupt:
                 print(f"\n{ANSI_RED}Aborted.{ANSI_RESET}")
                 return 1
 
-        args = _prepare_beginner_args(args, ui_was_explicit=ui_was_explicit)
-        chosen_label = "research debate" if args.mode == "rlm" else "guided chat"
-        print(f"{ANSI_GREEN}Beginner mode: choosing {chosen_label}.{ANSI_RESET}")
-        if args.ui == "auto":
-            print(f"{ANSI_DIM}If avatars are available, I will use them. Otherwise this stays in the CLI.{ANSI_RESET}")
+        if requested_mode == "beginner":
+            args = _prepare_beginner_args(args, ui_was_explicit=ui_was_explicit)
+            preset = _resolve_beginner_preset(getattr(args, "preset", None))
+            if not banner_printed:
+                _print_banner()
+                banner_printed = True
+            chosen_label = "research debate" if args.mode == "rlm" else "guided chat"
+            if preset is not None:
+                print(f"{ANSI_GREEN}Beginner mode: choosing {preset.title} via {chosen_label}.{ANSI_RESET}")
+            else:
+                print(f"{ANSI_GREEN}Beginner mode: choosing {chosen_label}.{ANSI_RESET}")
+            if args.ui == "auto":
+                print(f"{ANSI_DIM}If avatars are available, I will use them. Otherwise this stays in the CLI.{ANSI_RESET}")
+
+    if args.mode == "demo":
+        args = _prepare_demo_args(args)
+        preset = _resolve_beginner_preset(getattr(args, "preset", None))
+        if not banner_printed:
+            _print_banner()
+            banner_printed = True
+        if preset is not None:
+            print(f"{ANSI_GREEN}Instant demo: loading {preset.title}.{ANSI_RESET}")
 
     if not banner_printed:
         _print_banner()
@@ -999,13 +1995,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\n{ANSI_RED}Aborted.{ANSI_RESET}")
             return 1
 
-    launch_plan = resolve_launch_plan(args, repo_root)
-    if args.mode == "chat" and args.ui == "auto":
-        if launch_plan.effective_mode == "godot":
-            print(f"{ANSI_GREEN}UI auto: Godot avatars available; launching visual mode.{ANSI_RESET}")
-        else:
-            print(f"{ANSI_DIM}UI auto: Godot UI unavailable; running CLI chat mode.{ANSI_RESET}")
-
     log_path = _resolve_launcher_log_path(args, repo_root)
     _append_launcher_event(
         log_path,
@@ -1018,6 +2007,18 @@ def main(argv: list[str] | None = None) -> int:
         sidecar_poll_interval=max(0.05, float(args.sidecar_poll_interval)),
         passthrough=passthrough,
     )
+
+    if args.mode == "demo":
+        exit_code = _run_demo_session(args, repo_root, log_path)
+        _append_launcher_event(log_path, "launcher_finished", exit_code=exit_code, mode="demo")
+        return exit_code
+
+    launch_plan = resolve_launch_plan(args, repo_root)
+    if args.mode == "chat" and args.ui == "auto":
+        if launch_plan.effective_mode == "godot":
+            print(f"{ANSI_GREEN}UI auto: Godot avatars available; launching visual mode.{ANSI_RESET}")
+        else:
+            print(f"{ANSI_DIM}UI auto: Godot UI unavailable; running CLI chat mode.{ANSI_RESET}")
 
     effective_args = _copy_args_with_mode(args, launch_plan.effective_mode)
     cmd = build_command(effective_args, passthrough, repo_root)

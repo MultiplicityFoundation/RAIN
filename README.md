@@ -320,6 +320,7 @@ Once installed, here are the most common things you can do:
 |---|---|
 | **Start chatting** (recommended first step) | `python rain_lab.py` |
 | **Beginner mode with one topic** | `python rain_lab.py --mode beginner --topic "your idea"` |
+| **Try it instantly with no setup** | `python rain_lab.py --mode demo --preset startup-debate` |
 | **Guided first-time setup** | `python rain_lab.py --mode first-run` |
 | **Chat about a specific topic** | `python rain_lab.py --mode chat --topic "your research topic"` |
 | **Run a lab meeting** (multi-agent debate) | `python rain_lab.py --mode rlm` |
@@ -330,7 +331,9 @@ Once installed, here are the most common things you can do:
 
 > **Tip:** On macOS and Linux, use `python3` instead of `python` if `python` is not recognized.
 
-`--mode beginner` is the easiest direct entrypoint for nontechnical users. It asks for one topic, chooses a simple chat or debate flow automatically, prefers avatars when available, and writes a share card into `meeting_archives/` after the session.
+`--mode beginner` is the easiest direct entrypoint for nontechnical users. It asks for one topic, supports fun presets like `startup-debate`, `idea-roast`, and `explain-like-im-12`, chooses a simple chat or debate flow automatically, prefers avatars when available, and writes a styled HTML share card into `meeting_archives/` after the session.
+
+If you want to try the product before setting up a local model, use `--mode demo`. It creates a no-model instant demo locally and still produces the same shareable artifact.
 
 ---
 ## 🐙 How R.A.I.N. Lab Differs from Other AI Research Tools
@@ -355,6 +358,8 @@ R.A.I.N. Lab needs an AI model to power its conversations. The easiest option is
 4. Run `python rain_lab.py --mode first-run` — it will automatically detect LM Studio.
 
 You can also use cloud providers (OpenRouter, OpenAI, etc.) by adding your API key during first-run setup.
+
+Not ready to set up a model yet? Run `python rain_lab.py --mode demo --preset startup-debate` first and try the experience immediately.
 
 ---
 

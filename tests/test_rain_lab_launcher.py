@@ -2,10 +2,14 @@ from pathlib import Path
 
 import james_library.launcher.rain_lab as rain_launcher
 from james_library.launcher.rain_lab import (
+    _apply_beginner_shortcut,
+    _build_demo_session_markdown,
     _choose_beginner_mode,
     _prepare_beginner_args,
+    _prepare_demo_args,
     _build_sidecar_specs,
     _resolve_launcher_log_path,
+    _run_demo_session,
     _write_beginner_share_card,
     build_command,
     build_godot_bridge_command,
@@ -37,6 +41,12 @@ def test_parse_beginner_mode():
     args, _ = parse_args(["--mode", "beginner", "--topic", "make this simple"])
     assert args.mode == "beginner"
     assert args.topic == "make this simple"
+
+
+def test_parse_demo_mode_with_preset():
+    args, _ = parse_args(["--mode", "demo", "--preset", "idea-roast"])
+    assert args.mode == "demo"
+    assert args.preset == "idea-roast"
 
 
 def test_parse_godot_mode_defaults():
@@ -305,6 +315,12 @@ def test_choose_beginner_mode_prefers_rlm_for_debate_prompt():
     assert _choose_beginner_mode("Debate two startup ideas vs each other") == "rlm"
 
 
+def test_apply_beginner_shortcut_routes_presets_and_demo():
+    assert _apply_beginner_shortcut("1") == ("startup-debate", None, False)
+    assert _apply_beginner_shortcut("4") == (None, None, True)
+    assert _apply_beginner_shortcut("custom topic") == (None, "custom topic", False)
+
+
 def test_prepare_beginner_args_enables_auto_ui_and_routes_chat():
     args, _ = parse_args(["--mode", "beginner", "--topic", "Explain this clearly"])
     prepared = _prepare_beginner_args(args)
@@ -326,6 +342,22 @@ def test_prepare_beginner_args_routes_debate_with_turn_budget():
     assert prepared.turns == 4
 
 
+def test_prepare_beginner_args_uses_preset_template():
+    args, _ = parse_args(["--mode", "beginner", "--preset", "idea-roast"])
+    prepared = _prepare_beginner_args(args)
+    assert prepared.mode == "chat"
+    assert prepared.display_topic == "a social app for roommates who never answer texts"
+    assert "Roast this idea with wit" in prepared.topic
+
+
+def test_prepare_demo_args_sets_default_preset_and_topic():
+    args, _ = parse_args(["--mode", "demo"])
+    prepared = _prepare_demo_args(args)
+    assert prepared.mode == "demo"
+    assert prepared.preset == "startup-debate"
+    assert prepared.display_topic == "an AI tutor for overwhelmed college students"
+
+
 def test_write_beginner_share_card_uses_session_log(repo_root, tmp_path):
     args, _ = parse_args(
         [
@@ -333,10 +365,13 @@ def test_write_beginner_share_card_uses_session_log(repo_root, tmp_path):
             "beginner",
             "--topic",
             "Explain resonance simply",
+            "--preset",
+            "explain-like-im-12",
             "--library",
             str(tmp_path),
         ]
     )
+    args.display_topic = "Explain resonance simply"
     log_path = tmp_path / "RAIN_LAB_MEETING_LOG.md"
     log_path.write_text("hello world from the session", encoding="utf-8")
 
@@ -350,10 +385,15 @@ def test_write_beginner_share_card_uses_session_log(repo_root, tmp_path):
 
     assert share_path is not None
     assert share_path.exists()
+    assert share_path.suffix == ".html"
     contents = share_path.read_text(encoding="utf-8")
-    assert "Beginner Session Share Card" in contents
+    assert "<!DOCTYPE html>" in contents
     assert "Explain resonance simply" in contents
     assert "hello world from the session" in contents
+    assert "Copy Caption" in contents
+    assert "Spotlight Quote" in contents
+    assert "screenshot-friendly" in contents
+    assert (share_path.parent / share_path.name.replace(".html", ".md")).exists()
 
 
 def test_write_beginner_share_card_skips_non_beginner(repo_root, tmp_path):
@@ -366,3 +406,22 @@ def test_write_beginner_share_card_skips_non_beginner(repo_root, tmp_path):
         exit_code=0,
     )
     assert share_path is None
+
+
+def test_build_demo_session_markdown_mentions_no_model():
+    args, _ = parse_args(["--mode", "demo", "--preset", "startup-debate"])
+    args.display_topic = "an AI coach for anxious founders"
+    text = _build_demo_session_markdown(args)
+    assert "no-model demo generated locally" in text
+    assert "an AI coach for anxious founders" in text
+
+
+def test_run_demo_session_writes_artifacts(repo_root, tmp_path):
+    args, _ = parse_args(["--mode", "demo", "--preset", "idea-roast", "--library", str(tmp_path)])
+    args = _prepare_demo_args(args)
+    rc = _run_demo_session(args, repo_root, tmp_path / "meeting_archives" / "launcher_events.jsonl")
+    assert rc == 0
+    artifacts = list((tmp_path / "meeting_archives").glob("DEMO_SESSION_*.md"))
+    share_cards = list((tmp_path / "meeting_archives").glob("BEGINNER_SHARE_*.html"))
+    assert artifacts
+    assert share_cards

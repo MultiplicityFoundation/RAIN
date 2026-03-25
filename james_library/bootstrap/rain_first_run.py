@@ -34,9 +34,10 @@ def _print_next_steps(topic: str) -> None:
     print("\n" + rich_ui.bold(rich_ui.color("✨ Setup Complete! R.A.I.N. Lab is ready.", "bright_green")))
     print(rich_ui.color("═" * 65, "bright_black"))
 
-    print(f"  {rich_ui.bold('1. Start Chat:')} python rain_lab.py --mode chat --topic \"{topic}\"")
-    print(f"  {rich_ui.bold('2. Backup:')}     python rain_lab.py --mode backup")
-    print(f"  {rich_ui.bold('3. Docs:')}       Review docs/troubleshooting.md")
+    print(f"  {rich_ui.bold('1. Beginner:')}     python rain_lab.py --mode beginner --topic \"{topic}\"")
+    print(f"  {rich_ui.bold('2. Instant Demo:')} python rain_lab.py --mode demo --preset startup-debate")
+    print(f"  {rich_ui.bold('3. Backup:')}       python rain_lab.py --mode backup")
+    print(f"  {rich_ui.bold('4. Docs:')}         Review docs/troubleshooting.md")
 
     print(rich_ui.color("─" * 65, "bright_black"))
     print(f"  {rich_ui.color('🎮 Want the 3D Avatar experience?', 'bright_cyan')}")
@@ -63,6 +64,8 @@ def main(argv: list[str] | None = None) -> int:
             print(result.stderr.strip())
         print("\n[first-run] Fix the checks above, then re-run:")
         print("  python rain_lab.py --mode first-run")
+        print("[first-run] Want to try the product before fixing setup?")
+        print("  python rain_lab.py --mode demo --preset startup-debate")
         return 1
 
     print("[first-run] Preflight failed unexpectedly.")
