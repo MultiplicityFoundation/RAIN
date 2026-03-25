@@ -1,5 +1,4 @@
 param(
-    [string]$Python = "python",
     [switch]$NoDev,
     [switch]$SkipPreflight,
     [switch]$RecreateVenv,
@@ -42,22 +41,135 @@ function New-RainShortcut {
     $shortcut.Save()
 }
 
+function Resolve-UvPath {
+    $uvCommand = Get-Command uv -ErrorAction SilentlyContinue
+    if ($uvCommand) {
+        return $uvCommand.Source
+    }
+
+    $localUv = Join-Path $env:USERPROFILE ".local\bin\uv.exe"
+    if (Test-Path $localUv) {
+        return $localUv
+    }
+
+    return $null
+}
+
+function Install-Uv {
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) {
+        throw "curl.exe is required to install uv."
+    }
+
+    $installerPath = Join-Path $env:TEMP "install-uv.ps1"
+    & $curl.Source -LsSf "https://astral.sh/uv/install.ps1" -o $installerPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to download the uv installer."
+    }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "uv installer exited with code $LASTEXITCODE"
+    }
+}
+
+function Ensure-Uv {
+    $uvPath = Resolve-UvPath
+    if ($uvPath) {
+        return $uvPath
+    }
+
+    Write-Host "[installer] Installing uv..." -ForegroundColor Yellow
+    Install-Uv
+
+    $env:PATH = "$($env:USERPROFILE)\.local\bin;$env:PATH"
+    $uvPath = Resolve-UvPath
+    if (-not $uvPath) {
+        throw "uv installation completed but uv.exe was not found."
+    }
+
+    return $uvPath
+}
+
+function Invoke-Uv {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath,
+        [Parameter(Mandatory = $true)][string[]]$Args
+    )
+
+    Write-Host "[installer] $UvPath $($Args -join ' ')" -ForegroundColor Yellow
+    & $UvPath @Args
+    if ($LASTEXITCODE -ne 0) {
+        throw "uv command failed with exit code $LASTEXITCODE"
+    }
+}
+
+function Ensure-UvLock {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath
+    )
+
+    $runtimeRequirements = Join-Path $repoRoot "requirements-pinned.txt"
+    $lockPath = Join-Path $repoRoot "uv.lock"
+    Invoke-Uv -UvPath $UvPath -Args @("pip", "compile", $runtimeRequirements, "-o", $lockPath)
+}
+
+function Ensure-RainEnvironment {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath
+    )
+
+    $venvDir = Join-Path $repoRoot ".venv"
+    $venvPython = Join-Path $venvDir "Scripts\python.exe"
+
+    if ($RecreateVenv -and (Test-Path $venvDir)) {
+        Write-Host "[installer] Removing existing virtual environment..." -ForegroundColor Yellow
+        Remove-Item $venvDir -Recurse -Force
+    }
+
+    Invoke-Uv -UvPath $UvPath -Args @("python", "install", "3.12")
+    Invoke-Uv -UvPath $UvPath -Args @("venv", $venvDir, "--python", "3.12")
+    Ensure-UvLock -UvPath $UvPath
+    Invoke-Uv -UvPath $UvPath -Args @("pip", "sync", "--python", $venvPython, (Join-Path $repoRoot "uv.lock"))
+
+    return $venvPython
+}
+
+function Invoke-Bootstrap {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath,
+        [Parameter(Mandatory = $true)][string]$VenvPython
+    )
+
+    $bootstrapArgs = @("run", "--python", $VenvPython, "bootstrap_local.py")
+    if ($SkipPreflight) {
+        $bootstrapArgs += "--skip-preflight"
+    }
+    Invoke-Uv -UvPath $UvPath -Args $bootstrapArgs
+}
+
+function Invoke-Greet {
+    param(
+        [Parameter(Mandatory = $true)][string]$UvPath,
+        [Parameter(Mandatory = $true)][string]$VenvPython
+    )
+
+    Invoke-Uv -UvPath $UvPath -Args @("run", "--python", $VenvPython, "chat_with_james.py", "--greet")
+}
+
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host "R.A.I.N. Lab Local Installer" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 
-$argsList = @("bootstrap_local.py")
-if ($NoDev) { $argsList += "--no-dev" }
-if ($SkipPreflight) { $argsList += "--skip-preflight" }
-if ($RecreateVenv) { $argsList += "--recreate-venv" }
-
-Write-Host "[installer] Running: $Python $($argsList -join ' ')" -ForegroundColor Yellow
-& $Python @argsList
-if ($LASTEXITCODE -ne 0) {
-    throw "Installer failed with exit code $LASTEXITCODE"
+if ($NoDev) {
+    Write-Host "[installer] Note: -NoDev is kept for compatibility and is ignored by the new uv runtime flow." -ForegroundColor DarkYellow
 }
+
+$uvPath = Ensure-Uv
+$venvPython = Ensure-RainEnvironment -UvPath $uvPath
+Invoke-Bootstrap -UvPath $uvPath -VenvPython $venvPython
 
 if (-not $NoShortcuts) {
     $desktopPath = [Environment]::GetFolderPath("Desktop")
@@ -115,4 +227,5 @@ if (-not $NoShortcuts) {
 
 Write-Host ""
 Write-Host "[installer] Success." -ForegroundColor Green
-Write-Host "[installer] Next: double-click 'R.A.I.N. Lab Chat' on your Desktop or Start Menu." -ForegroundColor Green
+Write-Host "[installer] Handing off to James..." -ForegroundColor Green
+Invoke-Greet -UvPath $uvPath -VenvPython $venvPython

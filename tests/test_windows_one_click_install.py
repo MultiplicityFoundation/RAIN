@@ -19,3 +19,14 @@ def test_installer_mentions_shortcut_creation(repo_root: Path) -> None:
     assert "New-RainShortcut" in text
     assert "R.A.I.N. Lab Chat" in text
     assert "R.A.I.N. Lab Health Check" in text
+    assert '"pip", "sync"' in text
+    assert '"pip", "compile"' in text
+    assert "bootstrap_local.py" in text
+    assert "chat_with_james.py" in text
+    assert "--greet" in text
+
+
+def test_cmd_launcher_enforces_curl_and_delegates_to_powershell(repo_root: Path) -> None:
+    text = (repo_root / "INSTALL_RAIN.cmd").read_text(encoding="utf-8")
+    assert "curl.exe" in text
+    assert "INSTALL_RAIN.ps1" in text

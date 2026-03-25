@@ -179,6 +179,46 @@ fn load_hardware_context_from_dir(hw_dir: &std::path::Path, aliases: &[&str]) ->
     sections.join("\n\n")
 }
 
+#[cfg(all(feature = "peripheral-rpi", target_os = "linux"))]
+fn rpi_runtime_available() -> bool {
+    rpi::RpiSystemContext::discover().is_some()
+}
+
+#[cfg(not(all(feature = "peripheral-rpi", target_os = "linux")))]
+fn rpi_runtime_available() -> bool {
+    false
+}
+
+fn peripheral_status_summary(registry: &DeviceRegistry) -> String {
+    let has_arduino = registry.all().into_iter().any(|device| {
+        matches!(device.kind, device::DeviceKind::Arduino)
+            || device.board_name.contains("arduino")
+            || device.alias.starts_with("arduino")
+    });
+    let has_aardvark = registry.has_aardvark();
+    let has_rpi = rpi_runtime_available();
+
+    [
+        "Peripheral tool states:".to_string(),
+        if has_arduino {
+            "  Arduino serial tools: Active".to_string()
+        } else {
+            "  Arduino serial tools: Simulated (no Arduino detected)".to_string()
+        },
+        if has_aardvark {
+            "  Aardvark I2C/SPI/GPIO: Active".to_string()
+        } else {
+            "  Aardvark I2C/SPI/GPIO: Inactive (adapter not detected)".to_string()
+        },
+        if has_rpi {
+            "  Raspberry Pi GPIO: Active".to_string()
+        } else {
+            "  Raspberry Pi GPIO: Inactive (board not detected)".to_string()
+        },
+    ]
+    .join("\n")
+}
+
 /// Inject RPi self-discovery tools and system prompt context into the boot result.
 ///
 /// Called from both `boot()` variants when the `peripheral-rpi` feature is active
@@ -298,7 +338,11 @@ pub async fn boot(
         use aardvark::AardvarkTransport;
         use device::DeviceCapabilities;
 
-        let aardvark_ports = aardvark_sys::AardvarkHandle::find_devices();
+        let aardvark_ports = std::panic::catch_unwind(aardvark_sys::AardvarkHandle::find_devices)
+            .unwrap_or_else(|_| {
+                tracing::warn!("aardvark discovery panicked; continuing without adapter support");
+                Vec::new()
+            });
         for (i, &port) in aardvark_ports.iter().enumerate() {
             let alias = registry_inner.register(
                 "aardvark",
@@ -333,7 +377,11 @@ pub async fn boot(
     let registry = ToolRegistry::load(devices.clone()).await?;
     let device_summary = {
         let reg = devices.read().await;
-        reg.prompt_summary()
+        format!(
+            "{}\n{}",
+            reg.prompt_summary(),
+            peripheral_status_summary(&reg)
+        )
     };
     let mut tools = registry.into_tools();
     if !tools.is_empty() {
@@ -371,7 +419,11 @@ pub async fn boot(
     let registry = ToolRegistry::load(devices.clone()).await?;
     let device_summary = {
         let reg = devices.read().await;
-        reg.prompt_summary()
+        format!(
+            "{}\n{}",
+            reg.prompt_summary(),
+            peripheral_status_summary(&reg)
+        )
     };
     let mut tools = registry.into_tools();
     if !tools.is_empty() {
@@ -638,7 +690,8 @@ fn info_via_probe(chip: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::load_hardware_context_from_dir;
+    use super::{load_hardware_context_from_dir, peripheral_status_summary};
+    use crate::hardware::device::DeviceRegistry;
     use std::fs;
 
     fn write(path: &std::path::Path, content: &str) {
@@ -710,6 +763,24 @@ mod tests {
         write(&tmp.path().join("devices").join("pico0.md"), "device");
         let result = load_hardware_context_from_dir(tmp.path(), &["pico0"]);
         assert!(result.contains("global\n\ndevice"), "got: {result}");
+    }
+
+    #[test]
+    fn peripheral_status_summary_marks_missing_hardware_as_safe() {
+        let reg = DeviceRegistry::new();
+        let result = peripheral_status_summary(&reg);
+        assert!(
+            result.contains("Arduino serial tools: Simulated"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("Aardvark I2C/SPI/GPIO: Inactive"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("Raspberry Pi GPIO: Inactive"),
+            "got: {result}"
+        );
     }
 
     #[test]
