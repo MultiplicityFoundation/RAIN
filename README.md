@@ -20,7 +20,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-R.A.I.N. Lab is a local-first AI research lab for people who want more than a single chatbot answer.
+The R.A.I.N. Lab is a local-first AI research lab for people who want more than a single chatbot answer.
 It helps you test ideas, compare viewpoints, run structured debates, and generate shareable results without
 sending your data off-machine by default.
 
@@ -155,7 +155,7 @@ R.A.I.N. Lab is one platform built from two main layers:
 | Layer | Role | Language |
 | --- | --- | --- |
 | James Library | Research workflows, debate, synthesis, launcher experience | Python |
-| R.A.I.N. Runtime | Orchestration, channels, tools, memory, security | Rust |
+| ZeroClaw | Orchestration, channels, tools, memory, security | Rust |
 
 You use it as one app.
 Python flows work without Rust installed, while the Rust runtime adds speed, orchestration, and integration depth.
