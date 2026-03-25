@@ -1146,23 +1146,43 @@ pub(crate) fn current_tool_specs_for_turn(
     specs
 }
 
-pub(crate) fn render_runtime_system_prompt(
-    workspace_dir: &Path,
-    model_name: &str,
-    tool_desc_catalog: &[(String, String)],
-    skills: &[crate::skills::Skill],
-    identity_config: Option<&crate::config::IdentityConfig>,
-    bootstrap_max_chars: Option<usize>,
-    autonomy_config: Option<&crate::config::AutonomyConfig>,
-    native_tools: bool,
-    skills_prompt_mode: crate::config::SkillsPromptInjectionMode,
-    tool_descriptions: Option<&ToolDescriptions>,
-    toolbox_manager: Option<&crate::tools::ToolboxManager>,
-    tools_registry: &[Box<dyn Tool>],
-    activated_tools: Option<&std::sync::Arc<std::sync::Mutex<crate::tools::ActivatedToolSet>>>,
-    excluded_tools: &[String],
-    deferred_section: &str,
-) -> String {
+pub(crate) struct RuntimeSystemPromptContext<'a> {
+    pub(crate) workspace_dir: &'a Path,
+    pub(crate) model_name: &'a str,
+    pub(crate) tool_desc_catalog: &'a [(String, String)],
+    pub(crate) skills: &'a [crate::skills::Skill],
+    pub(crate) identity_config: Option<&'a crate::config::IdentityConfig>,
+    pub(crate) bootstrap_max_chars: Option<usize>,
+    pub(crate) autonomy_config: Option<&'a crate::config::AutonomyConfig>,
+    pub(crate) native_tools: bool,
+    pub(crate) skills_prompt_mode: crate::config::SkillsPromptInjectionMode,
+    pub(crate) tool_descriptions: Option<&'a ToolDescriptions>,
+    pub(crate) toolbox_manager: Option<&'a crate::tools::ToolboxManager>,
+    pub(crate) tools_registry: &'a [Box<dyn Tool>],
+    pub(crate) activated_tools:
+        Option<&'a std::sync::Arc<std::sync::Mutex<crate::tools::ActivatedToolSet>>>,
+    pub(crate) excluded_tools: &'a [String],
+    pub(crate) deferred_section: &'a str,
+}
+
+pub(crate) fn render_runtime_system_prompt(context: RuntimeSystemPromptContext<'_>) -> String {
+    let RuntimeSystemPromptContext {
+        workspace_dir,
+        model_name,
+        tool_desc_catalog,
+        skills,
+        identity_config,
+        bootstrap_max_chars,
+        autonomy_config,
+        native_tools,
+        skills_prompt_mode,
+        tool_descriptions,
+        toolbox_manager,
+        tools_registry,
+        activated_tools,
+        excluded_tools,
+        deferred_section,
+    } = context;
     let active_specs = current_tool_specs_for_turn(
         toolbox_manager,
         tools_registry,
@@ -1795,23 +1815,23 @@ pub async fn run(
         loop {
             let native_tools = provider.supports_native_tools();
             let prompt_renderer = || {
-                render_runtime_system_prompt(
-                    &config.workspace_dir,
-                    &model_name,
-                    &tool_desc_catalog,
-                    &skills,
-                    Some(&config.identity),
+                render_runtime_system_prompt(RuntimeSystemPromptContext {
+                    workspace_dir: &config.workspace_dir,
+                    model_name: &model_name,
+                    tool_desc_catalog: &tool_desc_catalog,
+                    skills: &skills,
+                    identity_config: Some(&config.identity),
                     bootstrap_max_chars,
-                    Some(&config.autonomy),
+                    autonomy_config: Some(&config.autonomy),
                     native_tools,
-                    config.skills.prompt_injection_mode,
-                    Some(&i18n_descs),
-                    Some(&session_toolbox),
-                    &tools_registry,
-                    activated_handle.as_ref(),
-                    &excluded_tools,
-                    &deferred_section,
-                )
+                    skills_prompt_mode: config.skills.prompt_injection_mode,
+                    tool_descriptions: Some(&i18n_descs),
+                    toolbox_manager: Some(&session_toolbox),
+                    tools_registry: &tools_registry,
+                    activated_tools: activated_handle.as_ref(),
+                    excluded_tools: &excluded_tools,
+                    deferred_section: &deferred_section,
+                })
             };
             match run_tool_call_loop_with_options(
                 provider.as_ref(),
@@ -1909,23 +1929,23 @@ pub async fn run(
         println!("Type /help for commands.\n");
         let cli = crate::channels::CliChannel::new();
         let mut session_toolbox = toolbox_template.fork_session();
-        let initial_prompt = render_runtime_system_prompt(
-            &config.workspace_dir,
-            &model_name,
-            &tool_desc_catalog,
-            &skills,
-            Some(&config.identity),
+        let initial_prompt = render_runtime_system_prompt(RuntimeSystemPromptContext {
+            workspace_dir: &config.workspace_dir,
+            model_name: &model_name,
+            tool_desc_catalog: &tool_desc_catalog,
+            skills: &skills,
+            identity_config: Some(&config.identity),
             bootstrap_max_chars,
-            Some(&config.autonomy),
-            provider.supports_native_tools(),
-            config.skills.prompt_injection_mode,
-            Some(&i18n_descs),
-            Some(&session_toolbox),
-            &tools_registry,
-            activated_handle.as_ref(),
-            &[],
-            &deferred_section,
-        );
+            autonomy_config: Some(&config.autonomy),
+            native_tools: provider.supports_native_tools(),
+            skills_prompt_mode: config.skills.prompt_injection_mode,
+            tool_descriptions: Some(&i18n_descs),
+            toolbox_manager: Some(&session_toolbox),
+            tools_registry: &tools_registry,
+            activated_tools: activated_handle.as_ref(),
+            excluded_tools: &[],
+            deferred_section: &deferred_section,
+        });
 
         // Persistent conversation history across turns
         let mut history = if let Some(path) = session_state_file.as_deref() {
@@ -1991,23 +2011,23 @@ pub async fn run(
 
                     history.clear();
                     session_toolbox = toolbox_template.fork_session();
-                    let reset_prompt = render_runtime_system_prompt(
-                        &config.workspace_dir,
-                        &model_name,
-                        &tool_desc_catalog,
-                        &skills,
-                        Some(&config.identity),
+                    let reset_prompt = render_runtime_system_prompt(RuntimeSystemPromptContext {
+                        workspace_dir: &config.workspace_dir,
+                        model_name: &model_name,
+                        tool_desc_catalog: &tool_desc_catalog,
+                        skills: &skills,
+                        identity_config: Some(&config.identity),
                         bootstrap_max_chars,
-                        Some(&config.autonomy),
-                        provider.supports_native_tools(),
-                        config.skills.prompt_injection_mode,
-                        Some(&i18n_descs),
-                        Some(&session_toolbox),
-                        &tools_registry,
-                        activated_handle.as_ref(),
-                        &[],
-                        &deferred_section,
-                    );
+                        autonomy_config: Some(&config.autonomy),
+                        native_tools: provider.supports_native_tools(),
+                        skills_prompt_mode: config.skills.prompt_injection_mode,
+                        tool_descriptions: Some(&i18n_descs),
+                        toolbox_manager: Some(&session_toolbox),
+                        tools_registry: &tools_registry,
+                        activated_tools: activated_handle.as_ref(),
+                        excluded_tools: &[],
+                        deferred_section: &deferred_section,
+                    });
                     history.push(ChatMessage::system(&reset_prompt));
                     // Clear conversation and daily memory
                     let mut cleared = 0;
@@ -2081,23 +2101,23 @@ pub async fn run(
             let response = loop {
                 let native_tools = provider.supports_native_tools();
                 let prompt_renderer = || {
-                    render_runtime_system_prompt(
-                        &config.workspace_dir,
-                        &model_name,
-                        &tool_desc_catalog,
-                        &skills,
-                        Some(&config.identity),
+                    render_runtime_system_prompt(RuntimeSystemPromptContext {
+                        workspace_dir: &config.workspace_dir,
+                        model_name: &model_name,
+                        tool_desc_catalog: &tool_desc_catalog,
+                        skills: &skills,
+                        identity_config: Some(&config.identity),
                         bootstrap_max_chars,
-                        Some(&config.autonomy),
+                        autonomy_config: Some(&config.autonomy),
                         native_tools,
-                        config.skills.prompt_injection_mode,
-                        Some(&i18n_descs),
-                        Some(&session_toolbox),
-                        &tools_registry,
-                        activated_handle.as_ref(),
-                        &excluded_tools,
-                        &deferred_section,
-                    )
+                        skills_prompt_mode: config.skills.prompt_injection_mode,
+                        tool_descriptions: Some(&i18n_descs),
+                        toolbox_manager: Some(&session_toolbox),
+                        tools_registry: &tools_registry,
+                        activated_tools: activated_handle.as_ref(),
+                        excluded_tools: &excluded_tools,
+                        deferred_section: &deferred_section,
+                    })
                 };
                 match run_tool_call_loop_with_options(
                     provider.as_ref(),

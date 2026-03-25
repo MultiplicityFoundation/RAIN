@@ -600,7 +600,7 @@ impl Agent {
         if let Some(agent_manifest) = manifest.clone() {
             builder = builder.manifest(agent_manifest);
         }
-        Ok(builder.build()?)
+        builder.build()
     }
 
     fn trim_history(&mut self) {
