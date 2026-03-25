@@ -127,6 +127,13 @@ BEGINNER_PROMPT_SHORTCUTS = {
 }
 
 
+@dataclass(frozen=True)
+class FollowUpMove:
+    label: str
+    description: str
+    command: str
+
+
 def _console_safe(text: str) -> str:
     encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
     return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
@@ -254,6 +261,484 @@ def _render_beginner_topic(topic: str | None, preset_name: str | None) -> tuple[
     if preset is None:
         return display_topic, display_topic
     return display_topic, preset.topic_template.format(topic=display_topic)
+
+
+def _topic_for_command(topic: str | None) -> str:
+    cleaned = (topic or "").strip().replace('"', "'")
+    if cleaned:
+        return cleaned
+    return "your idea"
+
+
+def _command_for_mode(mode: str, *, topic: str | None = None, preset: str | None = None) -> str:
+    command = f"python rain_lab.py --mode {mode}"
+    if preset:
+        command += f" --preset {preset}"
+    if topic:
+        command += f' --topic "{_topic_for_command(topic)}"'
+    return command
+
+
+def _build_follow_up_moves(topic: str | None, current_preset: str | None) -> list[FollowUpMove]:
+    subject = topic or "your idea"
+    moves: list[FollowUpMove] = []
+    preset_order = (
+        (
+            "startup-debate",
+            "Run the debate",
+            "Pressure-test the same topic with a sharper founder-vs-skeptic angle.",
+        ),
+        (
+            "idea-roast",
+            "Roast the idea",
+            "Push the weak spots hard, then rescue the concept with concrete fixes.",
+        ),
+        (
+            "explain-like-im-12",
+            "Explain it simply",
+            "Turn the topic into something easy to repeat to someone else.",
+        ),
+    )
+    for slug, label, description in preset_order:
+        if slug == current_preset:
+            continue
+        moves.append(
+            FollowUpMove(
+                label=label,
+                description=description,
+                command=_command_for_mode("beginner", topic=subject, preset=slug),
+            )
+        )
+
+    moves.append(
+        FollowUpMove(
+            label="Instant wow demo",
+            description="Run the zero-setup preview again if you want a fast shareable result.",
+            command=_command_for_mode("demo", preset="startup-debate"),
+        )
+    )
+    return moves[:3]
+
+
+def _read_share_card_metadata(share_html_path: Path) -> tuple[str, str, str]:
+    topic = "Fresh R.A.I.N. Lab session"
+    preset = "Custom Prompt"
+    session_style = "Beginner Session"
+    markdown_path = share_html_path.with_suffix(".md")
+    try:
+        lines = markdown_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except Exception:
+        return topic, preset, session_style
+
+    for line in lines:
+        if line.startswith("Topic: "):
+            topic = line.removeprefix("Topic: ").strip() or topic
+        elif line.startswith("Preset: "):
+            preset = line.removeprefix("Preset: ").strip() or preset
+        elif line.startswith("Session style: "):
+            session_style = line.removeprefix("Session style: ").strip() or session_style
+    return topic, preset, session_style
+
+
+def _collect_recent_share_cards(share_dir: Path, limit: int = 6) -> list[Path]:
+    return sorted(share_dir.glob("BEGINNER_SHARE_*.html"), reverse=True)[:limit]
+
+
+def _build_showcase_html(
+    *,
+    title: str,
+    hero_topic: str,
+    latest_share_card: Path | None,
+    follow_up_moves: list[FollowUpMove],
+    recent_share_cards: list[Path],
+) -> str:
+    safe_title = html_escape(title)
+    safe_hero_topic = html_escape(hero_topic)
+    latest_href = latest_share_card.resolve().as_uri() if latest_share_card is not None else ""
+    latest_label = "Open latest share card" if latest_share_card is not None else "Run your first instant demo"
+    latest_copy = (
+        "The newest session is ready to revisit, screenshot, or send."
+        if latest_share_card is not None
+        else "No session yet. Run the instant demo and this page will turn into your local gallery."
+    )
+    move_cards = []
+    for idx, move in enumerate(follow_up_moves, start=1):
+        move_cards.append(
+            f"""
+        <article class="action-card">
+          <div class="card-label">{html_escape(move.label)}</div>
+          <p>{html_escape(move.description)}</p>
+          <code id="move-{idx}">{html_escape(move.command)}</code>
+          <button type="button" data-copy-target="move-{idx}">Copy Command</button>
+        </article>
+"""
+        )
+    move_cards_html = "".join(move_cards)
+
+    preset_cards = []
+    for preset in BEGINNER_PRESETS.values():
+        preset_cards.append(
+            f"""
+        <article class="preset-card">
+          <div class="card-label">{html_escape(preset.title)}</div>
+          <p>{html_escape(preset.summary)}</p>
+          <code id="preset-{html_escape(preset.slug)}">{html_escape(_command_for_mode('beginner', topic=preset.default_topic, preset=preset.slug))}</code>
+          <button type="button" data-copy-target="preset-{html_escape(preset.slug)}">Copy Command</button>
+        </article>
+"""
+        )
+    preset_cards_html = "".join(preset_cards)
+
+    recent_items = []
+    for share_path in recent_share_cards:
+        topic, preset_title, session_style = _read_share_card_metadata(share_path)
+        recent_items.append(
+            f"""
+        <a class="recent-card" href="{share_path.resolve().as_uri()}">
+          <div class="card-label">{html_escape(preset_title)}</div>
+          <strong>{html_escape(topic)}</strong>
+          <span>{html_escape(session_style)}</span>
+        </a>
+"""
+        )
+    if recent_items:
+        recent_cards_html = "".join(recent_items)
+    else:
+        recent_cards_html = """
+        <div class="empty-state">
+          Run `python rain_lab.py` and press Enter for the instant demo. Your first shareable session will appear here.
+        </div>
+"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title}</title>
+  <style>
+    :root {{
+      --bg: #f7f1e6;
+      --panel: rgba(255, 252, 247, 0.94);
+      --panel-strong: rgba(255, 255, 255, 0.97);
+      --ink: #1f2937;
+      --muted: #5c6675;
+      --line: rgba(31, 41, 55, 0.08);
+      --accent: #0f766e;
+      --accent-deep: #134e4a;
+      --accent-warm: #ea580c;
+      --shadow: rgba(15, 23, 42, 0.14);
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+      background:
+        radial-gradient(circle at 8% 10%, rgba(20,184,166,0.16), transparent 24%),
+        radial-gradient(circle at 90% 14%, rgba(234,88,12,0.16), transparent 22%),
+        linear-gradient(160deg, #fff8ef 0%, var(--bg) 56%, #e8ddcc 100%);
+      min-height: 100vh;
+      padding: 28px 20px 40px;
+    }}
+    .shell {{
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }}
+    .hero, .panel {{
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      box-shadow: 0 28px 80px -44px var(--shadow);
+      overflow: hidden;
+    }}
+    .hero {{
+      padding: 32px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.85fr);
+      gap: 20px;
+      position: relative;
+    }}
+    .hero::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.48), transparent 36%),
+        linear-gradient(135deg, rgba(255,255,255,0), rgba(255,255,255,0.38));
+      pointer-events: none;
+    }}
+    .eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(15,118,110,0.14);
+      color: var(--accent-deep);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    h1 {{
+      margin: 18px 0 12px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(40px, 7vw, 78px);
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      max-width: 10ch;
+    }}
+    .lede {{
+      margin: 0;
+      max-width: 56ch;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.58;
+    }}
+    .hero-card {{
+      border-radius: 28px;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.24), transparent 30%),
+        linear-gradient(145deg, var(--accent), var(--accent-deep));
+      color: white;
+      display: grid;
+      align-content: end;
+      min-height: 300px;
+      position: relative;
+    }}
+    .hero-card::before {{
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.24);
+      pointer-events: none;
+    }}
+    .hero-card strong {{
+      font-size: 28px;
+      line-height: 1.12;
+      max-width: 13ch;
+    }}
+    .hero-card p {{
+      margin: 14px 0 18px;
+      line-height: 1.55;
+      max-width: 28ch;
+    }}
+    .hero-card a {{
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+    }}
+    .panel {{
+      padding: 24px;
+    }}
+    .section-head {{
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-bottom: 16px;
+    }}
+    .section-head h2 {{
+      margin: 0;
+      font-size: 28px;
+      font-family: Georgia, "Times New Roman", serif;
+    }}
+    .section-head p {{
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 56ch;
+    }}
+    .action-grid, .preset-grid, .recent-grid {{
+      display: grid;
+      gap: 16px;
+    }}
+    .action-grid {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .preset-grid {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .recent-grid {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .action-card, .preset-card, .recent-card, .empty-state {{
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+      padding: 20px;
+    }}
+    .recent-card {{
+      text-decoration: none;
+      color: inherit;
+      display: grid;
+      gap: 8px;
+    }}
+    .recent-card strong {{
+      font-size: 21px;
+      line-height: 1.2;
+    }}
+    .recent-card span {{
+      color: var(--muted);
+      line-height: 1.5;
+    }}
+    .card-label {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }}
+    .action-card p, .preset-card p {{
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.55;
+    }}
+    code {{
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(31,41,55,0.06);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      font-size: 14px;
+    }}
+    button {{
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+      color: white;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }}
+    .empty-state {{
+      color: var(--muted);
+      line-height: 1.65;
+    }}
+    @media (max-width: 920px) {{
+      .hero {{
+        grid-template-columns: 1fr;
+      }}
+      .action-grid,
+      .preset-grid,
+      .recent-grid {{
+        grid-template-columns: 1fr;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">R.A.I.N. Lab / Start Here</div>
+        <h1>{safe_hero_topic}</h1>
+        <p class="lede">This is the local-first front door for R.A.I.N. Lab. Start with the instant demo if you want a fast wow moment, then use the follow-up commands below to turn that spark into something you can keep, compare, or share.</p>
+      </div>
+      <aside class="hero-card">
+        <div class="card-label">Latest surface</div>
+        <strong>{html_escape(latest_label)}</strong>
+        <p>{html_escape(latest_copy)}</p>
+        <a href="{latest_href or '#'}">{html_escape(latest_label)}</a>
+      </aside>
+    </section>
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Try Next</h2>
+          <p>Three fast paths to keep momentum without digging through docs or flags.</p>
+        </div>
+      </div>
+      <div class="action-grid">{move_cards_html}</div>
+    </section>
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Pick A Vibe</h2>
+          <p>Each preset bends the same topic into a different experience, so it feels closer to a toy box than a terminal menu.</p>
+        </div>
+      </div>
+      <div class="preset-grid">{preset_cards_html}</div>
+    </section>
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Recent Experiments</h2>
+          <p>Your latest beginner and demo sessions stay here as a small local gallery.</p>
+        </div>
+      </div>
+      <div class="recent-grid">{recent_cards_html}</div>
+    </section>
+  </main>
+  <script>
+    document.querySelectorAll("[data-copy-target]").forEach((button) => {{
+      const targetId = button.getAttribute("data-copy-target");
+      const target = targetId ? document.getElementById(targetId) : null;
+      if (!target || !navigator.clipboard) return;
+      button.addEventListener("click", async () => {{
+        const original = button.textContent;
+        try {{
+          await navigator.clipboard.writeText(target.innerText);
+          button.textContent = "Command copied";
+        }} catch (_error) {{
+          button.textContent = "Copy failed";
+        }}
+        window.setTimeout(() => {{
+          button.textContent = original;
+        }}, 1400);
+      }});
+    }});
+  </script>
+</body>
+</html>
+"""
+
+
+def _write_beginner_showcase_page(
+    args: argparse.Namespace,
+    repo_root: Path,
+    *,
+    latest_share_card: Path | None = None,
+) -> Path:
+    library_root = _resolve_library_root(args, repo_root)
+    share_dir = library_root / "meeting_archives"
+    share_dir.mkdir(parents=True, exist_ok=True)
+    topic = getattr(args, "display_topic", args.topic or "Start with the instant demo")
+    current_preset = getattr(args, "preset", None)
+    follow_up_moves = _build_follow_up_moves(topic, current_preset)
+    recent_share_cards = _collect_recent_share_cards(share_dir)
+    showcase_path = share_dir / "RAIN_LAB_SHOWCASE.html"
+    showcase_path.write_text(
+        _build_showcase_html(
+            title="R.A.I.N. Lab Showcase",
+            hero_topic=topic,
+            latest_share_card=latest_share_card,
+            follow_up_moves=follow_up_moves,
+            recent_share_cards=recent_share_cards,
+        ),
+        encoding="utf-8",
+    )
+    return showcase_path
+
+
+def _print_follow_up_moves(topic: str | None, preset_name: str | None) -> None:
+    moves = _build_follow_up_moves(topic, preset_name)[:2]
+    if not moves:
+        return
+    print(f"{ANSI_CYAN}Try next:{ANSI_RESET}")
+    for move in moves:
+        print(f"{ANSI_DIM}- {move.label}: {move.command}{ANSI_RESET}")
 
 
 def _choose_beginner_mode(topic: str | None) -> str:
@@ -552,6 +1037,8 @@ def _build_beginner_share_html_v2(
     session_log: Path,
     launcher_log: Path | str,
     rerun_command: str,
+    follow_up_moves: list[FollowUpMove],
+    showcase_path: Path | None,
 ) -> str:
     accent = "#f97316" if demo_mode else "#14b8a6"
     accent_soft = "#fed7aa" if demo_mode else "#99f6e4"
@@ -568,6 +1055,20 @@ def _build_beginner_share_html_v2(
     safe_session_label = html_escape(session_label)
     safe_preset_title = html_escape(preset_title)
     safe_rerun_command = html_escape(rerun_command)
+    showcase_uri = showcase_path.resolve().as_uri() if showcase_path is not None else ""
+    follow_up_cards: list[str] = []
+    for idx, move in enumerate(follow_up_moves, start=1):
+        follow_up_cards.append(
+            f"""
+          <article class="next-card">
+            <strong>{html_escape(move.label)}</strong>
+            <p>{html_escape(move.description)}</p>
+            <code id="follow-up-{idx}">{html_escape(move.command)}</code>
+            <button type="button" data-copy-target="follow-up-{idx}">Copy Command</button>
+          </article>
+"""
+        )
+    follow_up_cards_html = "".join(follow_up_cards)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -892,6 +1393,30 @@ def _build_beginner_share_html_v2(
       font-size: 13px;
       line-height: 1.55;
     }}
+    .next-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .next-card {{
+      border-radius: 22px;
+      border: 1px solid rgba(31,41,55,0.08);
+      background: rgba(255,255,255,0.72);
+      padding: 18px;
+    }}
+    .next-card strong {{
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }}
+    .next-card p {{
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0 0 14px;
+    }}
+    .next-card code {{
+      margin-bottom: 14px;
+    }}
     .fade-up {{
       opacity: 0;
       transform: translateY(18px);
@@ -918,6 +1443,9 @@ def _build_beginner_share_html_v2(
       .card-side,
       .card-wide {{
         grid-column: span 12;
+      }}
+      .next-grid {{
+        grid-template-columns: 1fr;
       }}
     }}
   </style>
@@ -991,6 +1519,14 @@ def _build_beginner_share_html_v2(
         </div>
       </article>
       <article class="card card-wide fade-up delay-3">
+        <div class="label">Try Next</div>
+        <p class="microcopy">Keep the same spark, but run it through a different preset so the result feels new instead of repetitive.</p>
+        <div class="next-grid">{follow_up_cards_html}</div>
+        <div class="controls" style="margin-top:14px;">
+          <a class="link secondary" href="{showcase_uri}">Open Local Showcase</a>
+        </div>
+      </article>
+      <article class="card card-wide fade-up delay-3">
         <div class="label">Session Highlight</div>
         <div class="excerpt">{safe_excerpt or 'Run the session again to capture a fresh highlight.'}</div>
       </article>
@@ -1016,6 +1552,23 @@ def _build_beginner_share_html_v2(
     }};
     wireCopy("copy-caption", "caption", "Caption copied");
     wireCopy("copy-rerun", "rerun-command", "Command copied");
+    document.querySelectorAll("[data-copy-target]").forEach((button) => {{
+      const targetId = button.getAttribute("data-copy-target");
+      const target = targetId ? document.getElementById(targetId) : null;
+      if (!target || !navigator.clipboard) return;
+      button.addEventListener("click", async () => {{
+        const original = button.textContent;
+        try {{
+          await navigator.clipboard.writeText(target.innerText);
+          button.textContent = "Command copied";
+        }} catch (_error) {{
+          button.textContent = "Copy failed";
+        }}
+        window.setTimeout(() => {{
+          button.textContent = original;
+        }}, 1400);
+      }});
+    }});
   </script>
 </body>
 </html>
@@ -1055,6 +1608,8 @@ def _write_beginner_share_card(
     rerun_command = f'python rain_lab.py --mode {requested_mode} --topic "{topic}"'
     if preset is not None:
         rerun_command += f" --preset {preset.slug}"
+    follow_up_moves = _build_follow_up_moves(topic, preset.slug if preset is not None else None)
+    showcase_path = share_dir / "RAIN_LAB_SHOWCASE.html"
     caption = (
         f'I just tried the instant R.A.I.N. Lab demo for "{topic}".'
         if demo_mode
@@ -1100,6 +1655,22 @@ def _write_beginner_share_card(
             "",
             rerun_command,
             "",
+            "## Try Next",
+            "",
+        ]
+    )
+    for move in follow_up_moves:
+        lines.extend(
+            [
+                f"- {move.label}: {move.description}",
+                f"  {move.command}",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            f"Open local showcase: {showcase_path}",
+            "",
         ]
     )
 
@@ -1116,6 +1687,8 @@ def _write_beginner_share_card(
             session_log=session_log,
             launcher_log=launcher_log,
             rerun_command=rerun_command,
+            follow_up_moves=follow_up_moves,
+            showcase_path=showcase_path,
         ),
         encoding="utf-8",
     )
@@ -1233,10 +1806,19 @@ def _run_demo_session(
     )
     if share_card_path is not None:
         print(f"{ANSI_GREEN}Share card ready: {share_card_path}{ANSI_RESET}")
+        showcase_path = _write_beginner_showcase_page(args, repo_root, latest_share_card=share_card_path)
+        print(f"{ANSI_GREEN}Local showcase ready: {showcase_path}{ANSI_RESET}")
+        _print_follow_up_moves(getattr(args, "display_topic", args.topic), getattr(args, "preset", None))
         _append_launcher_event(
             log_path,
             "beginner_share_card_created",
             path=str(share_card_path),
+            launched_mode="demo",
+        )
+        _append_launcher_event(
+            log_path,
+            "beginner_showcase_created",
+            path=str(showcase_path),
             launched_mode="demo",
         )
 
@@ -1867,40 +2449,46 @@ def main(argv: list[str] | None = None) -> int:
     ui_was_explicit = "--ui" in argv
     banner_printed = False
 
+    if not argv:
+        args.mode = "wizard"
+        requested_mode = "wizard"
+
     # Handle wizard mode - interactive guidance
     if args.mode == "wizard":
         _print_banner()
         banner_printed = True
+        showcase_path = _write_beginner_showcase_page(args, repo_root)
         print(f"\n{ANSI_CYAN}Welcome to R.A.I.N. Lab!{ANSI_RESET}")
-        print(f"{ANSI_DIM}I'll help you get started.{ANSI_RESET}\n")
+        print(f"{ANSI_DIM}I'll help you get started. Press Enter for a fast no-setup demo, or pick a path below.{ANSI_RESET}")
+        print(f"{ANSI_DIM}Local showcase: {showcase_path}{ANSI_RESET}\n")
 
-        print("What would you like to do?")
-        print(f"  {ANSI_GREEN}1{ANSI_RESET} - Beginner mode (recommended)")
-        print(f"  {ANSI_GREEN}2{ANSI_RESET} - Check if my system is ready")
-        print(f"  {ANSI_GREEN}3{ANSI_RESET} - See what AI models are available")
-        print(f"  {ANSI_GREEN}4{ANSI_RESET} - First-time setup")
+        print("What would you like to do first?")
+        print(f"  {ANSI_GREEN}1{ANSI_RESET} - Instant demo (recommended first step)")
+        print(f"  {ANSI_GREEN}2{ANSI_RESET} - Beginner mode with my own idea")
+        print(f"  {ANSI_GREEN}3{ANSI_RESET} - First-time setup")
+        print(f"  {ANSI_GREEN}4{ANSI_RESET} - Check if my system is ready")
         print(f"  {ANSI_GREEN}5{ANSI_RESET} - Run a research debate")
-        print(f"  {ANSI_GREEN}6{ANSI_RESET} - Validate my environment")
-        print(f"  {ANSI_GREEN}7{ANSI_RESET} - Try an instant demo (no setup)")
+        print(f"  {ANSI_GREEN}6{ANSI_RESET} - See what AI models are available")
 
         try:
-            choice = input(f"\n{ANSI_YELLOW}Enter number (1-7): {ANSI_RESET}").strip()
+            choice = input(f"\n{ANSI_YELLOW}Enter number (1-6, or press Enter for the demo): {ANSI_RESET}").strip()
         except KeyboardInterrupt:
             print(f"\n{ANSI_RED}Goodbye!{ANSI_RESET}")
             return 0
 
-        if choice == "1":
+        if choice in {"", "1"}:
+            print(f"\n{ANSI_GREEN}Starting instant demo...{ANSI_RESET}")
+            args.mode = "demo"
+            args.preset = "startup-debate"
+        elif choice == "2":
             print(f"\n{ANSI_GREEN}Starting beginner mode...{ANSI_RESET}")
             args.mode = "beginner"
-        elif choice == "2":
-            print(f"\n{ANSI_GREEN}Running system check...{ANSI_RESET}")
-            args.mode = "preflight"
         elif choice == "3":
-            print(f"\n{ANSI_GREEN}Checking available models...{ANSI_RESET}")
-            args.mode = "preflight"
-        elif choice == "4":
             print(f"\n{ANSI_GREEN}Starting first-time setup...{ANSI_RESET}")
             args.mode = "first-run"
+        elif choice == "4":
+            print(f"\n{ANSI_GREEN}Running system check...{ANSI_RESET}")
+            args.mode = "preflight"
         elif choice == "5":
             print(f"\n{ANSI_GREEN}Starting research meeting...{ANSI_RESET}")
             args.mode = "rlm"
@@ -1913,15 +2501,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"\n{ANSI_RED}Goodbye!{ANSI_RESET}")
                 return 0
         elif choice == "6":
-            print(f"\n{ANSI_GREEN}Validating environment...{ANSI_RESET}")
+            print(f"\n{ANSI_GREEN}Checking available models...{ANSI_RESET}")
             args.mode = "preflight"
-        elif choice == "7":
-            print(f"\n{ANSI_GREEN}Starting instant demo...{ANSI_RESET}")
+        else:
+            print(f"\n{ANSI_YELLOW}Starting instant demo...{ANSI_RESET}")
             args.mode = "demo"
             args.preset = "startup-debate"
-        else:
-            print(f"\n{ANSI_YELLOW}Starting in beginner mode (default)...{ANSI_RESET}")
-            args.mode = "beginner"
 
         requested_mode = args.mode
 
@@ -2109,10 +2694,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         if share_card_path is not None:
             print(f"{ANSI_GREEN}Share card ready: {share_card_path}{ANSI_RESET}", flush=True)
+            showcase_path = _write_beginner_showcase_page(args, repo_root, latest_share_card=share_card_path)
+            print(f"{ANSI_GREEN}Local showcase ready: {showcase_path}{ANSI_RESET}", flush=True)
+            _print_follow_up_moves(getattr(args, "display_topic", args.topic), getattr(args, "preset", None))
             _append_launcher_event(
                 log_path,
                 "beginner_share_card_created",
                 path=str(share_card_path),
+                launched_mode=effective_args.mode,
+            )
+            _append_launcher_event(
+                log_path,
+                "beginner_showcase_created",
+                path=str(showcase_path),
                 launched_mode=effective_args.mode,
             )
         _terminate_process(main_proc)

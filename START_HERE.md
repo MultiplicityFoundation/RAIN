@@ -14,7 +14,7 @@ Use this command:
 python rain_lab.py
 ```
 
-For non-technical users, this is the **only entry point you need**. The script includes a guided wizard, first-run setup, validation checks, model listing, and a beginner mode that chooses the simplest flow for you.
+For non-technical users, this is the **only entry point you need**. The script opens a guided wizard, pressing Enter starts the no-setup instant demo, and every beginner/demo run updates a local showcase page in `meeting_archives/RAIN_LAB_SHOWCASE.html`.
 
 You can safely ignore files like `rain_unique.py`, `james_reader.py`, `chat_with_james.py`, and other specialized scripts unless a maintainer tells you to use them.
 
@@ -72,8 +72,9 @@ For a new non-technical user:
 1. Install Python and Ollama.
 2. Run `python rain_lab.py --mode first-run` once.
 3. Run `python rain_lab.py` and choose **Beginner mode**, or launch it directly with `python rain_lab.py --mode beginner --topic "your idea"`.
-4. If you want to try it before local model setup, run `python rain_lab.py --mode demo --preset startup-debate`.
-5. If anything fails, run `python rain_lab.py --mode validate`.
+4. If you want a fast wow moment before local model setup, just run `python rain_lab.py` and press Enter, or use `python rain_lab.py --mode demo --preset startup-debate`.
+5. After a session, open `meeting_archives/RAIN_LAB_SHOWCASE.html` to revisit recent runs and copy the next commands.
+6. If anything fails, run `python rain_lab.py --mode validate`.
 
 ---
 
@@ -84,7 +85,7 @@ For a new non-technical user:
 python rain_lab.py
 ```
 
-That's it. Just run that command and follow the simple prompts.
+That's it. Just run that command, press Enter for the instant demo if you want the fastest path, and use the generated showcase page to keep going.
 
 ---
 

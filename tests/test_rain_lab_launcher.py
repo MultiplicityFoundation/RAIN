@@ -3,6 +3,7 @@ from pathlib import Path
 import james_library.launcher.rain_lab as rain_launcher
 from james_library.launcher.rain_lab import (
     _apply_beginner_shortcut,
+    _build_follow_up_moves,
     _build_demo_session_markdown,
     _choose_beginner_mode,
     _prepare_beginner_args,
@@ -11,9 +12,11 @@ from james_library.launcher.rain_lab import (
     _resolve_launcher_log_path,
     _run_demo_session,
     _write_beginner_share_card,
+    _write_beginner_showcase_page,
     build_command,
     build_godot_bridge_command,
     build_godot_client_command,
+    main,
     parse_args,
     resolve_launch_plan,
 )
@@ -393,6 +396,8 @@ def test_write_beginner_share_card_uses_session_log(repo_root, tmp_path):
     assert "Copy Caption" in contents
     assert "Spotlight Quote" in contents
     assert "screenshot-friendly" in contents
+    assert "Try Next" in contents
+    assert "Open Local Showcase" in contents
     assert (share_path.parent / share_path.name.replace(".html", ".md")).exists()
 
 
@@ -423,5 +428,73 @@ def test_run_demo_session_writes_artifacts(repo_root, tmp_path):
     assert rc == 0
     artifacts = list((tmp_path / "meeting_archives").glob("DEMO_SESSION_*.md"))
     share_cards = list((tmp_path / "meeting_archives").glob("BEGINNER_SHARE_*.html"))
+    showcases = list((tmp_path / "meeting_archives").glob("RAIN_LAB_SHOWCASE.html"))
     assert artifacts
     assert share_cards
+    assert showcases
+
+
+def test_write_beginner_showcase_page_includes_recent_sessions(repo_root, tmp_path):
+    share_dir = tmp_path / "meeting_archives"
+    share_dir.mkdir(parents=True)
+    recent_html = share_dir / "BEGINNER_SHARE_20260324_120000.html"
+    recent_md = share_dir / "BEGINNER_SHARE_20260324_120000.md"
+    recent_html.write_text("<!DOCTYPE html>", encoding="utf-8")
+    recent_md.write_text(
+        "\n".join(
+            [
+                "# Beginner Session Share Card",
+                "",
+                "Topic: Explain resonance simply",
+                "Preset: Explain Like I'm 12",
+                "Session style: Guided chat",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    args, _ = parse_args(["--mode", "demo", "--library", str(tmp_path)])
+    args = _prepare_demo_args(args)
+
+    showcase_path = _write_beginner_showcase_page(args, repo_root, latest_share_card=recent_html)
+
+    contents = showcase_path.read_text(encoding="utf-8")
+    assert "Recent Experiments" in contents
+    assert "Explain resonance simply" in contents
+    assert "Run the debate" in contents or "Roast the idea" in contents
+
+
+def test_build_follow_up_moves_skips_current_preset():
+    moves = _build_follow_up_moves("Explain resonance simply", "idea-roast")
+    labels = [move.label for move in moves]
+    assert "Roast the idea" not in labels
+    assert "Run the debate" in labels
+    assert "Instant wow demo" in labels
+
+
+def test_main_without_args_defaults_to_demo(monkeypatch, repo_root):
+    recorded: dict[str, str] = {}
+
+    monkeypatch.setattr(rain_launcher, "_print_banner", lambda: None)
+    monkeypatch.setattr(
+        rain_launcher,
+        "_write_beginner_showcase_page",
+        lambda _args, _root, latest_share_card=None: repo_root / "meeting_archives" / "RAIN_LAB_SHOWCASE.html",
+    )
+    monkeypatch.setattr(rain_launcher, "_resolve_launcher_log_path", lambda _args, _root: None)
+    monkeypatch.setattr(rain_launcher, "_append_launcher_event", lambda *_args, **_kwargs: None)
+
+    def fake_run_demo_session(args, _repo_root, _log_path):
+        recorded["mode"] = args.mode
+        recorded["preset"] = args.preset
+        recorded["display_topic"] = args.display_topic
+        return 0
+
+    monkeypatch.setattr(rain_launcher, "_run_demo_session", fake_run_demo_session)
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "")
+
+    rc = main([])
+
+    assert rc == 0
+    assert recorded["mode"] == "demo"
+    assert recorded["preset"] == "startup-debate"
+    assert recorded["display_topic"] == "an AI tutor for overwhelmed college students"
