@@ -1,4 +1,4 @@
-# R.A.I.N. Documentation Hub (German)
+# R.A.I.N. Documentation Hub (Deutsch)
 
 This locale hub is enabled for German community support.
 
@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Quick Links
 
-- German docs hub: [README.md](README.md)
-- German summary: [SUMMARY.md](SUMMARY.md)
+- Deutsch docs hub: [README.md](README.md)
+- Deutsch summary: [SUMMARY.md](SUMMARY.md)
 - English docs hub: [../../README.md](../../README.md)
 - English summary: [../../SUMMARY.md](../../SUMMARY.md)
 

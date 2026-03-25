@@ -1,4 +1,4 @@
-# R.A.I.N. Documentation Hub (Hindi)
+# R.A.I.N. Documentation Hub (हिन्दी)
 
 This locale hub is enabled for Hindi community support.
 
@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Quick Links
 
-- Hindi docs hub: [README.md](README.md)
-- Hindi summary: [SUMMARY.md](SUMMARY.md)
+- हिन्दी docs hub: [README.md](README.md)
+- हिन्दी summary: [SUMMARY.md](SUMMARY.md)
 - English docs hub: [../../README.md](../../README.md)
 - English summary: [../../SUMMARY.md](../../SUMMARY.md)
 

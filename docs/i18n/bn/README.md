@@ -1,4 +1,4 @@
-# R.A.I.N. Documentation Hub (Bengali)
+# R.A.I.N. Documentation Hub (বাংলা)
 
 This locale hub is enabled for Bengali community support.
 
@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Quick Links
 
-- Bengali docs hub: [README.md](README.md)
-- Bengali summary: [SUMMARY.md](SUMMARY.md)
+- বাংলা docs hub: [README.md](README.md)
+- বাংলা summary: [SUMMARY.md](SUMMARY.md)
 - English docs hub: [../../README.md](../../README.md)
 - English summary: [../../SUMMARY.md](../../SUMMARY.md)
 

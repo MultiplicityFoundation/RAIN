@@ -1,4 +1,4 @@
-# R.A.I.N. Documentation Hub (Korean)
+# R.A.I.N. Documentation Hub (한국어)
 
 This locale hub is enabled for Korean community support.
 
@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Quick Links
 
-- Korean docs hub: [README.md](README.md)
-- Korean summary: [SUMMARY.md](SUMMARY.md)
+- 한국어 docs hub: [README.md](README.md)
+- 한국어 summary: [SUMMARY.md](SUMMARY.md)
 - English docs hub: [../../README.md](../../README.md)
 - English summary: [../../SUMMARY.md](../../SUMMARY.md)
 

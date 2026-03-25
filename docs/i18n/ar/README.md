@@ -1,4 +1,4 @@
-# R.A.I.N. Documentation Hub (Arabic)
+# R.A.I.N. Documentation Hub (العربية)
 
 This locale hub is enabled for Arabic community support.
 
@@ -6,8 +6,8 @@ Last synchronized: **March 6, 2026**.
 
 ## Quick Links
 
-- Arabic docs hub: [README.md](README.md)
-- Arabic summary: [SUMMARY.md](SUMMARY.md)
+- العربية docs hub: [README.md](README.md)
+- العربية summary: [SUMMARY.md](SUMMARY.md)
 - English docs hub: [../../README.md](../../README.md)
 - English summary: [../../SUMMARY.md](../../SUMMARY.md)
 
