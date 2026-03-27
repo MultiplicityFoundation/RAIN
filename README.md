@@ -32,6 +32,12 @@ The core differentiator is the "circuit breaker" workflow: when agents get stuck
 disagreement into a formal logic problem and push it through a sandboxed verification path instead of letting
 the conversation loop forever.
 
+<p align="center">
+  <a href="assets/hello.mp4" title="Play the R.A.I.N. Lab demo video">
+    <img src="assets/rain_lab.png" alt="R.A.I.N. Lab demo video preview" width="760" />
+  </a>
+</p>
+
 ## Start Fast
 
 Choose one install route, then use `python rain_lab.py` as the everyday product entrypoint.
