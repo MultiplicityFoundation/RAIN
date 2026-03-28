@@ -146,10 +146,7 @@ impl OtpValidator {
     fn record_failure(&self, now_secs: u64) {
         let mut state = self.failed_state.lock();
         // If a prior lockout has expired, reset the counter.
-        if state
-            .lockout_until
-            .is_some_and(|until| now_secs >= until)
-        {
+        if state.lockout_until.is_some_and(|until| now_secs >= until) {
             state.count = 0;
             state.lockout_until = None;
         }
