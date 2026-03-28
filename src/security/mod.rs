@@ -39,10 +39,10 @@ pub mod pairing;
 pub mod playbook;
 pub mod policy;
 pub mod prompt_guard;
+pub mod sanitizer;
 pub mod secrets;
 pub mod traits;
 pub mod vulnerability;
-pub mod workspace_boundary;
 
 #[allow(unused_imports)]
 pub use audit::{AuditEvent, AuditEventType, AuditLogger};
@@ -71,7 +71,9 @@ pub use leak_detector::{LeakDetector, LeakResult};
 #[allow(unused_imports)]
 pub use prompt_guard::{GuardAction, GuardResult, PromptGuard};
 #[allow(unused_imports)]
-pub use workspace_boundary::{BoundaryVerdict, WorkspaceBoundary};
+pub use sanitizer::{
+    sanitize_for_model_input, sanitize_for_user_output, ModelInputSource, SanitizedText,
+};
 
 /// Redact sensitive values for safe logging. Shows first 4 characters + "***" suffix.
 /// Uses char-boundary-safe indexing to avoid panics on multi-byte UTF-8 strings.

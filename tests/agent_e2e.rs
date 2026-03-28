@@ -9,8 +9,8 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use rain_labs::agent::{Agent, ToolDispatchMode};
 use rain_labs::agent::memory_loader::MemoryLoader;
+use rain_labs::agent::{Agent, ToolDispatchMode};
 use rain_labs::config::MemoryConfig;
 use rain_labs::memory;
 use rain_labs::memory::Memory;

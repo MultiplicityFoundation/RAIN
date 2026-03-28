@@ -381,11 +381,7 @@ fn xml_tool_response(name: &str, args: &str) -> ChatResponse {
 #[tokio::test]
 async fn turn_returns_text_when_no_tools_called() {
     let provider = Box::new(ScriptedProvider::new(vec![text_response("Hello world")]));
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let response = agent.turn("hi").await.unwrap();
     assert!(
@@ -409,11 +405,7 @@ async fn turn_executes_single_tool_then_returns() {
         text_response("I ran the tool"),
     ]));
 
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let response = agent.turn("run echo").await.unwrap();
     assert!(
@@ -513,11 +505,7 @@ async fn turn_handles_unknown_tool_gracefully() {
         text_response("I couldn't find that tool"),
     ]));
 
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let response = agent.turn("use nonexistent").await.unwrap();
     assert!(
@@ -591,11 +579,7 @@ async fn turn_recovers_from_tool_error() {
 
 #[tokio::test]
 async fn turn_propagates_provider_error() {
-    let mut agent = build_agent_with(
-        Box::new(FailingProvider),
-        vec![],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(Box::new(FailingProvider), vec![], ToolDispatchMode::Native);
 
     let result = agent.turn("hello").await;
     assert!(result.is_err(), "Expected provider error to propagate");
@@ -710,11 +694,7 @@ async fn xml_dispatcher_parses_and_loops() {
         text_response("XML tool completed"),
     ]));
 
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Xml,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Xml);
 
     let response = agent.turn("test xml").await.unwrap();
     assert!(
@@ -739,11 +719,7 @@ fn xml_mode_disables_native_tools_even_when_provider_supports_them() {
 #[tokio::test]
 async fn native_mode_still_allows_agent_turns() {
     let provider = Box::new(ScriptedProvider::new(vec![text_response("ok")]));
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let _ = agent.turn("hi").await.unwrap();
 }
@@ -803,11 +779,7 @@ async fn turn_preserves_text_alongside_tool_calls() {
         text_response("Here are the results"),
     ]));
 
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let response = agent.turn("check something").await.unwrap();
     assert!(
@@ -877,11 +849,7 @@ async fn turn_handles_multiple_tools_in_one_response() {
 #[tokio::test]
 async fn system_prompt_injected_on_first_turn() {
     let provider = Box::new(ScriptedProvider::new(vec![text_response("ok")]));
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     assert!(agent.history().is_empty(), "History should start empty");
 
@@ -889,7 +857,10 @@ async fn system_prompt_injected_on_first_turn() {
 
     // First message should be the system prompt
     let first = &agent.history()[0];
-    assert_eq!(first.role, "system", "First history entry should be system prompt");
+    assert_eq!(
+        first.role, "system",
+        "First history entry should be system prompt"
+    );
 }
 
 #[tokio::test]
@@ -898,11 +869,7 @@ async fn system_prompt_not_duplicated_on_second_turn() {
         text_response("first"),
         text_response("second"),
     ]));
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let _ = agent.turn("hi").await.unwrap();
     let _ = agent.turn("hello again").await.unwrap();
@@ -930,11 +897,7 @@ async fn history_contains_all_expected_entries_after_tool_loop() {
         text_response("final answer"),
     ]));
 
-    let mut agent = build_agent_with(
-        provider,
-        vec![Box::new(EchoTool)],
-        ToolDispatchMode::Native,
-    );
+    let mut agent = build_agent_with(provider, vec![Box::new(EchoTool)], ToolDispatchMode::Native);
 
     let _ = agent.turn("test").await.unwrap();
 
@@ -1021,7 +984,6 @@ async fn multi_turn_maintains_growing_history() {
 // ═══════════════════════════════════════════════════════════════════════════
 // 18. Tool call with stringified JSON arguments (common LLM pattern)
 // ═══════════════════════════════════════════════════════════════════════════
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 19. XML dispatcher edge cases

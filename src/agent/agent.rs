@@ -1022,11 +1022,11 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::ChatRequest;
     use async_trait::async_trait;
     use parking_lot::Mutex;
     use std::collections::HashMap;
     use tempfile::tempdir;
-    use crate::providers::ChatRequest;
 
     struct MockProvider {
         responses: Mutex<Vec<crate::providers::ChatResponse>>,
@@ -1273,10 +1273,7 @@ mod tests {
 
         let response = agent.turn("hi").await.unwrap();
         assert_eq!(response, "done");
-        assert!(agent
-            .history()
-            .iter()
-            .any(|msg| msg.role == "tool"));
+        assert!(agent.history().iter().any(|msg| msg.role == "tool"));
     }
 
     #[tokio::test]

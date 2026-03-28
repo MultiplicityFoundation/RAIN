@@ -2608,6 +2608,62 @@ mod tests {
     }
 
     #[test]
+    fn workspace_only_true_blocks_sibling_workspace_paths() {
+        let root = tempfile::TempDir::new().unwrap();
+        let workspaces_root = root.path().join("workspaces");
+        let active_workspace = workspaces_root.join("client_a").join("workspace");
+        let sibling_workspace = workspaces_root.join("client_b").join("workspace");
+
+        std::fs::create_dir_all(&active_workspace).unwrap();
+        std::fs::create_dir_all(&sibling_workspace).unwrap();
+
+        let active_file = active_workspace.join("notes.txt");
+        let sibling_file = sibling_workspace.join("notes.txt");
+        std::fs::write(&active_file, "active").unwrap();
+        std::fs::write(&sibling_file, "sibling").unwrap();
+
+        let policy = SecurityPolicy {
+            workspace_dir: active_workspace.canonicalize().unwrap(),
+            workspace_only: true,
+            ..SecurityPolicy::default()
+        };
+
+        assert!(
+            policy.is_resolved_path_allowed(&active_file.canonicalize().unwrap()),
+            "active workspace file should be allowed"
+        );
+        assert!(
+            !policy.is_resolved_path_allowed(&sibling_file.canonicalize().unwrap()),
+            "sibling workspace file must be blocked"
+        );
+    }
+
+    #[test]
+    fn workspace_only_true_blocks_unrelated_outside_paths() {
+        let root = tempfile::TempDir::new().unwrap();
+        let workspaces_root = root.path().join("workspaces");
+        let active_workspace = workspaces_root.join("client_a").join("workspace");
+        let unrelated_dir = root.path().join("shared-notes");
+
+        std::fs::create_dir_all(&active_workspace).unwrap();
+        std::fs::create_dir_all(&unrelated_dir).unwrap();
+
+        let unrelated_file = unrelated_dir.join("notes.txt");
+        std::fs::write(&unrelated_file, "outside").unwrap();
+
+        let policy = SecurityPolicy {
+            workspace_dir: active_workspace.canonicalize().unwrap(),
+            workspace_only: true,
+            ..SecurityPolicy::default()
+        };
+
+        assert!(
+            !policy.is_resolved_path_allowed(&unrelated_file.canonicalize().unwrap()),
+            "unrelated outside path must be blocked"
+        );
+    }
+
+    #[test]
     fn workspace_only_true_blocks_resolved_outside_workspace() {
         let workspace = std::env::temp_dir().join("rain_test_ws_only_true");
         let _ = std::fs::create_dir_all(&workspace);
