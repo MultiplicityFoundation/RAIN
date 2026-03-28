@@ -11,12 +11,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const OTP_SECRET_FILE: &str = "otp-secret";
 const OTP_DIGITS: u32 = 6;
 const OTP_ISSUER: &str = "R.A.I.N.";
+/// Lockout duration after exceeding `challenge_max_attempts`.
+const OTP_LOCKOUT_SECS: u64 = 300; // 5 minutes
 
 #[derive(Debug)]
 pub struct OtpValidator {
     config: OtpConfig,
     secret: Vec<u8>,
     cached_codes: Mutex<HashMap<String, u64>>,
+    /// Tracks consecutive failed validation attempts and optional lockout deadline.
+    failed_state: Mutex<OtpFailedState>,
+}
+
+#[derive(Debug, Clone)]
+struct OtpFailedState {
+    count: u32,
+    lockout_until: Option<u64>,
 }
 
 impl OtpValidator {
@@ -48,6 +58,10 @@ impl OtpValidator {
             config: config.clone(),
             secret,
             cached_codes: Mutex::new(HashMap::new()),
+            failed_state: Mutex::new(OtpFailedState {
+                count: 0,
+                lockout_until: None,
+            }),
         };
         let uri = if generated {
             Some(validator.otpauth_uri())
@@ -62,10 +76,26 @@ impl OtpValidator {
     }
 
     fn validate_at(&self, code: &str, now_secs: u64) -> Result<bool> {
+        // Rate limiting: check lockout before any validation work.
+        {
+            let state = self.failed_state.lock();
+            if let Some(until) = state.lockout_until {
+                if now_secs < until {
+                    let remaining = until.saturating_sub(now_secs);
+                    anyhow::bail!(
+                        "OTP locked out after {} failed attempts. Try again in {}s.",
+                        self.config.challenge_max_attempts,
+                        remaining
+                    );
+                }
+            }
+        }
+
         let normalized = code.trim();
         if normalized.len() != OTP_DIGITS as usize
             || !normalized.chars().all(|ch| ch.is_ascii_digit())
         {
+            self.record_failure(now_secs);
             return Ok(false);
         }
 
@@ -94,14 +124,44 @@ impl OtpValidator {
             .any(|candidate| candidate == normalized);
 
         if is_valid {
+            // Reset failure counter on success.
+            {
+                let mut state = self.failed_state.lock();
+                state.count = 0;
+                state.lockout_until = None;
+            }
             let mut cache = self.cached_codes.lock();
             cache.insert(
                 normalized.to_string(),
                 now_secs.saturating_add(self.config.cache_valid_secs),
             );
+        } else {
+            self.record_failure(now_secs);
         }
 
         Ok(is_valid)
+    }
+
+    /// Record a failed attempt and trigger lockout if threshold exceeded.
+    fn record_failure(&self, now_secs: u64) {
+        let mut state = self.failed_state.lock();
+        // If a prior lockout has expired, reset the counter.
+        if state
+            .lockout_until
+            .is_some_and(|until| now_secs >= until)
+        {
+            state.count = 0;
+            state.lockout_until = None;
+        }
+        state.count += 1;
+        if state.count >= self.config.challenge_max_attempts {
+            state.lockout_until = Some(now_secs.saturating_add(OTP_LOCKOUT_SECS));
+            tracing::warn!(
+                attempts = state.count,
+                lockout_secs = OTP_LOCKOUT_SECS,
+                "OTP brute-force lockout triggered"
+            );
+        }
     }
 
     pub fn otpauth_uri(&self) -> String {
@@ -293,6 +353,60 @@ mod tests {
         let store = SecretStore::new(dir.path(), true);
         let (validator, _) = OtpValidator::from_config(&test_config(), dir.path(), &store).unwrap();
         assert!(!validator.validate_at("123456", 1_700_000_000).unwrap());
+    }
+
+    #[test]
+    fn lockout_after_max_failed_attempts() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), true);
+        let mut cfg = test_config();
+        cfg.challenge_max_attempts = 3;
+        let (validator, _) = OtpValidator::from_config(&cfg, dir.path(), &store).unwrap();
+
+        let now = 1_700_000_000u64;
+
+        // Three wrong attempts should trigger lockout.
+        assert!(!validator.validate_at("000000", now).unwrap());
+        assert!(!validator.validate_at("000001", now).unwrap());
+        assert!(!validator.validate_at("000002", now).unwrap());
+
+        // Fourth attempt should return Err (locked out), not Ok(false).
+        let err = validator.validate_at("000003", now).unwrap_err();
+        assert!(
+            err.to_string().contains("locked out"),
+            "expected lockout error, got: {err}"
+        );
+
+        // After lockout expires, attempts work again.
+        let after_lockout = now + super::OTP_LOCKOUT_SECS;
+        assert!(!validator.validate_at("999999", after_lockout).unwrap());
+    }
+
+    #[test]
+    fn successful_validation_resets_failure_counter() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), true);
+        let mut cfg = test_config();
+        cfg.challenge_max_attempts = 3;
+        let (validator, _) = OtpValidator::from_config(&cfg, dir.path(), &store).unwrap();
+
+        let now = 1_700_000_000u64;
+
+        // Two failures (below threshold).
+        assert!(!validator.validate_at("000000", now).unwrap());
+        assert!(!validator.validate_at("000001", now).unwrap());
+
+        // Valid code resets the counter.
+        let code = validator.code_for_timestamp(now);
+        assert!(validator.validate_at(&code, now).unwrap());
+
+        // Two more failures should NOT trigger lockout (counter was reset).
+        assert!(!validator.validate_at("000000", now).unwrap());
+        assert!(!validator.validate_at("000001", now).unwrap());
+        // Third failure after reset triggers lockout.
+        assert!(!validator.validate_at("000002", now).unwrap());
+        let err = validator.validate_at("000003", now).unwrap_err();
+        assert!(err.to_string().contains("locked out"));
     }
 
     #[test]
