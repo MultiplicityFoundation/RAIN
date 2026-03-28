@@ -206,3 +206,134 @@ async fn finalize_draft_sends_fresh_message_after_successful_delete() {
         "sendMessage should be attempted exactly once after delete succeeds"
     );
 }
+
+#[tokio::test]
+async fn finalize_draft_with_attachment_skips_replacement_when_delete_fails() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/deleteMessage"))
+        .respond_with(
+            ResponseTemplate::new(400).set_body_json(telegram_error_response(
+                "Bad Request: message to delete not found",
+            )),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/sendDocument"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(telegram_ok_response(43)))
+        .mount(&server)
+        .await;
+
+    let channel = test_channel(&server.uri());
+    let result = channel
+        .finalize_draft("123", "42", "[DOCUMENT:https://example.com/report.pdf]")
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "delete failure should skip attachment replacement instead of erroring, got: {result:?}"
+    );
+
+    let requests = server
+        .received_requests()
+        .await
+        .expect("requests should be captured");
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|req| req.url.path() == "/botTEST_TOKEN/sendDocument")
+            .count(),
+        0,
+        "sendDocument should be skipped when deleteMessage fails"
+    );
+}
+
+#[tokio::test]
+async fn finalize_draft_with_attachment_sends_after_successful_delete() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/deleteMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(telegram_ok_response(42)))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/sendDocument"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(telegram_ok_response(43)))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let channel = test_channel(&server.uri());
+    let result = channel
+        .finalize_draft("123", "42", "[DOCUMENT:https://example.com/report.pdf]")
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "successful delete should allow attachment replacement, got: {result:?}"
+    );
+
+    let requests = server
+        .received_requests()
+        .await
+        .expect("requests should be captured");
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|req| req.url.path() == "/botTEST_TOKEN/sendDocument")
+            .count(),
+        1,
+        "sendDocument should be attempted exactly once after delete succeeds"
+    );
+}
+
+#[tokio::test]
+async fn finalize_draft_oversized_text_skips_chunk_send_when_delete_fails() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/deleteMessage"))
+        .respond_with(
+            ResponseTemplate::new(400).set_body_json(telegram_error_response(
+                "Bad Request: message to delete not found",
+            )),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/botTEST_TOKEN/sendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(telegram_ok_response(43)))
+        .mount(&server)
+        .await;
+
+    let channel = test_channel(&server.uri());
+    let long_text = "x".repeat(5000);
+    let result = channel.finalize_draft("123", "42", &long_text).await;
+
+    assert!(
+        result.is_ok(),
+        "delete failure should skip oversized replacement instead of erroring, got: {result:?}"
+    );
+
+    let requests = server
+        .received_requests()
+        .await
+        .expect("requests should be captured");
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|req| req.url.path() == "/botTEST_TOKEN/sendMessage")
+            .count(),
+        0,
+        "sendMessage should be skipped when deleteMessage fails for oversized text"
+    );
+}

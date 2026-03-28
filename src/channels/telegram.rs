@@ -638,6 +638,46 @@ impl TelegramChannel {
         EditMessageResult::Failed(status)
     }
 
+    async fn delete_draft_for_replacement(
+        &self,
+        chat_id: &str,
+        message_id: Option<i64>,
+        replacement_kind: &'static str,
+    ) -> bool {
+        let Some(id) = message_id else {
+            return true;
+        };
+
+        let delete_resp = self
+            .client
+            .post(self.api_url("deleteMessage"))
+            .json(&serde_json::json!({
+                "chat_id": chat_id,
+                "message_id": id,
+            }))
+            .send()
+            .await;
+
+        match delete_resp {
+            Ok(resp) if resp.status().is_success() => true,
+            Ok(resp) => {
+                tracing::warn!(
+                    status = ?resp.status(),
+                    replacement = replacement_kind,
+                    "Telegram finalize_draft delete failed; skipping replacement to avoid duplicate"
+                );
+                false
+            }
+            Err(err) => {
+                tracing::warn!(
+                    replacement = replacement_kind,
+                    "Telegram finalize_draft delete request failed: {err}; skipping replacement to avoid duplicate"
+                );
+                false
+            }
+        }
+    }
+
     async fn fetch_bot_username(&self) -> anyhow::Result<String> {
         let resp = self.http_client().get(self.api_url("getMe")).send().await?;
 
@@ -2416,17 +2456,11 @@ impl Channel for TelegramChannel {
         // If we have attachments, delete the draft and send fresh messages
         // (Telegram editMessageText can't add attachments)
         if !attachments.is_empty() {
-            // Delete the draft message
-            if let Some(id) = msg_id {
-                let _ = self
-                    .client
-                    .post(self.api_url("deleteMessage"))
-                    .json(&serde_json::json!({
-                        "chat_id": chat_id,
-                        "message_id": id,
-                    }))
-                    .send()
-                    .await;
+            if !self
+                .delete_draft_for_replacement(&chat_id, msg_id, "attachment replacement")
+                .await
+            {
+                return Ok(());
             }
 
             // Send text without markers
@@ -2446,16 +2480,11 @@ impl Channel for TelegramChannel {
 
         // If text exceeds limit, delete draft and send as chunked messages
         if text.len() > TELEGRAM_MAX_MESSAGE_LENGTH {
-            if let Some(id) = msg_id {
-                let _ = self
-                    .client
-                    .post(self.api_url("deleteMessage"))
-                    .json(&serde_json::json!({
-                        "chat_id": chat_id,
-                        "message_id": id,
-                    }))
-                    .send()
-                    .await;
+            if !self
+                .delete_draft_for_replacement(&chat_id, msg_id, "chunked replacement")
+                .await
+            {
+                return Ok(());
             }
 
             // Fall back to chunked send
@@ -2519,34 +2548,14 @@ impl Channel for TelegramChannel {
             }
         }
 
-        let delete_resp = self
-            .client
-            .post(self.api_url("deleteMessage"))
-            .json(&serde_json::json!({
-                "chat_id": chat_id,
-                "message_id": id,
-            }))
-            .send()
-            .await;
-
-        match delete_resp {
-            Ok(resp) if resp.status().is_success() => {
-                self.send_text_chunks(text, &chat_id, thread_id.as_deref())
-                    .await
-            }
-            Ok(resp) => {
-                tracing::warn!(
-                    status = ?resp.status(),
-                    "Telegram finalize_draft delete failed; skipping sendMessage to avoid duplicate"
-                );
-                Ok(())
-            }
-            Err(err) => {
-                tracing::warn!(
-                    "Telegram finalize_draft delete request failed: {err}; skipping sendMessage to avoid duplicate"
-                );
-                Ok(())
-            }
+        if self
+            .delete_draft_for_replacement(&chat_id, Some(id), "sendMessage fallback")
+            .await
+        {
+            self.send_text_chunks(text, &chat_id, thread_id.as_deref())
+                .await
+        } else {
+            Ok(())
         }
     }
 
