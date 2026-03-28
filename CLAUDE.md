@@ -481,3 +481,45 @@ When working in fast iterative mode:
 - Prefer deterministic behavior over clever shortcuts.
 - Do not “ship and hope” on security-sensitive paths.
 - If uncertain, leave a concrete TODO with verification context, not a hidden guess.
+
+## 13) gstack
+
+Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
+
+### Setup (for new teammates)
+
+```bash
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .claude/skills/gstack && (cd .claude/skills/gstack && ./setup --local)
+```
+
+### Available gstack skills:
+
+- `/office-hours`
+- `/plan-ceo-review`
+- `/plan-eng-review`
+- `/plan-design-review`
+- `/design-consultation`
+- `/design-shotgun`
+- `/review`
+- `/ship`
+- `/land-and-deploy`
+- `/canary`
+- `/benchmark`
+- `/browse`
+- `/connect-chrome`
+- `/qa`
+- `/qa-only`
+- `/design-review`
+- `/setup-browser-cookies`
+- `/setup-deploy`
+- `/retro`
+- `/investigate`
+- `/document-release`
+- `/codex`
+- `/cso`
+- `/autoplan`
+- `/careful`
+- `/freeze`
+- `/guard`
+- `/unfreeze`
+- `/gstack-upgrade`
