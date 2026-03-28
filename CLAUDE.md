@@ -489,7 +489,7 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 ### Setup (for new teammates)
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .claude/skills/gstack && cd .claude/skills/gstack && ./setup --local
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .claude/skills/gstack && (cd .claude/skills/gstack && ./setup --local)
 ```
 
 ### Available gstack skills:
