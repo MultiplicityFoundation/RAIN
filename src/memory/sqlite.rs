@@ -8,6 +8,8 @@ use parking_lot::Mutex;
 use rusqlite::{params, Connection};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
@@ -32,6 +34,58 @@ pub struct SqliteMemory {
     vector_weight: f32,
     keyword_weight: f32,
     cache_max: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct RecallFilters<'a> {
+    category: Option<&'a str>,
+    session_id: Option<&'a str>,
+    since: Option<&'a str>,
+    until: Option<&'a str>,
+}
+
+#[derive(Debug)]
+struct VectorCandidate {
+    id: String,
+    embedding_blob: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct HydratedMemoryRow {
+    id: String,
+    key: String,
+    content: String,
+    category: String,
+    created_at: String,
+    session_id: Option<String>,
+}
+
+#[derive(Debug)]
+struct RankedVectorResult {
+    id: String,
+    score: f32,
+}
+
+impl PartialEq for RankedVectorResult {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.score.total_cmp(&other.score).is_eq()
+    }
+}
+
+impl Eq for RankedVectorResult {}
+
+impl PartialOrd for RankedVectorResult {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RankedVectorResult {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.score
+            .total_cmp(&other.score)
+            .then_with(|| self.id.cmp(&other.id))
+    }
 }
 
 impl SqliteMemory {
@@ -139,6 +193,7 @@ impl SqliteMemory {
             );
             CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
             CREATE INDEX IF NOT EXISTS idx_memories_key ON memories(key);
+            CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
 
             -- FTS5 full-text search (BM25 scoring)
             CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -178,10 +233,18 @@ impl SqliteMemory {
             .contains("session_id");
         if !has_session_id {
             conn.execute_batch(
-                "ALTER TABLE memories ADD COLUMN session_id TEXT;
-                 CREATE INDEX IF NOT EXISTS idx_memories_session ON memories(session_id);",
+                "ALTER TABLE memories ADD COLUMN session_id TEXT;",
             )?;
         }
+
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_memories_session ON memories(session_id);
+             CREATE INDEX IF NOT EXISTS idx_memories_session_created_at ON memories(session_id, created_at);
+             CREATE INDEX IF NOT EXISTS idx_memories_embedding_created_at
+                 ON memories(created_at) WHERE embedding IS NOT NULL;
+             CREATE INDEX IF NOT EXISTS idx_memories_embedding_session_created_at
+                 ON memories(session_id, created_at) WHERE embedding IS NOT NULL;",
+        )?;
 
         Ok(())
     }
@@ -284,11 +347,41 @@ impl SqliteMemory {
         Ok(Some(embedding))
     }
 
+    fn push_recall_filters(
+        sql: &mut String,
+        param_values: &mut Vec<Box<dyn rusqlite::types::ToSql>>,
+        idx: &mut usize,
+        column_prefix: &str,
+        filters: RecallFilters<'_>,
+    ) {
+        if let Some(cat) = filters.category {
+            let _ = write!(sql, " AND {column_prefix}category = ?{idx}");
+            param_values.push(Box::new(cat.to_string()));
+            *idx += 1;
+        }
+        if let Some(sid) = filters.session_id {
+            let _ = write!(sql, " AND {column_prefix}session_id = ?{idx}");
+            param_values.push(Box::new(sid.to_string()));
+            *idx += 1;
+        }
+        if let Some(since) = filters.since {
+            let _ = write!(sql, " AND {column_prefix}created_at >= ?{idx}");
+            param_values.push(Box::new(since.to_string()));
+            *idx += 1;
+        }
+        if let Some(until) = filters.until {
+            let _ = write!(sql, " AND {column_prefix}created_at <= ?{idx}");
+            param_values.push(Box::new(until.to_string()));
+            *idx += 1;
+        }
+    }
+
     /// FTS5 BM25 keyword search
-    fn fts5_search(
+    fn load_keyword_hits(
         conn: &Connection,
         query: &str,
         limit: usize,
+        filters: RecallFilters<'_>,
     ) -> anyhow::Result<Vec<(String, f32)>> {
         // Escape FTS5 special chars and build query
         let fts_query: String = query
@@ -301,18 +394,23 @@ impl SqliteMemory {
             return Ok(Vec::new());
         }
 
-        let sql = "SELECT m.id, bm25(memories_fts) as score
-                   FROM memories_fts f
-                   JOIN memories m ON m.rowid = f.rowid
-                   WHERE memories_fts MATCH ?1
-                   ORDER BY score
-                   LIMIT ?2";
-
-        let mut stmt = conn.prepare(sql)?;
+        let mut sql = "SELECT m.id, bm25(memories_fts) as score
+                       FROM memories_fts f
+                       JOIN memories m ON m.rowid = f.rowid
+                       WHERE memories_fts MATCH ?1"
+            .to_string();
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(fts_query)];
+        let mut idx = 2;
+        Self::push_recall_filters(&mut sql, &mut param_values, &mut idx, "m.", filters);
+        let _ = write!(sql, " ORDER BY score LIMIT ?{idx}");
         #[allow(clippy::cast_possible_wrap)]
-        let limit_i64 = limit as i64;
+        param_values.push(Box::new(limit as i64));
 
-        let rows = stmt.query_map(params![fts_query, limit_i64], |row| {
+        let mut stmt = conn.prepare(&sql)?;
+        #[allow(clippy::cast_possible_wrap)]
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(AsRef::as_ref).collect();
+        let rows = stmt.query_map(params_ref.as_slice(), |row| {
             let id: String = row.get(0)?;
             let score: f64 = row.get(1)?;
             // BM25 returns negative scores (lower = better), negate for ranking
@@ -327,30 +425,14 @@ impl SqliteMemory {
         Ok(results)
     }
 
-    /// Vector similarity search: scan embeddings and compute cosine similarity.
-    ///
-    /// Optional `category` and `session_id` filters reduce full-table scans
-    /// when the caller already knows the scope of relevant memories.
-    fn vector_search(
+    fn load_vector_candidates(
         conn: &Connection,
-        query_embedding: &[f32],
-        limit: usize,
-        category: Option<&str>,
-        session_id: Option<&str>,
-    ) -> anyhow::Result<Vec<(String, f32)>> {
+        filters: RecallFilters<'_>,
+    ) -> anyhow::Result<Vec<VectorCandidate>> {
         let mut sql = "SELECT id, embedding FROM memories WHERE embedding IS NOT NULL".to_string();
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
         let mut idx = 1;
-
-        if let Some(cat) = category {
-            let _ = write!(sql, " AND category = ?{idx}");
-            param_values.push(Box::new(cat.to_string()));
-            idx += 1;
-        }
-        if let Some(sid) = session_id {
-            let _ = write!(sql, " AND session_id = ?{idx}");
-            param_values.push(Box::new(sid.to_string()));
-        }
+        Self::push_recall_filters(&mut sql, &mut param_values, &mut idx, "", filters);
 
         let mut stmt = conn.prepare(&sql)?;
         let params_ref: Vec<&dyn rusqlite::types::ToSql> =
@@ -358,22 +440,163 @@ impl SqliteMemory {
         let rows = stmt.query_map(params_ref.as_slice(), |row| {
             let id: String = row.get(0)?;
             let blob: Vec<u8> = row.get(1)?;
-            Ok((id, blob))
+            Ok(VectorCandidate {
+                id,
+                embedding_blob: blob,
+            })
         })?;
 
-        let mut scored: Vec<(String, f32)> = Vec::new();
+        let mut candidates = Vec::new();
         for row in rows {
-            let (id, blob) = row?;
-            let emb = vector::bytes_to_vec(&blob);
+            candidates.push(row?);
+        }
+        Ok(candidates)
+    }
+
+    fn score_vector_candidates(
+        query_embedding: &[f32],
+        candidates: Vec<VectorCandidate>,
+        limit: usize,
+    ) -> Vec<(String, f32)> {
+        if limit == 0 || query_embedding.is_empty() {
+            return Vec::new();
+        }
+
+        let mut heap: BinaryHeap<Reverse<RankedVectorResult>> = BinaryHeap::new();
+
+        for candidate in candidates {
+            let emb = vector::bytes_to_vec(&candidate.embedding_blob);
             let sim = vector::cosine_similarity(query_embedding, &emb);
-            if sim > 0.0 {
-                scored.push((id, sim));
+            if sim <= 0.0 {
+                continue;
+            }
+
+            let ranked = Reverse(RankedVectorResult {
+                id: candidate.id,
+                score: sim,
+            });
+
+            if heap.len() < limit {
+                heap.push(ranked);
+                continue;
+            }
+
+            if let Some(mut smallest) = heap.peek_mut() {
+                if ranked.0 > smallest.0 {
+                    *smallest = ranked;
+                }
             }
         }
 
+        let mut scored: Vec<(String, f32)> = heap
+            .into_iter()
+            .map(|Reverse(item)| (item.id, item.score))
+            .collect();
+
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(limit);
-        Ok(scored)
+        scored
+    }
+
+    fn load_entries_by_ids(
+        conn: &Connection,
+        ids: &[String],
+    ) -> anyhow::Result<HashMap<String, HydratedMemoryRow>> {
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let placeholders: String = (1..=ids.len())
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT id, key, content, category, created_at, session_id \
+             FROM memories WHERE id IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let id_params: Vec<Box<dyn rusqlite::types::ToSql>> = ids
+            .iter()
+            .map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+            id_params.iter().map(AsRef::as_ref).collect();
+        let rows = stmt.query_map(params_ref.as_slice(), |row| {
+            Ok(HydratedMemoryRow {
+                id: row.get(0)?,
+                key: row.get(1)?,
+                content: row.get(2)?,
+                category: row.get(3)?,
+                created_at: row.get(4)?,
+                session_id: row.get(5)?,
+            })
+        })?;
+
+        let mut entry_map = HashMap::new();
+        for row in rows {
+            let row = row?;
+            entry_map.insert(row.id.clone(), row);
+        }
+        Ok(entry_map)
+    }
+
+    fn load_like_fallback(
+        conn: &Connection,
+        query: &str,
+        limit: usize,
+        filters: RecallFilters<'_>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        const MAX_LIKE_KEYWORDS: usize = 8;
+        let keywords: Vec<String> = query
+            .split_whitespace()
+            .take(MAX_LIKE_KEYWORDS)
+            .map(|w| format!("%{w}%"))
+            .collect();
+
+        if keywords.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let conditions: Vec<String> = keywords
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("(content LIKE ?{} OR key LIKE ?{})", i * 2 + 1, i * 2 + 2))
+            .collect();
+        let mut sql = format!(
+            "SELECT id, key, content, category, created_at, session_id FROM memories
+             WHERE ({})",
+            conditions.join(" OR ")
+        );
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        for kw in &keywords {
+            param_values.push(Box::new(kw.clone()));
+            param_values.push(Box::new(kw.clone()));
+        }
+        let mut idx = keywords.len() * 2 + 1;
+        Self::push_recall_filters(&mut sql, &mut param_values, &mut idx, "", filters);
+        let _ = write!(sql, " ORDER BY updated_at DESC LIMIT ?{idx}");
+        #[allow(clippy::cast_possible_wrap)]
+        param_values.push(Box::new(limit as i64));
+
+        let mut stmt = conn.prepare(&sql)?;
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(AsRef::as_ref).collect();
+        let rows = stmt.query_map(params_ref.as_slice(), |row| {
+            Ok(MemoryEntry {
+                id: row.get(0)?,
+                key: row.get(1)?,
+                content: row.get(2)?,
+                category: Self::str_to_category(&row.get::<_, String>(3)?),
+                timestamp: row.get(4)?,
+                session_id: row.get(5)?,
+                score: Some(1.0),
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
     }
 
     /// Safe reindex: rebuild FTS5 + embeddings with rollback on failure
@@ -551,6 +774,10 @@ impl Memory for SqliteMemory {
         since: Option<&str>,
         until: Option<&str>,
     ) -> anyhow::Result<Vec<MemoryEntry>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
         // Time-only query: list by time range when no keywords
         if query.trim().is_empty() {
             return self
@@ -570,17 +797,29 @@ impl Memory for SqliteMemory {
         let keyword_weight = self.keyword_weight;
 
         tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<MemoryEntry>> {
-            let conn = conn.lock();
             let session_ref = sid.as_deref();
-            let since_ref = since_owned.as_deref();
-            let until_ref = until_owned.as_deref();
+            let filters = RecallFilters {
+                category: None,
+                session_id: session_ref,
+                since: since_owned.as_deref(),
+                until: until_owned.as_deref(),
+            };
 
-            // FTS5 BM25 keyword search
-            let keyword_results = Self::fts5_search(&conn, &query, limit * 2).unwrap_or_default();
+            let (keyword_results, vector_candidates) = {
+                let conn = conn.lock();
+                let keyword_results =
+                    Self::load_keyword_hits(&conn, &query, limit * 2, filters).unwrap_or_default();
+                let vector_candidates = if query_embedding.is_some() {
+                    Self::load_vector_candidates(&conn, filters).unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                (keyword_results, vector_candidates)
+            };
 
-            // Vector similarity search (if embeddings available)
+            // Important: all vector math happens after the connection lock is dropped.
             let vector_results = if let Some(ref qe) = query_embedding {
-                Self::vector_search(&conn, qe, limit * 2, None, session_ref).unwrap_or_default()
+                Self::score_vector_candidates(qe, vector_candidates, limit * 2)
             } else {
                 Vec::new()
             };
@@ -606,68 +845,25 @@ impl Memory for SqliteMemory {
                 )
             };
 
-            // Fetch full entries for merged results in a single query
-            // instead of N round-trips (N+1 pattern).
             let mut results = Vec::new();
             if !merged.is_empty() {
-                let placeholders: String = (1..=merged.len())
-                    .map(|i| format!("?{i}"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let sql = format!(
-                    "SELECT id, key, content, category, created_at, session_id \
-                     FROM memories WHERE id IN ({placeholders})"
-                );
-                let mut stmt = conn.prepare(&sql)?;
-                let id_params: Vec<Box<dyn rusqlite::types::ToSql>> = merged
-                    .iter()
-                    .map(|s| Box::new(s.id.clone()) as Box<dyn rusqlite::types::ToSql>)
-                    .collect();
-                let params_ref: Vec<&dyn rusqlite::types::ToSql> =
-                    id_params.iter().map(AsRef::as_ref).collect();
-                let rows = stmt.query_map(params_ref.as_slice(), |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, String>(3)?,
-                        row.get::<_, String>(4)?,
-                        row.get::<_, Option<String>>(5)?,
-                    ))
-                })?;
-
-                let mut entry_map = std::collections::HashMap::new();
-                for row in rows {
-                    let (id, key, content, cat, ts, sid) = row?;
-                    entry_map.insert(id, (key, content, cat, ts, sid));
-                }
+                let ids: Vec<String> = merged.iter().map(|scored| scored.id.clone()).collect();
+                let entry_map = {
+                    let conn = conn.lock();
+                    Self::load_entries_by_ids(&conn, &ids)?
+                };
 
                 for scored in &merged {
-                    if let Some((key, content, cat, ts, sid)) = entry_map.remove(&scored.id) {
-                        if let Some(s) = since_ref {
-                            if ts.as_str() < s {
-                                continue;
-                            }
-                        }
-                        if let Some(u) = until_ref {
-                            if ts.as_str() > u {
-                                continue;
-                            }
-                        }
+                    if let Some(row) = entry_map.get(&scored.id) {
                         let entry = MemoryEntry {
                             id: scored.id.clone(),
-                            key,
-                            content,
-                            category: Self::str_to_category(&cat),
-                            timestamp: ts,
-                            session_id: sid,
+                            key: row.key.clone(),
+                            content: row.content.clone(),
+                            category: Self::str_to_category(&row.category),
+                            timestamp: row.created_at.clone(),
+                            session_id: row.session_id.clone(),
                             score: Some(f64::from(scored.final_score)),
                         };
-                        if let Some(filter_sid) = session_ref {
-                            if entry.session_id.as_deref() != Some(filter_sid) {
-                                continue;
-                            }
-                        }
                         results.push(entry);
                     }
                 }
@@ -675,74 +871,8 @@ impl Memory for SqliteMemory {
 
             // If hybrid returned nothing, fall back to LIKE search.
             if results.is_empty() {
-                const MAX_LIKE_KEYWORDS: usize = 8;
-                let keywords: Vec<String> = query
-                    .split_whitespace()
-                    .take(MAX_LIKE_KEYWORDS)
-                    .map(|w| format!("%{w}%"))
-                    .collect();
-                if !keywords.is_empty() {
-                    let conditions: Vec<String> = keywords
-                        .iter()
-                        .enumerate()
-                        .map(|(i, _)| {
-                            format!("(content LIKE ?{} OR key LIKE ?{})", i * 2 + 1, i * 2 + 2)
-                        })
-                        .collect();
-                    let where_clause = conditions.join(" OR ");
-                    let mut param_idx = keywords.len() * 2 + 1;
-                    let mut time_conditions = String::new();
-                    if since_ref.is_some() {
-                        let _ = write!(time_conditions, " AND created_at >= ?{param_idx}");
-                        param_idx += 1;
-                    }
-                    if until_ref.is_some() {
-                        let _ = write!(time_conditions, " AND created_at <= ?{param_idx}");
-                        param_idx += 1;
-                    }
-                    let sql = format!(
-                        "SELECT id, key, content, category, created_at, session_id FROM memories
-                         WHERE {where_clause}{time_conditions}
-                         ORDER BY updated_at DESC
-                         LIMIT ?{param_idx}"
-                    );
-                    let mut stmt = conn.prepare(&sql)?;
-                    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-                    for kw in &keywords {
-                        param_values.push(Box::new(kw.clone()));
-                        param_values.push(Box::new(kw.clone()));
-                    }
-                    if let Some(s) = since_ref {
-                        param_values.push(Box::new(s.to_string()));
-                    }
-                    if let Some(u) = until_ref {
-                        param_values.push(Box::new(u.to_string()));
-                    }
-                    #[allow(clippy::cast_possible_wrap)]
-                    param_values.push(Box::new(limit as i64));
-                    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
-                        param_values.iter().map(AsRef::as_ref).collect();
-                    let rows = stmt.query_map(params_ref.as_slice(), |row| {
-                        Ok(MemoryEntry {
-                            id: row.get(0)?,
-                            key: row.get(1)?,
-                            content: row.get(2)?,
-                            category: Self::str_to_category(&row.get::<_, String>(3)?),
-                            timestamp: row.get(4)?,
-                            session_id: row.get(5)?,
-                            score: Some(1.0),
-                        })
-                    })?;
-                    for row in rows {
-                        let entry = row?;
-                        if let Some(sid) = session_ref {
-                            if entry.session_id.as_deref() != Some(sid) {
-                                continue;
-                            }
-                        }
-                        results.push(entry);
-                    }
-                }
+                let conn = conn.lock();
+                results = Self::load_like_fallback(&conn, &query, limit, filters)?;
             }
 
             results.truncate(limit);
@@ -889,6 +1019,24 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mem = SqliteMemory::new(tmp.path()).unwrap();
         (tmp, mem)
+    }
+
+    fn set_embedding_by_key(mem: &SqliteMemory, key: &str, embedding: &[f32]) {
+        let conn = mem.conn.lock();
+        conn.execute(
+            "UPDATE memories SET embedding = ?1 WHERE key = ?2",
+            params![vector::vec_to_bytes(embedding), key],
+        )
+        .unwrap();
+    }
+
+    fn set_timestamps_by_key(mem: &SqliteMemory, key: &str, created_at: &str, updated_at: &str) {
+        let conn = mem.conn.lock();
+        conn.execute(
+            "UPDATE memories SET created_at = ?1, updated_at = ?2 WHERE key = ?3",
+            params![created_at, updated_at, key],
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1158,6 +1306,186 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn load_keyword_hits_respects_session_and_time_filters() {
+        let (_tmp, mem) = temp_sqlite();
+        mem.store(
+            "keep",
+            "cipher garden midnight notes",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "wrong_session",
+            "cipher garden other session",
+            MemoryCategory::Core,
+            Some("sess-b"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "too_old",
+            "cipher garden archive",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+
+        set_timestamps_by_key(
+            &mem,
+            "keep",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "wrong_session",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "too_old",
+            "2026-02-01T12:00:00+00:00",
+            "2026-02-01T12:00:00+00:00",
+        );
+
+        let hits = {
+            let conn = mem.conn.lock();
+            SqliteMemory::load_keyword_hits(
+                &conn,
+                "cipher garden",
+                10,
+                RecallFilters {
+                    category: None,
+                    session_id: Some("sess-a"),
+                    since: Some("2026-03-01T00:00:00+00:00"),
+                    until: Some("2026-03-31T23:59:59+00:00"),
+                },
+            )
+            .unwrap()
+        };
+
+        let hit_ids: Vec<String> = hits.into_iter().map(|(id, _)| id).collect();
+        assert_eq!(hit_ids.len(), 1);
+        let expected_id = mem.get("keep").await.unwrap().unwrap().id;
+        assert_eq!(hit_ids[0], expected_id);
+    }
+
+    #[tokio::test]
+    async fn load_vector_candidates_respects_session_and_time_filters() {
+        let (_tmp, mem) = temp_sqlite();
+        mem.store(
+            "keep",
+            "semantic keep",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "wrong_session",
+            "semantic wrong session",
+            MemoryCategory::Core,
+            Some("sess-b"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "too_new",
+            "semantic future",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "no_embedding",
+            "semantic no embedding",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+
+        set_embedding_by_key(&mem, "keep", &[1.0, 0.0]);
+        set_embedding_by_key(&mem, "wrong_session", &[0.8, 0.2]);
+        set_embedding_by_key(&mem, "too_new", &[0.9, 0.1]);
+        set_timestamps_by_key(
+            &mem,
+            "keep",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "wrong_session",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "too_new",
+            "2026-04-10T12:00:00+00:00",
+            "2026-04-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "no_embedding",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+
+        let candidates = {
+            let conn = mem.conn.lock();
+            SqliteMemory::load_vector_candidates(
+                &conn,
+                RecallFilters {
+                    category: None,
+                    session_id: Some("sess-a"),
+                    since: Some("2026-03-01T00:00:00+00:00"),
+                    until: Some("2026-03-31T23:59:59+00:00"),
+                },
+            )
+            .unwrap()
+        };
+
+        assert_eq!(candidates.len(), 1);
+        let expected_id = mem.get("keep").await.unwrap().unwrap().id;
+        assert_eq!(candidates[0].id, expected_id);
+    }
+
+    #[test]
+    fn score_vector_candidates_returns_top_k_only() {
+        let candidates = vec![
+            VectorCandidate {
+                id: "top".into(),
+                embedding_blob: vector::vec_to_bytes(&[1.0, 0.0]),
+            },
+            VectorCandidate {
+                id: "second".into(),
+                embedding_blob: vector::vec_to_bytes(&[0.8, 0.2]),
+            },
+            VectorCandidate {
+                id: "third".into(),
+                embedding_blob: vector::vec_to_bytes(&[0.2, 0.8]),
+            },
+            VectorCandidate {
+                id: "drop".into(),
+                embedding_blob: vector::vec_to_bytes(&[0.0, 1.0]),
+            },
+        ];
+
+        let scored = SqliteMemory::score_vector_candidates(&[1.0, 0.0], candidates, 2);
+        assert_eq!(scored.len(), 2);
+        assert_eq!(scored[0].0, "top");
+        assert_eq!(scored[1].0, "second");
+        assert!(scored[0].1 >= scored[1].1);
+    }
+
+    #[tokio::test]
     async fn recall_empty_query_returns_recent_entries() {
         let (_tmp, mem) = temp_sqlite();
         mem.store("a", "data", MemoryCategory::Core, None)
@@ -1235,6 +1563,27 @@ mod tests {
         // Check that embedding column exists by querying it
         let result = conn.execute_batch("SELECT embedding FROM memories LIMIT 0");
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn schema_has_recall_filter_indexes() {
+        let (_tmp, mem) = temp_sqlite();
+        let conn = mem.conn.lock();
+        for index_name in [
+            "idx_memories_created_at",
+            "idx_memories_session_created_at",
+            "idx_memories_embedding_created_at",
+            "idx_memories_embedding_session_created_at",
+        ] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name = ?1",
+                    params![index_name],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "missing expected index {index_name}");
+        }
     }
 
     // ── FTS5 sync trigger tests ──────────────────────────────────
