@@ -18,6 +18,10 @@ use uuid::Uuid;
 
 /// Maximum allowed open timeout (seconds) to avoid unreasonable waits.
 const SQLITE_OPEN_TIMEOUT_CAP_SECS: u64 = 300;
+const LSH_BAND_COUNT: usize = 8;
+const LSH_BITS_PER_BAND: usize = 12;
+const LSH_CANDIDATE_MULTIPLIER: usize = 16;
+const LSH_MIN_CANDIDATES: usize = 64;
 
 /// SQLite-backed persistent memory — the brain
 ///
@@ -223,7 +227,16 @@ impl SqliteMemory {
                 created_at   TEXT NOT NULL,
                 accessed_at  TEXT NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_cache_accessed ON embedding_cache(accessed_at);",
+            CREATE INDEX IF NOT EXISTS idx_cache_accessed ON embedding_cache(accessed_at);
+
+            CREATE TABLE IF NOT EXISTS memory_embedding_bands (
+                memory_id TEXT NOT NULL,
+                band      INTEGER NOT NULL,
+                hash      INTEGER NOT NULL,
+                PRIMARY KEY (memory_id, band)
+            );
+            CREATE INDEX IF NOT EXISTS idx_memory_embedding_bands_lookup
+                ON memory_embedding_bands(band, hash);",
         )?;
 
         // Migration: add session_id column if not present (safe to run repeatedly)
@@ -282,6 +295,65 @@ impl SqliteMemory {
                     .expect("SHA-256 always produces >= 8 bytes")
             )
         )
+    }
+
+    fn projection_seed(band: usize, bit: usize, dim: usize) -> u64 {
+        let mut z = ((band as u64) << 48) ^ ((bit as u64) << 32) ^ dim as u64;
+        z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    fn embedding_band_hashes(embedding: &[f32]) -> Vec<(i64, i64)> {
+        if embedding.is_empty() {
+            return Vec::new();
+        }
+
+        let mut hashes = Vec::with_capacity(LSH_BAND_COUNT);
+        for band in 0..LSH_BAND_COUNT {
+            let mut hash = 0_u64;
+            for bit in 0..LSH_BITS_PER_BAND {
+                let mut projection = 0.0_f64;
+                for (dim, value) in embedding.iter().enumerate() {
+                    match Self::projection_seed(band, bit, dim) & 0b111 {
+                        0 => projection += f64::from(*value),
+                        1 => projection -= f64::from(*value),
+                        _ => {}
+                    }
+                }
+                if projection >= 0.0 {
+                    hash |= 1 << bit;
+                }
+            }
+            hashes.push((band as i64, hash as i64));
+        }
+        hashes
+    }
+
+    fn replace_embedding_bands(
+        conn: &Connection,
+        memory_id: &str,
+        embedding: &[f32],
+    ) -> anyhow::Result<()> {
+        conn.execute(
+            "DELETE FROM memory_embedding_bands WHERE memory_id = ?1",
+            params![memory_id],
+        )?;
+
+        let band_hashes = Self::embedding_band_hashes(embedding);
+        let mut stmt = conn.prepare(
+            "INSERT OR REPLACE INTO memory_embedding_bands (memory_id, band, hash)
+             VALUES (?1, ?2, ?3)",
+        )?;
+        for (band, hash) in band_hashes {
+            stmt.execute(params![memory_id, band, hash])?;
+        }
+        Ok(())
+    }
+
+    fn band_candidate_limit(limit: usize) -> usize {
+        std::cmp::max(limit.saturating_mul(LSH_CANDIDATE_MULTIPLIER), LSH_MIN_CANDIDATES)
     }
 
     /// Get embedding from cache, or compute + cache it
@@ -443,6 +515,87 @@ impl SqliteMemory {
             Ok(VectorCandidate {
                 id,
                 embedding_blob: blob,
+            })
+        })?;
+
+        let mut candidates = Vec::new();
+        for row in rows {
+            candidates.push(row?);
+        }
+        Ok(candidates)
+    }
+
+    fn load_vector_candidate_ids(
+        conn: &Connection,
+        band_hashes: &[(i64, i64)],
+        filters: RecallFilters<'_>,
+        limit: usize,
+    ) -> anyhow::Result<Vec<String>> {
+        if band_hashes.is_empty() || limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut sql = "SELECT m.id, COUNT(*) as band_hits, MAX(m.updated_at) as updated_at
+                       FROM memory_embedding_bands b
+                       JOIN memories m ON m.id = b.memory_id
+                       WHERE ("
+            .to_string();
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        let mut idx = 1;
+
+        for (position, (band, hash)) in band_hashes.iter().enumerate() {
+            if position > 0 {
+                sql.push_str(" OR ");
+            }
+            let _ = write!(sql, "(b.band = ?{idx} AND b.hash = ?{})", idx + 1);
+            param_values.push(Box::new(*band));
+            param_values.push(Box::new(*hash));
+            idx += 2;
+        }
+
+        sql.push(')');
+        sql.push_str(" AND m.embedding IS NOT NULL");
+        Self::push_recall_filters(&mut sql, &mut param_values, &mut idx, "m.", filters);
+        let _ = write!(sql, " GROUP BY m.id ORDER BY band_hits DESC, updated_at DESC LIMIT ?{idx}");
+        #[allow(clippy::cast_possible_wrap)]
+        param_values.push(Box::new(limit as i64));
+
+        let mut stmt = conn.prepare(&sql)?;
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(AsRef::as_ref).collect();
+        let rows = stmt.query_map(params_ref.as_slice(), |row| row.get::<_, String>(0))?;
+
+        let mut ids = Vec::new();
+        for row in rows {
+            ids.push(row?);
+        }
+        Ok(ids)
+    }
+
+    fn load_vector_candidates_by_ids(
+        conn: &Connection,
+        ids: &[String],
+    ) -> anyhow::Result<Vec<VectorCandidate>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let placeholders: String = (1..=ids.len())
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!("SELECT id, embedding FROM memories WHERE id IN ({placeholders})");
+        let mut stmt = conn.prepare(&sql)?;
+        let id_params: Vec<Box<dyn rusqlite::types::ToSql>> = ids
+            .iter()
+            .map(|id| Box::new(id.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+            id_params.iter().map(AsRef::as_ref).collect();
+        let rows = stmt.query_map(params_ref.as_slice(), |row| {
+            Ok(VectorCandidate {
+                id: row.get(0)?,
+                embedding_blob: row.get(1)?,
             })
         })?;
 
@@ -633,19 +786,45 @@ impl SqliteMemory {
         for (id, content) in &entries {
             if let Ok(Some(emb)) = self.get_or_compute_embedding(content).await {
                 let bytes = vector::vec_to_bytes(&emb);
+                let emb_for_index = emb.clone();
                 let conn = self.conn.clone();
                 let id = id.clone();
                 tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
                     let conn = conn.lock();
                     conn.execute(
                         "UPDATE memories SET embedding = ?1 WHERE id = ?2",
-                        params![bytes, id],
+                        params![bytes, &id],
                     )?;
+                    Self::replace_embedding_bands(&conn, &id, &emb_for_index)?;
                     Ok(())
                 })
                 .await??;
                 count += 1;
             }
+        }
+
+        let conn = self.conn.clone();
+        let indexed_entries: Vec<(String, Vec<u8>)> = tokio::task::spawn_blocking(move || {
+            let conn = conn.lock();
+            let mut stmt = conn.prepare(
+                "SELECT id, embedding FROM memories WHERE embedding IS NOT NULL",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })?;
+            Ok::<_, anyhow::Error>(rows.filter_map(std::result::Result::ok).collect())
+        })
+        .await??;
+
+        for (id, embedding_blob) in indexed_entries {
+            let embedding = vector::bytes_to_vec(&embedding_blob);
+            let conn = self.conn.clone();
+            tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+                let conn = conn.lock();
+                Self::replace_embedding_bands(&conn, &id, &embedding)?;
+                Ok(())
+            })
+            .await??;
         }
 
         Ok(count)
@@ -734,10 +913,8 @@ impl Memory for SqliteMemory {
         session_id: Option<&str>,
     ) -> anyhow::Result<()> {
         // Compute embedding (async, before blocking work)
-        let embedding_bytes = self
-            .get_or_compute_embedding(content)
-            .await?
-            .map(|emb| vector::vec_to_bytes(&emb));
+        let embedding = self.get_or_compute_embedding(content).await?;
+        let embedding_bytes = embedding.as_deref().map(vector::vec_to_bytes);
 
         let conn = self.conn.clone();
         let key = key.to_string();
@@ -759,8 +936,21 @@ impl Memory for SqliteMemory {
                     embedding = excluded.embedding,
                     updated_at = excluded.updated_at,
                     session_id = excluded.session_id",
-                params![id, key, content, cat, embedding_bytes, now, now, sid],
+                params![id, &key, &content, cat, embedding_bytes, now, now, sid],
             )?;
+
+            let memory_id: String =
+                conn.query_row("SELECT id FROM memories WHERE key = ?1", params![&key], |row| {
+                    row.get(0)
+                })?;
+            if let Some(embedding) = embedding.as_deref() {
+                Self::replace_embedding_bands(&conn, &memory_id, embedding)?;
+            } else {
+                conn.execute(
+                    "DELETE FROM memory_embedding_bands WHERE memory_id = ?1",
+                    params![memory_id],
+                )?;
+            }
             Ok(())
         })
         .await?
@@ -804,13 +994,31 @@ impl Memory for SqliteMemory {
                 since: since_owned.as_deref(),
                 until: until_owned.as_deref(),
             };
+            let query_band_hashes = query_embedding
+                .as_ref()
+                .map(|embedding| Self::embedding_band_hashes(embedding));
 
             let (keyword_results, vector_candidates) = {
                 let conn = conn.lock();
                 let keyword_results =
                     Self::load_keyword_hits(&conn, &query, limit * 2, filters).unwrap_or_default();
                 let vector_candidates = if query_embedding.is_some() {
-                    Self::load_vector_candidates(&conn, filters).unwrap_or_default()
+                    let candidate_ids = Self::load_vector_candidate_ids(
+                        &conn,
+                        query_band_hashes
+                            .as_deref()
+                            .expect("query embedding present when loading vector candidates"),
+                        filters,
+                        Self::band_candidate_limit(limit * 2),
+                    )
+                    .unwrap_or_default();
+
+                    if candidate_ids.is_empty() {
+                        Self::load_vector_candidates(&conn, filters).unwrap_or_default()
+                    } else {
+                        Self::load_vector_candidates_by_ids(&conn, &candidate_ids)
+                            .unwrap_or_default()
+                    }
                 } else {
                     Vec::new()
                 };
@@ -983,6 +1191,11 @@ impl Memory for SqliteMemory {
 
         tokio::task::spawn_blocking(move || -> anyhow::Result<bool> {
             let conn = conn.lock();
+            conn.execute(
+                "DELETE FROM memory_embedding_bands
+                 WHERE memory_id IN (SELECT id FROM memories WHERE key = ?1)",
+                params![key],
+            )?;
             let affected = conn.execute("DELETE FROM memories WHERE key = ?1", params![key])?;
             Ok(affected > 0)
         })
@@ -1013,12 +1226,53 @@ impl Memory for SqliteMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
     use tempfile::TempDir;
 
     fn temp_sqlite() -> (TempDir, SqliteMemory) {
         let tmp = TempDir::new().unwrap();
         let mem = SqliteMemory::new(tmp.path()).unwrap();
         (tmp, mem)
+    }
+
+    fn temp_sqlite_with_embedder(embedder: Arc<dyn EmbeddingProvider>) -> (TempDir, SqliteMemory) {
+        let tmp = TempDir::new().unwrap();
+        let mem = SqliteMemory::with_embedder(tmp.path(), embedder, 0.7, 0.3, 1000, None).unwrap();
+        (tmp, mem)
+    }
+
+    struct TestEmbedding;
+
+    fn embedding_for_text(text: &str) -> Vec<f32> {
+        let normalized = text.to_ascii_lowercase();
+        if normalized.contains("alpha")
+            || normalized.contains("keep")
+            || normalized.contains("query-alpha")
+            || normalized.contains("querysun")
+        {
+            vec![1.0, 0.0, 0.0]
+        } else if normalized.contains("beta") || normalized.contains("second") {
+            vec![0.8, 0.2, 0.0]
+        } else if normalized.contains("gamma") || normalized.contains("archive") {
+            vec![0.0, 1.0, 0.0]
+        } else {
+            vec![0.2, 0.2, 0.8]
+        }
+    }
+
+    #[async_trait]
+    impl EmbeddingProvider for TestEmbedding {
+        fn name(&self) -> &str {
+            "test"
+        }
+
+        fn dimensions(&self) -> usize {
+            3
+        }
+
+        async fn embed(&self, texts: &[&str]) -> anyhow::Result<Vec<Vec<f32>>> {
+            Ok(texts.iter().map(|text| embedding_for_text(text)).collect())
+        }
     }
 
     fn set_embedding_by_key(mem: &SqliteMemory, key: &str, embedding: &[f32]) {
@@ -1457,6 +1711,103 @@ mod tests {
         assert_eq!(candidates[0].id, expected_id);
     }
 
+    #[tokio::test]
+    async fn load_vector_candidate_ids_respects_session_and_time_filters() {
+        let (_tmp, mem) = temp_sqlite_with_embedder(Arc::new(TestEmbedding));
+        mem.store(
+            "keep",
+            "velvet keep notes",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "wrong_session",
+            "velvet keep elsewhere",
+            MemoryCategory::Core,
+            Some("sess-b"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "too_old",
+            "archive keep record",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+
+        set_timestamps_by_key(
+            &mem,
+            "keep",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "wrong_session",
+            "2026-03-10T12:00:00+00:00",
+            "2026-03-10T12:00:00+00:00",
+        );
+        set_timestamps_by_key(
+            &mem,
+            "too_old",
+            "2026-02-01T12:00:00+00:00",
+            "2026-02-01T12:00:00+00:00",
+        );
+
+        let query_embedding = embedding_for_text("querysun");
+        let candidate_ids = {
+            let conn = mem.conn.lock();
+            SqliteMemory::load_vector_candidate_ids(
+                &conn,
+                &SqliteMemory::embedding_band_hashes(&query_embedding),
+                RecallFilters {
+                    category: None,
+                    session_id: Some("sess-a"),
+                    since: Some("2026-03-01T00:00:00+00:00"),
+                    until: Some("2026-03-31T23:59:59+00:00"),
+                },
+                16,
+            )
+            .unwrap()
+        };
+
+        assert_eq!(candidate_ids.len(), 1);
+        let expected_id = mem.get("keep").await.unwrap().unwrap().id;
+        assert_eq!(candidate_ids[0], expected_id);
+    }
+
+    #[tokio::test]
+    async fn recall_uses_embedding_band_index_for_semantic_match() {
+        let (_tmp, mem) = temp_sqlite_with_embedder(Arc::new(TestEmbedding));
+        mem.store(
+            "keep",
+            "velvet keep notes",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+        mem.store(
+            "other",
+            "archive lantern ledger",
+            MemoryCategory::Core,
+            Some("sess-a"),
+        )
+        .await
+        .unwrap();
+
+        let results = mem
+            .recall("querysun", 5, Some("sess-a"), None, None)
+            .await
+            .unwrap();
+        assert!(!results.is_empty());
+        assert_eq!(results[0].key, "keep");
+    }
+
     #[test]
     fn score_vector_candidates_returns_top_k_only() {
         let candidates = vec![
@@ -1551,6 +1902,20 @@ mod tests {
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='embedding_cache'",
                 [],
                 |row| row.get(0),
+        )
+        .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn schema_has_embedding_band_table() {
+        let (_tmp, mem) = temp_sqlite();
+        let conn = mem.conn.lock();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='memory_embedding_bands'",
+                [],
+                |row| row.get(0),
             )
             .unwrap();
         assert_eq!(count, 1);
@@ -1574,6 +1939,7 @@ mod tests {
             "idx_memories_session_created_at",
             "idx_memories_embedding_created_at",
             "idx_memories_embedding_session_created_at",
+            "idx_memory_embedding_bands_lookup",
         ] {
             let count: i64 = conn
                 .query_row(
@@ -1584,6 +1950,46 @@ mod tests {
                 .unwrap();
             assert_eq!(count, 1, "missing expected index {index_name}");
         }
+    }
+
+    #[tokio::test]
+    async fn store_populates_embedding_bands() {
+        let (_tmp, mem) = temp_sqlite_with_embedder(Arc::new(TestEmbedding));
+        mem.store("keep", "velvet keep notes", MemoryCategory::Core, None)
+            .await
+            .unwrap();
+
+        let entry = mem.get("keep").await.unwrap().unwrap();
+        let conn = mem.conn.lock();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_embedding_bands WHERE memory_id = ?1",
+                params![entry.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, LSH_BAND_COUNT as i64);
+    }
+
+    #[tokio::test]
+    async fn forget_removes_embedding_bands() {
+        let (_tmp, mem) = temp_sqlite_with_embedder(Arc::new(TestEmbedding));
+        mem.store("keep", "velvet keep notes", MemoryCategory::Core, None)
+            .await
+            .unwrap();
+        let entry = mem.get("keep").await.unwrap().unwrap();
+
+        mem.forget("keep").await.unwrap();
+
+        let conn = mem.conn.lock();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_embedding_bands WHERE memory_id = ?1",
+                params![entry.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
     }
 
     // ── FTS5 sync trigger tests ──────────────────────────────────
@@ -1740,6 +2146,37 @@ mod tests {
         // FTS should still work after rebuild
         let results = mem.recall("reindex", 10, None, None, None).await.unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn reindex_backfills_embedding_bands() {
+        let (_tmp, mem) = temp_sqlite_with_embedder(Arc::new(TestEmbedding));
+        mem.store("r1", "alpha archive", MemoryCategory::Core, None)
+            .await
+            .unwrap();
+        let entry = mem.get("r1").await.unwrap().unwrap();
+
+        {
+            let conn = mem.conn.lock();
+            conn.execute(
+                "DELETE FROM memory_embedding_bands WHERE memory_id = ?1",
+                params![&entry.id],
+            )
+            .unwrap();
+        }
+
+        let count = mem.reindex().await.unwrap();
+        assert_eq!(count, 0);
+
+        let conn = mem.conn.lock();
+        let band_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM memory_embedding_bands WHERE memory_id = ?1",
+                params![&entry.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(band_count, LSH_BAND_COUNT as i64);
     }
 
     // ── Recall limit test ────────────────────────────────────────
