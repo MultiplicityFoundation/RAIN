@@ -65,5 +65,8 @@ logs/
 # Build artifacts (Rust)
 target/
 
+# gstack (installed via setup, not committed)
+.claude/skills/gstack/
+
 # Jupyter
 .ipynb_checkpoints/
