@@ -158,12 +158,12 @@ async fn e2e_parallel_tool_dispatch() {
             ToolCall {
                 id: "tc1".into(),
                 name: "counter".into(),
-                arguments: "{}".into(),
+                arguments: r#"{"call":"first"}"#.into(),
             },
             ToolCall {
                 id: "tc2".into(),
                 name: "counter".into(),
-                arguments: "{}".into(),
+                arguments: r#"{"call":"second"}"#.into(),
             },
         ]),
         text_response("Both tools ran"),
