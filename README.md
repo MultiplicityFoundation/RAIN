@@ -21,17 +21,12 @@
 </p>
 
 
-The R.A.I.N. Lab is a local-first AI research lab for people who want deeper answers to their questions.
-It helps you test ideas, compare viewpoints, run structured debates, and generate shareable results without
-sending your data off-machine by default.
-
-The core differentiator is the "circuit breaker" workflow: when agents get stuck, R.A.I.N. Lab can turn the
-disagreement into a formal logic problem and push it through a sandboxed verification path instead of letting
-the conversation loop forever.
+The R.A.I.N. Lab gives you a team of AI experts to test ideas, compare viewpoints, and get deeper answers. 
+Everything runs directly on your own computer, so your ideas stay yours.
 
 ## Who It Is For
 
-R.A.I.N. Lab is built for people who need answers they can defend, not just answers that sound good.
+Host a private AI debate on your computer to test your ideas—complete with a built-in referee that fact-checks them when they get stuck.
 
 | Role | What you can do with R.A.I.N. Lab |
 | --- | --- |
