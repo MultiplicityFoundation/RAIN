@@ -10,7 +10,6 @@ Deploy to maritime.sh via GitHub. Configure via environment variables:
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
