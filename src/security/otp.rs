@@ -108,7 +108,10 @@ impl OtpValidator {
                 .get(normalized)
                 .is_some_and(|expiry| *expiry >= now_secs)
             {
-                self.record_failure(now_secs);
+                // Replay of a valid code: reject but do NOT count toward brute-force
+                // lockout. Replays are consumed codes, not wrong guesses. Counting them
+                // would let an attacker lock out a legitimate user by replaying an
+                // intercepted code `challenge_max_attempts` times.
                 return Ok(false);
             }
         }
@@ -428,6 +431,29 @@ mod tests {
         assert!(!validator.validate_at(&code, now).unwrap());
         // Replay slightly later (still within cache_valid_secs) is also rejected.
         assert!(!validator.validate_at(&code, now + 10).unwrap());
+    }
+
+    #[test]
+    fn replay_does_not_count_toward_lockout() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), true);
+        let mut cfg = test_config();
+        cfg.challenge_max_attempts = 3;
+        let (validator, _) = OtpValidator::from_config(&cfg, dir.path(), &store).unwrap();
+
+        let now = 1_700_000_000u64;
+        let code = validator.code_for_timestamp(now);
+
+        // Use the code once (success resets failure counter).
+        assert!(validator.validate_at(&code, now).unwrap());
+
+        // Replay the same code many times — none should trigger lockout.
+        for _ in 0..10 {
+            assert!(!validator.validate_at(&code, now).unwrap());
+        }
+
+        // A wrong code should still work (not locked out from replays).
+        assert!(!validator.validate_at("000000", now).unwrap());
     }
 
     #[test]

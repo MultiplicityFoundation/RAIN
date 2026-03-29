@@ -5488,7 +5488,7 @@ pub struct OtpConfig {
     #[serde(default = "default_otp_token_ttl_secs")]
     pub token_ttl_secs: u64,
 
-    /// Reuse window for recently validated OTP codes.
+    /// Anti-replay window: validated codes are rejected for this many seconds.
     #[serde(default = "default_otp_cache_valid_secs")]
     pub cache_valid_secs: u64,
 
