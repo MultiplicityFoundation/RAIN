@@ -157,13 +157,16 @@ message_timeout_scale_max = 8
 | `enabled` | `false` | Enable OTP gating for sensitive actions/domains |
 | `method` | `totp` | OTP method (`totp`, `pairing`, `cli-prompt`) |
 | `token_ttl_secs` | `30` | TOTP time-step window in seconds |
-| `cache_valid_secs` | `300` | Cache window for recently validated OTP codes |
+| `cache_valid_secs` | `300` | Anti-replay window: validated codes are rejected for this many seconds |
+| `challenge_max_attempts` | `3` | Failed attempts before 5-minute lockout (brute-force protection) |
 | `gated_actions` | `["shell","file_write","browser_open","browser","memory_forget"]` | Tool actions protected by OTP |
 | `gated_domains` | `[]` | Explicit domain patterns requiring OTP (`*.example.com`, `login.example.com`) |
 | `gated_domain_categories` | `[]` | Domain preset categories (`banking`, `medical`, `government`, `identity_providers`) |
 
 Notes:
 
+- Each OTP code is single-use. Replaying a previously used code within `cache_valid_secs` is rejected.
+- After `challenge_max_attempts` consecutive wrong codes, OTP validation locks out for 5 minutes. Replay rejections do not count toward this limit.
 - Domain patterns support wildcard `*`.
 - Category presets expand to curated domain sets during validation.
 - Invalid domain globs or unknown categories fail fast at startup.

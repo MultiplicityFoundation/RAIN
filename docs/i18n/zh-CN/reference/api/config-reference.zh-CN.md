@@ -98,13 +98,16 @@ runtime_trace_max_entries = 200
 | `enabled` | `false` | 为敏感操作/域启用 OTP 门控 |
 | `method` | `totp` | OTP 方法（`totp`、`pairing`、`cli-prompt`） |
 | `token_ttl_secs` | `30` | TOTP 时间步长窗口（秒） |
-| `cache_valid_secs` | `300` | 最近验证的 OTP 代码的缓存窗口 |
+| `cache_valid_secs` | `300` | 防重放窗口：已验证的代码在此秒数内被拒绝重复使用 |
+| `challenge_max_attempts` | `3` | 连续失败次数达到此值后锁定 5 分钟（暴力破解防护） |
 | `gated_actions` | `[\"shell\",\"file_write\",\"browser_open\",\"browser\",\"memory_forget\"]` | 受 OTP 保护的工具操作 |
 | `gated_domains` | `[]` | 需要 OTP 的显式域模式（`*.example.com`、`login.example.com`） |
 | `gated_domain_categories` | `[]` | 域预设类别（`banking`、`medical`、`government`、`identity_providers`） |
 
 注意事项：
 
+- 每个 OTP 代码只能使用一次。在 `cache_valid_secs` 窗口内重放已使用的代码将被拒绝。
+- 连续输入错误代码达到 `challenge_max_attempts` 次后，OTP 验证将锁定 5 分钟。重放拒绝不计入此限制。
 - 域模式支持通配符 `*`。
 - 类别预设在验证期间扩展为精选的域集。
 - 无效的域 glob 或未知类别在启动时快速失败。
