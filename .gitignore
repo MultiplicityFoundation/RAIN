@@ -62,6 +62,9 @@ secret.key
 logs/
 *.log
 
+# Runtime state
+state/
+
 # Build artifacts (Rust)
 target/
 
