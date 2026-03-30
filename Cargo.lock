@@ -5432,6 +5432,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
+name = "rain-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "criterion",
+ "rain-labs",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "rain-labs"
 version = "0.5.6"
 dependencies = [
@@ -7021,6 +7032,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
