@@ -181,7 +181,10 @@ def _parse_env_csv(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
 
 DEFAULT_LIBRARY_PATH = str(Path(__file__).resolve().parent)
 
-DEFAULT_MODEL_NAME = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-coder-7b-instruct")
+DEFAULT_MODEL_NAME = os.environ.get(
+    "RAIN_LLM_MODEL",
+    os.environ.get("LM_STUDIO_MODEL", "minimax-m2.7:cloud"),
+)
 
 DEFAULT_RECURSIVE_LIBRARY_SCAN = os.environ.get("RAIN_RECURSIVE_LIBRARY_SCAN", "0") == "1"
 
@@ -439,9 +442,15 @@ class Config:
 
     temperature: float = 0.7  # Higher temp for more variety in responses
 
-    base_url: str = os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
+    base_url: str = os.environ.get(
+        "RAIN_LLM_BASE_URL",
+        os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:11434/v1"),
+    )
 
-    api_key: str = os.environ.get("LM_STUDIO_API_KEY", "lm-studio")
+    api_key: str = os.environ.get(
+        "RAIN_LLM_API_KEY",
+        os.environ.get("LM_STUDIO_API_KEY", "ollama"),
+    )
 
     model_name: str = DEFAULT_MODEL_NAME
 
@@ -1869,9 +1878,9 @@ class RainLabOrchestrator:
             return ""
 
     def test_connection(self) -> bool:
-        """Test LM Studio connection with retry"""
+        """Test LLM provider connection with retry"""
 
-        print(f"\n🔌 Testing connection to blacksite at {self.config.base_url}...")
+        print(f"\n🔌 Testing connection to LLM provider at {self.config.base_url}...")
 
         for attempt in range(3):
             try:
@@ -1895,15 +1904,15 @@ class RainLabOrchestrator:
                 if attempt == 2:
                     print("\n💡 Troubleshooting:")
 
-                    print("   1. Is LM Studio running?")
+                    print("   1. Is your LLM provider running? (Ollama: 'ollama serve', LM Studio: start the server)")
 
-                    print("   2. Is the server started? (green 'Server Running' button)")
+                    print(f"   2. Is model '{self.config.model_name}' available? (Ollama: 'ollama pull {self.config.model_name}')")
 
-                    print(f"   3. Is model '{self.config.model_name}' loaded?")
+                    print(f"   3. Is the provider listening on {self.config.base_url}?")
 
-                    print(f"   4. Is it listening on {self.config.base_url}?")
+                    print("   4. Default ports: Ollama=11434, LM Studio=1234")
 
-                    print("   5. Try clicking 'Reload Model' in LM Studio\n")
+                    print("   5. Override with: RAIN_LLM_BASE_URL=http://host:port/v1\n")
 
                 else:
                     time.sleep(2)
@@ -3162,14 +3171,17 @@ Examples:
     parser.add_argument("--topic", type=str, help="Research topic (if not provided, will prompt)")
 
     parser.add_argument(
-        "--model", type=str, default=DEFAULT_MODEL_NAME, help=f"LM Studio model name (default: {DEFAULT_MODEL_NAME})"
+        "--model", type=str, default=DEFAULT_MODEL_NAME, help=f"LLM model name (default: {DEFAULT_MODEL_NAME})"
     )
 
     parser.add_argument(
         "--base-url",
         type=str,
-        default=os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
-        help="LM Studio OpenAI-compatible base URL",
+        default=os.environ.get(
+            "RAIN_LLM_BASE_URL",
+            os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:11434/v1"),
+        ),
+        help="OpenAI-compatible base URL (default: Ollama at http://127.0.0.1:11434/v1)",
     )
 
     parser.add_argument(

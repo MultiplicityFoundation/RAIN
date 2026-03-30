@@ -925,9 +925,9 @@ BEGIN EXECUTION IMMEDIATELY.
         self.rlm = RLM(
             backend="openai",
             backend_kwargs={
-                "model_name": os.environ.get("LM_STUDIO_MODEL", "qwen2.5-coder-7b-instruct"),
-                "base_url": os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
-                "api_key": os.environ.get("LM_STUDIO_API_KEY", "lm-studio"),
+                "model_name": os.environ.get("RAIN_LLM_MODEL", os.environ.get("LM_STUDIO_MODEL", "minimax-m2.7:cloud")),
+                "base_url": os.environ.get("RAIN_LLM_BASE_URL", os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:11434/v1")),
+                "api_key": os.environ.get("RAIN_LLM_API_KEY", os.environ.get("LM_STUDIO_API_KEY", "ollama")),
                 "timeout": 180.0,
             },
             environment="local",
@@ -1067,7 +1067,7 @@ Shared sources (use these for quotes during discussion turns):
             self.metrics_tracker = MetricsTracker(
                 session_id=str(uuid.uuid4())[:8],
                 topic=topic,
-                model=os.environ.get("LM_STUDIO_MODEL", "qwen2.5-coder-7b-instruct"),
+                model=os.environ.get("RAIN_LLM_MODEL", os.environ.get("LM_STUDIO_MODEL", "minimax-m2.7:cloud")),
             )
         # Host-side paper selection (exact filename match first)
         selected_files = _host_select_files(topic, max_files=2)
@@ -1621,7 +1621,7 @@ if __name__ == "__main__":
     try:
         print("Starting Research team meeting...")
         council = ResearchCouncil()
-        print("Connecting to blacksite server...")
+        print("Connecting to LLM provider...")
         council.run(topic, args.turns)
         print("Connection complete.")
     except BaseException:

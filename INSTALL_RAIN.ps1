@@ -76,11 +76,11 @@ function Install-Uv {
 function Ensure-Uv {
     $uvPath = Resolve-UvPath
     if ($uvPath) {
-        return $uvPath
+        return [string]$uvPath
     }
 
     Write-Host "[installer] Installing uv..." -ForegroundColor Yellow
-    Install-Uv
+    Install-Uv | Out-Null
 
     $env:PATH = "$($env:USERPROFILE)\.local\bin;$env:PATH"
     $uvPath = Resolve-UvPath
@@ -88,7 +88,7 @@ function Ensure-Uv {
         throw "uv installation completed but uv.exe was not found."
     }
 
-    return $uvPath
+    return [string]$uvPath
 }
 
 function Invoke-Uv {

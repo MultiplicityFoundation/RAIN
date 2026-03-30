@@ -33,9 +33,11 @@ except ImportError:
     HAS_SEARCH = False
 
 # --- CONNECTION ---
-print(f">>> 🔌 Connecting to LM Studio (127.0.0.1)...", flush=True)
+_llm_base_url = os.environ.get("RAIN_LLM_BASE_URL", os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:11434/v1"))
+_llm_api_key = os.environ.get("RAIN_LLM_API_KEY", os.environ.get("LM_STUDIO_API_KEY", "ollama"))
+print(f">>> 🔌 Connecting to LLM provider at {_llm_base_url}...", flush=True)
 try:
-    client = openai.OpenAI(base_url="http://127.0.0.1:1234/v1", api_key="lm-studio")
+    client = openai.OpenAI(base_url=_llm_base_url, api_key=_llm_api_key)
 except Exception as e:
     print(f">>> ❌ CONNECTION ERROR: {e}")
     sys.exit(1)
