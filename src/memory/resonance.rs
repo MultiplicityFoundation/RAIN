@@ -71,6 +71,9 @@ pub struct ResonanceMemory {
     mass_tokens_per_unit: f64,
 }
 
+/// Backward-compatible alias for older call sites.
+pub type ResonanceBackend = ResonanceMemory;
+
 impl ResonanceMemory {
     pub fn with_embedder(
         workspace_dir: &Path,
