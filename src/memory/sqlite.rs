@@ -65,6 +65,16 @@ struct HydratedMemoryRow {
     session_id: Option<String>,
 }
 
+/// Row shape used by the Kairos episodic memory consolidator.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MemoryRow {
+    pub id: i64,
+    pub key: String,
+    pub content: String,
+    pub role: String,
+    pub timestamp: String,
+}
+
 #[derive(Debug)]
 struct RankedVectorResult {
     id: String,
@@ -255,6 +265,18 @@ impl SqliteMemory {
             .contains("session_id");
         if !has_session_id {
             conn.execute_batch("ALTER TABLE memories ADD COLUMN session_id TEXT;")?;
+        }
+
+        // Migration: add consolidated column for Kairos episodic memory consolidation
+        let has_consolidated: bool = conn
+            .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='memories'")?
+            .query_row([], |row| row.get::<_, String>(0))?
+            .contains("consolidated");
+        if !has_consolidated {
+            conn.execute_batch(
+                "ALTER TABLE memories ADD COLUMN consolidated INTEGER NOT NULL DEFAULT 0;
+                 CREATE INDEX IF NOT EXISTS idx_memories_consolidated ON memories(consolidated) WHERE consolidated = 0;",
+            )?;
         }
 
         conn.execute_batch(
@@ -969,6 +991,91 @@ impl SqliteMemory {
                 results.push(row?);
             }
             Ok(results)
+        })
+        .await?
+    }
+
+    /// Returns the created_at timestamp of the most recent conversation memory, if any.
+    pub async fn latest_episodic_write_at(&self) -> anyhow::Result<Option<String>> {
+        let conn = self.conn.clone();
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock();
+            let result: Option<String> = conn
+                .query_row(
+                    "SELECT created_at FROM memories
+                     WHERE category = 'conversation'
+                     ORDER BY created_at DESC LIMIT 1",
+                    [],
+                    |row| row.get(0),
+                )
+                .ok();
+            Ok(result)
+        })
+        .await?
+    }
+
+    /// Fetch unconsolidated conversation rows up to `limit`, ordered by created_at.
+    pub async fn fetch_unconsolidated(&self, limit: usize) -> anyhow::Result<Vec<MemoryRow>> {
+        let conn = self.conn.clone();
+        let limit = limit as i64;
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock();
+            let mut stmt = conn.prepare(
+                "SELECT rowid, key, content, session_id, created_at
+                 FROM memories
+                 WHERE consolidated = 0 AND category = 'conversation'
+                 ORDER BY created_at ASC
+                 LIMIT ?1",
+            )?;
+            let rows = stmt.query_map([limit], |row| {
+                let key: String = row.get(1)?;
+                // Extract role from key: format "session/{session_id}/role/{role}" or fallback to "user"
+                let role = key
+                    .split('/')
+                    .nth(3)
+                    .map(String::from)
+                    .unwrap_or_else(|| "user".to_string());
+                Ok(MemoryRow {
+                    id: row.get(0)?,
+                    key,
+                    content: row.get(2)?,
+                    role,
+                    timestamp: row.get(4)?,
+                })
+            })?;
+            let mut result = Vec::new();
+            for row in rows {
+                result.push(row?);
+            }
+            Ok(result)
+        })
+        .await?
+    }
+
+    /// Mark rows as consolidated by their rowid.
+    pub async fn mark_as_consolidated(&self, ids: &[i64]) -> anyhow::Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let conn = self.conn.clone();
+        let ids_vec: Vec<i64> = ids.to_vec();
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock();
+            let placeholders: String = (1..=ids_vec.len())
+                .map(|i| format!("?{i}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let sql = format!(
+                "UPDATE memories SET consolidated = 1 WHERE rowid IN ({placeholders})"
+            );
+            let params: Vec<Box<dyn rusqlite::types::ToSql>> = ids_vec
+                .iter()
+                .map(|id| Box::new(*id) as Box<dyn rusqlite::types::ToSql>)
+                .collect();
+            let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+                params.iter().map(AsRef::as_ref).collect();
+            conn.execute(&sql, params_ref.as_slice())?;
+            Ok(())
         })
         .await?
     }

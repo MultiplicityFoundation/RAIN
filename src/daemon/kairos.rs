@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::process::Command;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -229,6 +230,88 @@ pub fn build_default_bridge(_config: &Config) -> anyhow::Result<Box<dyn IpcBridg
     }
 }
 
+/// Spawn the Python dreamer service as a background task.
+/// On Windows connects to TCP 48765; on Unix uses a Unix domain socket.
+/// Returns immediately — the process continues independently.
+async fn spawn_dreamer() {
+    // Derive the script path relative to the running binary.
+    // binary:  .../james_library/target/debug/rain[.exe]
+    // script:  .../james_library/src/service/kairos_dreamer.py
+    let script_path: Option<PathBuf> = {
+        let exe = std::env::current_exe().ok();
+        exe.map(|e| {
+            let base = e
+                .parent() // target/debug
+                .and_then(|p| p.parent()) // target
+                .and_then(|p| p.parent()) // project root
+                .unwrap_or(&e);
+            base.join("src").join("service").join("kairos_dreamer.py")
+        })
+    };
+
+    let Some(script_path) = script_path else {
+        tracing::warn!("KAIROS dreamer: could not determine executable path");
+        return;
+    };
+
+    if !script_path.exists() {
+        tracing::warn!("KAIROS dreamer script not found at {}", script_path.display());
+        return;
+    }
+
+    // Use python3 on Unix, python on Windows
+    #[cfg(windows)]
+    let python = "python";
+    #[cfg(not(windows))]
+    let python = "python3";
+
+    let mut child = match Command::new(python)
+        .arg(&script_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("KAIROS dreamer: failed to spawn: {}", e);
+            return;
+        }
+    };
+
+    let pid = child.id();
+    tracing::info!("KAIROS dreamer spawned (pid {pid:?}), script: {}", script_path.display());
+
+    // Log stdout/stderr in background so we don't block
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    if let Some(stdout) = stdout {
+        tokio::spawn(async move {
+            let mut r = BufReader::new(stdout);
+            let mut line = String::new();
+            while r.read_line(&mut line).await.unwrap_or(0) > 0 {
+                tracing::info!("[kairos-dreamer] {}", line.trim());
+                line.clear();
+            }
+        });
+    }
+    if let Some(stderr) = stderr {
+        tokio::spawn(async move {
+            let mut r = BufReader::new(stderr);
+            let mut line = String::new();
+            while r.read_line(&mut line).await.unwrap_or(0) > 0 {
+                tracing::warn!("[kairos-dreamer] {}", line.trim());
+                line.clear();
+            }
+        });
+    }
+
+    // tokio::process::Child is dropped here — the actual process keeps running
+    // independently. Daemon shutdown (SIGINT/SIGTERM) cascades to the child.
+    let _ = pid;
+}
+
 pub async fn run(config: Config) -> anyhow::Result<()> {
     crate::health::mark_component_ok(KAIROS_COMPONENT_NAME);
 
@@ -245,6 +328,9 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let bridge = build_default_bridge(&config)?;
     let sink = build_default_sink(&config, Arc::clone(&active_memory)).await?;
     let worker = KairosWorker::new(sqlite, bridge, sink);
+
+    // Spawn the Python dreamer service as a background process
+    spawn_dreamer().await;
 
     tracing::info!("KAIROS daemon started");
 
@@ -406,7 +492,7 @@ fn normalize_component(value: &str) -> String {
 fn normalize_relation(value: &str) -> (Relation, Option<String>) {
     let trimmed = value.trim();
     let lowered = trimmed.to_ascii_lowercase();
-    let relation = Relation::from_dreamer(trimmed);
+    let relation = Relation::parse(trimmed).unwrap_or(Relation::AppliesTo);
     let supported = matches!(
         lowered.as_str(),
         "uses" | "replaces" | "extends" | "authored_by" | "applies_to"
@@ -475,14 +561,14 @@ fn persist_to_graph(
         let entity_title = graph_node_title(&fact.entity, "entity");
         let target_title = graph_node_title(&fact.target, "target");
 
-        let source_id = graph.get_or_create_node(
+        let source_id = graph.add_node(
             NodeType::Pattern,
             &entity_title,
             &content,
             &tags,
             Some(KAIROS_SOURCE_PROJECT),
         )?;
-        let target_id = graph.get_or_create_node(
+        let target_id = graph.add_node(
             NodeType::Pattern,
             &target_title,
             &content,
