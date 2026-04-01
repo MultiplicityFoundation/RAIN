@@ -1,257 +1,175 @@
-# 🐙 R.A.I.N. Lab: James and Your Private AI Research Team
+# 🐙 R.A.I.N. Lab
+
+**Think with AI teammates who challenge your ideas, stress-test your plans, and remember everything.**
 
 <p align="center">
-  <img src="assets/rain_lab.png" alt="the R.A.I.N. Lab logo" width="900" />
+  <img src="assets/rain_lab.png" alt="R.A.I.N. Lab logo" width="800" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4?style=flat-square" alt="Platform" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/rust-1.87+%20optional-dea584?style=flat-square&logo=rust" alt="Rust optional" />
-</p>
-
-<p align="center">
-  🌐:
-  <a href="README.zh-CN.md">简体中文</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.fr.md">Français</a> |
+  <a href="README.zh-CN.md">简体中文</a> •
+  <a href="README.ja.md">日本語</a> •
+  <a href="README.ru.md">Русский</a> •
+  <a href="README.fr.md">Français</a> •
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-R.A.I.N. Lab is a private multi-agent research assistant for exploring hard questions, testing ideas, and comparing viewpoints without handing your thinking to a third-party platform.
+---
 
-Its flagship strength is deep technical exploration, especially sound, resonance, and physics workflows, but the same system is built to support broader research, strategy, and analytical work.
+## What It Feels Like
 
-If you want to start right away, open it with `python rain_lab.py`.
+Imagine a research meeting where multiple AI advisors each bring a different perspective. One plays devil's advocate. Another looks for gaps in your logic. A third checks if your claims hold up. They debate. They document. They remember.
 
-## Who Is It For?
+That's R.A.I.N. Lab.
 
-Use it when one answer is not enough, you want multiple agents to challenge the problem, and you need a private workspace that can handle both general research and technical deep dives.
+You bring the question. James and his team explore it from multiple angles, challenge weak spots, verify facts, and hand you back something you can actually use — a clear analysis, a decision framework, or a list of what still needs testing.
 
-| Role | What you can do with R.A.I.N. Lab |
-| --- | --- |
-| Founders and product leaders | Stress-test strategy decisions with structured debate before committing to the roadmap or budget |
-| Researchers and analysts | Compare competing hypotheses, preserve disagreement, and capture auditable reasoning trails |
-| Operators and technical teams | Turn messy discussions into verifiable outputs that can be reviewed, shared, and rerun |
+All on your own computer. Private. No cloud. No one watching.
 
-In practice, this means fewer dead ends. You can start from a single question, and let multiple agents
-challenge assumptions, route unresolved conflicts through verification, and leave with a result you can present to
-other people with confidence.
+---
 
-<p align="center">
-  <a href="assets/hello.mp4" title="Play the R.A.I.N. Lab demo video">
-    <img src="assets/hello-preview.gif" alt="R.A.I.N. Lab demo video preview" width="520" />
-  </a>
-</p>
+## What You Can Do
 
-## Start Fast
+| Use case | What happens |
+|----------|--------------|
+| **Validate an idea** | Multiple agents pressure-test your assumption from different angles |
+| **Compare strategies** | Get structured debate on tradeoffs before you commit |
+| **Research a topic** | Agents explore competing viewpoints and preserve disagreements |
+| **Plan a decision** | Document reasoning trails you can review, share, or rerun later |
+| **Sound & physics exploration** | Deep technical workflows for resonance, frequency, and geometry |
 
-Choose one install route, then use `python rain_lab.py` as the everyday product entrypoint.
+**The result:** Fewer blind spots. More confidence. Outputs you can present to others.
 
-### Windows
+---
 
-```powershell
-git clone https://github.com/topherchris420/james_library.git
-cd james_library
+## Try It Now
+
+No setup required for the demo:
+
+```
 python rain_lab.py
 ```
 
-The installer uses `uv`, fetches the prebuilt runtime, prepares `.env` and `config.toml`, and hands off to James automatically.
+Press Enter. That's it. James will walk you through the rest.
 
-### macOS / Linux 
+On Windows, you can also double-click `INSTALL_RAIN.cmd` to create shortcuts.
+
+---
+
+## Getting Started
+
+### Step 1: Try the Demo
 
 ```bash
-git clone https://github.com/topherchris420/james_library.git
-cd james_library
-./install.sh
+python rain_lab.py
 ```
 
-The installer uses `uv`, fetches the prebuilt runtime, prepares `.env` and `config.toml`, and hands off to James automatically.
+Press Enter for instant demo mode. No model, no config — just see how it works.
 
-Then:
+### Step 2: Run Your First Topic
 
-1. Press Enter for the no-setup instant demo.
-2. Try beginner mode with one topic.
-3. Open `meeting_archives/RAIN_LAB_SHOWCASE.html` to revisit recent sessions.
+```bash
+python rain_lab.py --mode beginner --topic "your question here"
+```
 
-Beginner and demo runs generate:
+This opens a guided flow where James helps you explore one idea thoroughly.
 
-- a screenshot-friendly HTML share card
-- a matching poster SVG
-- a local showcase page with poster previews and follow-up commands
+### Step 3: Set Up Your AI (Optional)
 
-On Windows, `INSTALL_RAIN.cmd` also creates desktop and Start Menu shortcuts.
-On macOS/Linux, `./install.sh` is the equivalent of a one-click repo installer.
+Want to use your own AI model (runs locally, stays private)?
 
-## Why People Use It
+```bash
+python rain_lab.py --mode first-run
+```
 
-- Local-first by default: conversations, archives, and outputs stay on your machine unless you opt into a provider.
-- Private multi-agent research workflow: compare viewpoints, preserve disagreement, and push past the single-answer chat pattern.
-- Flagship technical wedge: especially strong for sound, resonance, and physics exploration, where competing models and reasoning trails matter.
-- Beginner-friendly front door: `python rain_lab.py` opens the guided launcher, and the instant demo works without a model.
-- Shareable outputs: beginner and demo sessions end in polished artifacts people can screenshot, revisit, and pass around.
+The installer helps you connect to LM Studio or Ollama. Both run on your machine — no data leaves your computer.
 
-## Pick A Path
+---
 
-| Goal | Run this |
-| --- | --- |
-| Fastest first experience | `python rain_lab.py` |
-| No-setup instant demo | `python rain_lab.py --mode demo --preset startup-debate` |
-| One topic, beginner-friendly flow | `python rain_lab.py --mode beginner --topic "your idea"` |
-| Guided setup for local models | `python rain_lab.py --mode first-run` |
-| Health and readiness check | `python rain_lab.py --mode validate` |
-| Standard chat flow | `python rain_lab.py --mode chat --topic "your topic"` |
-| Multi-agent lab meeting | `python rain_lab.py --mode rlm --topic "your topic"` |
-| Avatar-enabled chat when available | `python rain_lab.py --mode chat --ui auto --topic "your topic"` |
+## Why It's Different
 
-On macOS and Linux, use `python3` instead of `python` if needed.
+| Regular AI chat | R.A.I.N. Lab |
+|-----------------|--------------|
+| One answer, right or wrong | Multiple agents debate and verify |
+| Disagreement gets glossed over | Disagreement is preserved and compared |
+| Chat log that fades away | Session logs, share cards, and posters you can keep |
+| Everything in the cloud | Everything stays on your machine |
 
-## Stable Core
+---
 
-The supported baseline is:
+## Features
 
-- the Python launcher path via `python rain_lab.py`
-- the default Rust build for the runtime layer
+- **Multi-agent research** — James plus specialized agents explore from different angles
+- **Structured debate** — Tradeoffs and disagreements get surfaced, not flattened
+- **Verification workflows** — Certain disputes get settled through checks, not just opinions
+- **Memory that persists** — Conversations are summarized and stored automatically
+- **Shareable outputs** — Session cards, posters, and HTML reports
+- **Local-first** — No cloud dependency. Your data stays yours.
+- **Available in 6 languages** — 中文, 日本語, Русский, Français, Tiếng Việt, English
 
-Channels, providers, storage backends, and platform integrations stay opt-in through explicit feature flags.
-That keeps the default product smaller, more reliable, and easier to explain.
+---
 
-Before treating an extension as production-ready, read:
+## Requirements
 
-- [Stability Tiers](docs/project/stability-tiers.md)
-- [Production Readiness](docs/PRODUCTION_READINESS.md)
+- **Python 3.10+** (free download for Windows/Mac/Linux)
+- **Optional:** LM Studio or Ollama for local AI models
+- **Optional:** Rust toolchain for the fast runtime layer
 
-## What Makes It Different
+Python works without any of the optional parts. The more you add, the faster and more powerful it gets.
 
-Most AI tools follow a simple pattern: prompt, answer, retry.
-The R.A.I.N. Lab is built for cases where that is not enough.
+---
 
-| Traditional AI workflow | R.A.I.N. Lab workflow |
-| --- | --- |
-| One model answers | Multiple agents can inspect and challenge the idea |
-| Disagreement often gets flattened | Disagreement is preserved long enough to compare views |
-| Unclear conflicts stay ambiguous | Formal verification can settle certain disputes |
-| Output is usually a chat log | Output can become a session log, share card, poster, and showcase entry |
+## Documentation
 
-The product flow is simple:
+- [Start Here](START_HERE.md) — Guided walkthrough
+- [Beginner Guide](docs/getting-started/README.md)
+- [One-Click Install](docs/one-click-bootstrap.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Research Papers](https://topherchris420.github.io/research/)
 
-1. Explore the question from multiple angles.
-2. Debate tradeoffs or conflicting interpretations.
-3. Break deadlocks through verification when possible.
-4. Return a result you can keep, rerun, or share.
-
-## Model Setup
-
-You have three practical options:
-
-1. Use the instant demo first. This needs no model and gives you the fastest preview.
-2. Use a local model through LM Studio or Ollama for the recommended local-first path.
-3. Add a cloud provider during first-run setup if you want hosted inference.
-
-Recommended local-first flow:
-
-1. Run `python rain_lab.py --mode first-run`
-2. Let the launcher detect or configure your model source
-3. Return to `python rain_lab.py` for beginner mode, demo presets, or research workflows
-
-## Install And Onboarding
-
-Use the focused docs below depending on what you need:
-
-- [START_HERE.md](START_HERE.md) for the walkthrough
-- [Getting Started Docs](docs/getting-started/README.md) for onboarding
-- [One-Click Bootstrap](docs/one-click-bootstrap.md) for setup automation
-- [Releases Page](https://github.com/topherchris420/james_library/releases) for prebuilt packages
-- [Troubleshooting](docs/troubleshooting.md) if something fails
-- [Research](https://topherchris420.github.io/research/)
-
-## The Layers
-
-The R.A.I.N. Lab is one platform built from two main layers:
-
-| Layer | Role | Language |
-| --- | --- | --- |
-| James Library | Research workflows, debate, synthesis, launcher experience | Python |
-| ZeroClaw | Orchestration, channels, tools, memory, security | Rust |
-
-You use it as one app.
-Python flows work without Rust installed, while the Rust runtime adds speed, orchestration, and integration depth.
-ZeroClaw is the runtime lineage behind that layer, but the user-facing product is R.A.I.N. Lab.
+---
 
 ## For Developers
 
 <details>
-<summary><strong>Developer setup, test commands, and project links</strong></summary>
+<summary>Click to expand</summary>
 
-### Quick Setup
+R.A.I.N. Lab is built in Python + Rust. If you want to hack on it:
 
 ```bash
 git clone https://github.com/topherchris420/james_library.git
 cd james_library
+
+# Python setup
 uv python install 3.12
 uv venv .venv --python 3.12
 uv pip sync --python .venv/bin/python requirements-dev-pinned.txt
-uv run --python .venv/bin/python bootstrap_local.py --skip-preflight
+
+# Rust setup (optional, for the fast runtime)
 cargo build --release --locked
+
+# Run
 uv run --python .venv/bin/python rain_lab.py --mode first-run
 ```
 
-### Tests
-
+**Testing:**
 ```bash
 ruff check .
 pytest -q
 cargo fmt --all
 cargo clippy --all-targets -- -D warnings
-cargo test --locked
 ```
 
-### Extension Example
-
-```bash
-cargo build --release --locked --features channel-matrix,channel-lark,memory-postgres
-```
-
-### Developer References
-
-- [Architecture](ARCHITECTURE.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Project Roadmap](PRODUCT_ROADMAP.md)
-- [Testing Guide](docs/contributing/testing.md)
-- [Repo Map](docs/maintainers/repo-map.md)
-- [Commands Reference](docs/reference/cli/commands-reference.md)
-- [Providers Reference](docs/reference/api/providers-reference.md)
-- [Channels Reference](docs/reference/api/channels-reference.md)
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 </details>
 
-## Documentation
-
-<a href="https://deepwiki.com/topherchris420/james_library"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
-
-- [Product Overview](START_HERE.md)
-- [Architecture](ARCHITECTURE.md)
-- [Security Policy](SECURITY.md)
-- [Stability Tiers](docs/project/stability-tiers.md)
-- [Production Readiness](docs/PRODUCTION_READINESS.md)
-- [Setup Guides](docs/setup-guides/README.md)
-- [Releases Page](https://github.com/topherchris420/james_library/releases)
-- [Troubleshooting](docs/troubleshooting.md)
+---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT. Built by [Vers3Dynamics](https://vers3dynamics.com/).
 
-## Acknowledgements
-
-R.A.I.N. Lab is a [Vers3Dynamics](https://vers3dynamics.com/) project built on [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw).
-
-<a href="https://www.star-history.com/?repos=topherchris420%2Fjames_library&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=topherchris420/james_library&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=topherchris420/james_library&type=date&legend=top-left" />
-   <img alt="Vers3Dynamics" src="https://api.star-history.com/image?repos=topherchris420/james_library&type=date&legend=top-left" />
- </picture>
+<a href="https://star-history.com/#topherchris420/james_library&type=date">
+  <img src="https://api.star-history.com/image?repos=topherchris420/james_library&type=date&theme=dark" alt="Star History" width="200" />
 </a>
