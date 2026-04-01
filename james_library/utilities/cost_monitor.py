@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 
@@ -150,7 +150,7 @@ class CostMonitor:
                     prompt_tokens,
                     completion_tokens,
                     float(total_cost_usd),
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
 

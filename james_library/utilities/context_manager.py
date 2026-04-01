@@ -8,13 +8,19 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import importlib
 import re
-from typing import Iterable
+from typing import Any, Iterable
 
-try:
-    import tiktoken
-except ImportError:  # pragma: no cover - local environments may omit the package
-    tiktoken = None
+
+def _load_tiktoken() -> Any | None:
+    try:
+        return importlib.import_module("tiktoken")
+    except ImportError:  # pragma: no cover - local environments may omit the package
+        return None
+
+
+tiktoken = _load_tiktoken()
 
 
 SUMMARY_PREFIX = "[SUMMARY]"
