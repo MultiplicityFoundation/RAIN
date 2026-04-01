@@ -18,16 +18,14 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
-from rain_lab_runtime import run_rain_lab
-from james_library.launcher.rain_lab import BEGINNER_PRESETS, _render_beginner_topic
+from lab_server.research_panel import run_research_panel
 
 _STATIC_DIR = Path(__file__).parent / "static"
-_VALID_PRESETS = set(BEGINNER_PRESETS) | {"free"}
 _MAX_TOPIC_CHARS = 500
 
 app = FastAPI(title="R.A.I.N. Lab", docs_url=None, redoc_url=None)
@@ -35,29 +33,34 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 class DebateRequest(BaseModel):
-    topic: str
-    preset: str = "startup-debate"
+    question: str
 
-    @field_validator("topic")
+    @field_validator("question")
     @classmethod
-    def topic_not_empty(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("topic must not be empty")
-        return v[:_MAX_TOPIC_CHARS]
+    def question_not_empty(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("question must not be empty")
+        return value[:_MAX_TOPIC_CHARS]
 
-    @field_validator("preset")
-    @classmethod
-    def preset_valid(cls, v: str) -> str:
-        if v not in _VALID_PRESETS:
-            raise ValueError(f"preset must be one of: {sorted(_VALID_PRESETS)}")
-        return v
+
+class DebateNote(BaseModel):
+    agent_name: str
+    role: str
+    content: str
+    evidence_sources: list[str]
+    grounded: bool
+    confidence: float
 
 
 class DebateResponse(BaseModel):
-    topic: str
-    preset: str
-    result: str
+    question: str
+    panel_title: str
+    panel: list[DebateNote]
+    synthesis: str
+    synthesis_evidence_sources: list[str]
+    grounded: bool
+    confidence: float
 
 
 @app.get("/health")
@@ -72,12 +75,4 @@ def index() -> FileResponse:
 
 @app.post("/debate", response_model=DebateResponse)
 async def debate(req: DebateRequest) -> DebateResponse:
-    preset_name = None if req.preset == "free" else req.preset
-    display_topic, query = _render_beginner_topic(req.topic, preset_name)
-
-    result = await run_rain_lab(query=query, mode="rlm")
-
-    if result.startswith(("R.A.I.N. runtime error", "R.A.I.N. runtime config error", "R.A.I.N. runtime canceled")):
-        raise HTTPException(status_code=500, detail=result)
-
-    return DebateResponse(topic=display_topic, preset=req.preset, result=result)
+    return DebateResponse(**(await run_research_panel(req.question)))

@@ -494,6 +494,14 @@ def _confidence_score(response_text: str, provenance: list[ProvenanceItem]) -> f
     return max(0.05, min(0.98, round(score, 2)))
 
 
+def extract_provenance(response_text: str) -> list[ProvenanceItem]:
+    return _extract_provenance(response_text)
+
+
+def score_grounding_confidence(response_text: str, provenance: list[ProvenanceItem]) -> float:
+    return _confidence_score(response_text, provenance)
+
+
 def _trace_log_path() -> Path:
     library = _library_path()
     default_path = library / "meeting_archives" / "runtime_events.jsonl"
