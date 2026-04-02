@@ -37,7 +37,7 @@ This is built for work that starts messy: early-stage research, technical due di
 
 ## Try It Now
 
-### Public Web Experience (Coming Soon)
+### Public Web Experience 
 
 Start with the example hosted experience:
 
@@ -133,7 +133,7 @@ The guided flow can connect to LM Studio or Ollama so your model traffic stays l
 
 - **Python 3.10+**
 - **Optional:** LM Studio or Ollama for local AI models
-- **Optional:** Rust toolchain for the fast runtime layer
+- **Optional:** ZeroClaw/Rust toolchain for the fast runtime layer
 
 Python works without the optional pieces. Adding them expands the local/private path.
 
