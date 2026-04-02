@@ -1,5 +1,7 @@
 import asyncio
+import json
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -7,6 +9,38 @@ from fastapi.testclient import TestClient
 
 import lab_server.app as lab_app
 import lab_server.research_panel as research_panel
+
+
+class _MetaParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.meta_by_key: dict[tuple[str, str], str] = {}
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "meta":
+            return
+        values = {name: value for name, value in attrs if value is not None}
+        key_name = values.get("name")
+        key_property = values.get("property")
+        content = values.get("content")
+        if content is None:
+            return
+        if key_name is not None:
+            self.meta_by_key[("name", key_name)] = content
+        if key_property is not None:
+            self.meta_by_key[("property", key_property)] = content
+
+
+def _read_meta_values(html: str) -> dict[tuple[str, str], str]:
+    parser = _MetaParser()
+    parser.feed(html)
+    return parser.meta_by_key
+
+
+def _read_json_ld_payload(html: str) -> dict[str, object]:
+    match = re.search(r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>', html, re.S)
+    assert match is not None
+    return json.loads(match.group(1))
 
 
 def test_debate_endpoint_returns_structured_research_panel(monkeypatch) -> None:
@@ -159,15 +193,48 @@ def test_public_metadata_surfaces_reflect_research_panel_positioning() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     web_index = (repo_root / "web" / "index.html").read_text(encoding="utf-8")
     docs_override = (repo_root / "docs" / "overrides" / "main.html").read_text(encoding="utf-8")
+    meta_values = _read_meta_values(web_index)
+    json_ld = _read_json_ld_payload(docs_override)
 
-    assert "Ask a research question. Get a room full of experts." in web_index
-    assert "expert panel in a box" in web_index
-    assert "Private by default. Strong claims tied to papers or explicit evidence." in web_index
-    assert "Researchers, independent thinkers, and R&D teams" in web_index
+    assert meta_values[("name", "description")] == (
+        "A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams. "
+        "It turns one research question into evidence-grounded debate and synthesis."
+    )
+    assert meta_values[("property", "og:title")] == "R.A.I.N. Lab | Ask a research question. Get a room full of experts."
+    assert meta_values[("property", "og:description")] == "Private by default, grounded in papers and explicit evidence."
+    assert meta_values[("name", "twitter:title")] == "R.A.I.N. Lab | Ask a research question. Get a room full of experts."
+    assert meta_values[("name", "twitter:description")] == (
+        "A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams."
+    )
+    assert meta_values[("name", "description")].count("expert panel in a box") == 1
     assert "autonomous coding agent runtime" not in web_index
 
-    assert "Research Reasoning Software" in docs_override
-    assert "expert panel in a box" in docs_override
-    assert "evidence-grounded debate" in docs_override
-    assert "researchers, independent thinkers, and R&D teams" in docs_override
-    assert "autonomous coding agents" not in docs_override
+    assert json_ld["@type"] == "SoftwareApplication"
+    assert json_ld["applicationCategory"] == "ResearchApplication"
+    assert json_ld["applicationSubCategory"] == "Research Reasoning Software"
+    assert json_ld["description"] == (
+        "R.A.I.N. Lab is a private-by-default expert panel in a box for research reasoning. "
+        "It turns one question into evidence-grounded debate and synthesis, with claims tied to papers and explicit evidence."
+    )
+    assert json_ld["audience"] == {
+        "@type": "Audience",
+        "audienceType": "Researchers, independent thinkers, and R&D teams",
+    }
+    assert json_ld["keywords"] == [
+        "research reasoning software",
+        "expert panel in a box",
+        "private by default",
+        "evidence-grounded synthesis",
+        "papers and explicit evidence",
+        "research debate",
+        "scientific reasoning",
+        "decision support",
+        "R&D teams",
+    ]
+    assert json_ld["featureList"] == [
+        "Private-by-default research sessions with explicit evidence tracking",
+        "Evidence-grounded debate across multiple expert perspectives",
+        "Synthesis that surfaces the strongest explanations, disagreements, and next moves",
+        "Paper-backed claims and traceable support for review",
+        "A broad research workflow for researchers, independent thinkers, and R&D teams",
+    ]
