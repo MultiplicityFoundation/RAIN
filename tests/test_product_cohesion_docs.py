@@ -35,15 +35,35 @@ def _read(repo_root: Path, rel_path: str) -> str:
 def test_readme_leads_with_research_panel_positioning(repo_root: Path) -> None:
     text = _read(repo_root, "README.md")
 
-    for fragment in (
-        "# R.A.I.N. Lab",
-        "A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams.",
-        "Ask a raw research question. R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.",
-        "Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.",
-        "James is the assistant inside R.A.I.N. Lab",
-        "https://lab.vers3dynamics.com",
-    ):
+    heading = "# R.A.I.N. Lab"
+    tagline = "A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams."
+    product_summary = (
+        "Ask a raw research question. R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves."
+    )
+    expert_summary = "Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts."
+    assistant_line = "James is the assistant inside R.A.I.N. Lab"
+    hosted_url = "https://lab.vers3dynamics.com"
+    local_runner = "python rain_lab.py"
+    first_section = "## What This Is"
+
+    for fragment in (heading, tagline, product_summary, expert_summary, assistant_line, hosted_url):
         assert fragment in text, f"README.md is missing required positioning marker: {fragment!r}"
+
+    heading_index = text.index(heading)
+    tagline_index = text.index(tagline)
+    product_summary_index = text.index(product_summary)
+    expert_summary_index = text.index(expert_summary)
+    assistant_line_index = text.index(assistant_line)
+    hosted_url_index = text.index(hosted_url)
+    local_runner_index = text.index(local_runner)
+    first_section_index = text.index(first_section)
+
+    assert heading_index < first_section_index
+    assert tagline_index < first_section_index
+    assert product_summary_index < first_section_index
+    assert expert_summary_index < first_section_index
+    assert assistant_line_index < first_section_index
+    assert hosted_url_index < local_runner_index
 
     assert "# James and the R.A.I.N. Lab" not in text
     assert "The local-first autonomous coding agent runtime for Rust, Python, and hardware-adjacent teams." not in text
