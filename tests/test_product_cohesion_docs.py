@@ -185,6 +185,7 @@ def test_readme_leads_with_research_panel_positioning(repo_root: Path) -> None:
     assert assistant_line_index < chrome_index
     assert chrome_index < first_section_index
     assert hosted_url_index < local_runner_index
+    assert "### Public Web Experience (Coming Soon)" not in text
 
     for section in expected_sections:
         assert section in text, f"README.md is missing expected section: {section!r}"

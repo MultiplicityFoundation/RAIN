@@ -37,7 +37,7 @@ This is built for work that starts messy: early-stage research, technical due di
 
 ## Try It Now
 
-### Public Web Experience 
+### Public Web Experience
 
 Start with the example hosted experience:
 

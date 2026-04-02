@@ -265,6 +265,8 @@ def test_homepage_shows_research_panel_positioning_and_no_longer_shows_coding_ag
         "Search tools help you find papers. R.A.I.N. Lab helps you think with a "
         "room full of experts."
     ) in html
+    assert "Read a paper written with R.A.I.N. Lab." in html
+    assert 'href="https://topherchris420.github.io/research/"' in html
     assert f'placeholder="For example: {EXAMPLE_PROMPT}"' in html
     assert f'data-question="{EXAMPLE_PROMPT}"' in html
     assert re.search(
