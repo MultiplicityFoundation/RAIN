@@ -2,17 +2,17 @@
 
 **A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams.**
 
-Ask a raw research question. R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.
+Ask a raw research question. The R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.
 
 Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.
 
-James is the assistant inside R.A.I.N. Lab.
+James is the assistant inside the R.A.I.N. Lab.
 
 <p align="center">
   <img src="assets/rain_lab.png" alt="R.A.I.N. Lab logo" width="800" />
 </p>
 
-<p align="center">
+<p align="center">🌐
   <a href="README.zh-CN.md">简体中文</a> •
   <a href="README.ja.md">日本語</a> •
   <a href="README.ru.md">Русский</a> •
@@ -24,7 +24,7 @@ James is the assistant inside R.A.I.N. Lab.
 
 ## What It Does
 
-R.A.I.N. Lab turns one question into a structured research conversation.
+The R.A.I.N. Lab turns one question into a structured research conversation.
 
 - It frames the problem from multiple expert angles.
 - It separates strong evidence from weak speculation.
@@ -37,7 +37,7 @@ This is built for work that starts messy: early-stage research, technical due di
 
 ## Try It Now
 
-### Public Web Experience
+### Public Web Experience (Coming Soon)
 
 Start with the hosted experience:
 
@@ -174,10 +174,10 @@ uv run --python .venv/bin/python rain_lab.py --mode first-run
 
 Recommended mental model:
 
-- R.A.I.N. Lab is the product experience.
-- James is the assistant users interact with inside that product.
+- R.A.I.N. Lab is the experience.
+- James is the assistant you interact with inside the lab.
 - Python handles launcher flows and orchestration.
-- Rust handles the fast runtime, tool surface, and lower-level infrastructure.
+- ZeroClaw/Rust handles the fast runtime, tool surface, and lower-level infrastructure.
 
 **Testing:**
 
