@@ -1,5 +1,6 @@
 import asyncio
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -152,3 +153,21 @@ def test_homepage_shows_research_panel_positioning_and_no_longer_shows_coding_ag
     assert "Your engineering task or question" not in html
     assert "Run the task ->" not in html
     assert "fast radio bursts" not in html
+
+
+def test_public_metadata_surfaces_reflect_research_panel_positioning() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    web_index = (repo_root / "web" / "index.html").read_text(encoding="utf-8")
+    docs_override = (repo_root / "docs" / "overrides" / "main.html").read_text(encoding="utf-8")
+
+    assert "Ask a research question. Get a room full of experts." in web_index
+    assert "expert panel in a box" in web_index
+    assert "Private by default. Strong claims tied to papers or explicit evidence." in web_index
+    assert "Researchers, independent thinkers, and R&D teams" in web_index
+    assert "autonomous coding agent runtime" not in web_index
+
+    assert "Research Reasoning Software" in docs_override
+    assert "expert panel in a box" in docs_override
+    assert "evidence-grounded debate" in docs_override
+    assert "researchers, independent thinkers, and R&D teams" in docs_override
+    assert "autonomous coding agents" not in docs_override
