@@ -2,7 +2,7 @@
 
 **A private-by-default experts in your pocket for researchers, independent thinkers, and R&D teams.**
 
-Ask a raw research question. The R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.
+Ask a research question. The R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.
 
 Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.
 
@@ -119,7 +119,7 @@ The guided flow can connect to LM Studio or Ollama so your model traffic stays l
 
 ## See It In Action
 
-Ask a raw research question. Watch four expert agents — James (lead scientist), Jasmine (post-doc skeptic), Luca (geometer), and Elena (logician) — debate it in real time.
+Ask a research question. Watch four expert agents — James (lead scientist), Jasmine (post-doc), Luca (geometer), and Elena (logician) — debate it in real time.
 
 ```
 TOPIC: Could a "Phononic Morphogenetic Field" — precise acoustic interference patterns
@@ -134,11 +134,11 @@ or material changes the way DNA does. And the energy density needed exceeds
 current acoustic levitation by *orders of magnitude*. Where's the thermal
 dissipation analysis?
 
-**Luca:** The geometry is compelling though. Wavelength spacing in phononic
+**Luca:** The geometry is compelling, though. Wavelength spacing in phononic
 combs (ωₙ₊₁ - ωₙ = 2πc/λ) parallels scalar field gradients in relic field
 tomography. But macroscopic assembly requires E > 10⁴⁵ J — far beyond reach.
 
-**Elena:** The math is elegant but the premise has a fatal flaw. The energy
+**Elena:** The math is elegant, but the premise has a fatal flaw. The energy
 density violates the Landauer limit by multiple orders of magnitude. Current
 systems operate ~10³ times lower. Without experimental validation at that
 scale, this remains speculation.
