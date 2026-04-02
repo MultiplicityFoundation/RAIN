@@ -48,6 +48,19 @@ def _find_readme_chrome_index(text: str) -> int:
     return min(candidates)
 
 
+def _lead_story_indexes(text: str) -> list[int]:
+    lead_story_fragments = [
+        "# R.A.I.N. Lab",
+        "A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams.",
+        (
+            "Ask a raw research question. R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves."
+        ),
+        "Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.",
+        "James is the assistant inside R.A.I.N. Lab",
+    ]
+    return [text.index(fragment) for fragment in lead_story_fragments]
+
+
 def test_readme_chrome_detection_ignores_incidental_markup() -> None:
     text = """# R.A.I.N. Lab
 
@@ -73,6 +86,27 @@ James is the assistant inside R.A.I.N. Lab.
 """
 
     assert _find_readme_chrome_index(text) == text.index("assets/rain_lab.png")
+
+
+def test_readme_lead_story_order_detection() -> None:
+    text = """# R.A.I.N. Lab
+
+**A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams.**
+
+Ask a raw research question. R.A.I.N. Lab assembles multiple expert perspectives, grounds strong claims in papers or explicit evidence, and returns the strongest explanations, disagreements, and next moves.
+
+Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.
+
+James is the assistant inside R.A.I.N. Lab.
+
+<p align="center">
+  <img alt="R.A.I.N. Lab logo" src="assets/rain_lab.png" class="hero" />
+</p>
+
+## What It Does
+"""
+
+    assert _lead_story_indexes(text) == sorted(_lead_story_indexes(text))
 
 
 def test_readme_leads_with_research_panel_positioning(repo_root: Path) -> None:
@@ -104,23 +138,14 @@ def test_readme_leads_with_research_panel_positioning(repo_root: Path) -> None:
     for fragment in (heading, tagline, product_summary, expert_summary, assistant_line, hosted_url):
         assert fragment in text, f"README.md is missing required positioning marker: {fragment!r}"
 
-    heading_index = text.index(heading)
-    tagline_index = text.index(tagline)
-    product_summary_index = text.index(product_summary)
-    expert_summary_index = text.index(expert_summary)
-    assistant_line_index = text.index(assistant_line)
+    lead_story_indexes = _lead_story_indexes(text)
+    heading_index, tagline_index, product_summary_index, expert_summary_index, assistant_line_index = lead_story_indexes
     chrome_index = _find_readme_chrome_index(text)
     hosted_url_index = text.index(hosted_url)
     local_runner_index = text.index(local_runner)
     first_section_index = text.index(first_section)
 
-    assert heading_index < first_section_index
-    assert tagline_index < first_section_index
-    assert product_summary_index < first_section_index
-    assert expert_summary_index < first_section_index
-    assert assistant_line_index < first_section_index
-    assert product_summary_index < chrome_index
-    assert expert_summary_index < chrome_index
+    assert lead_story_indexes == sorted(lead_story_indexes)
     assert assistant_line_index < chrome_index
     assert chrome_index < first_section_index
     assert hosted_url_index < local_runner_index
