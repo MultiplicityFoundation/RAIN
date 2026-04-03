@@ -160,6 +160,33 @@ Join a research meeting, explore disagreements, and leave with next steps — no
 
 ---
 
+## Outcome Quality and Trust
+
+### Outcome Quality (Benchmarked)
+
+R.A.I.N. Lab tracks engineering quality in CI and publishes explicit metric definitions, baselines, and targets (for example: panic count, unwrap count, flaky test rate, and critical-path coverage).
+
+- Quality metrics contract: [docs/project/quality-metrics.md](docs/project/quality-metrics.md)
+- Quality report generator: [scripts/ci/quality_metrics_report.py](scripts/ci/quality_metrics_report.py)
+
+For research-outcome benchmarking, we recommend publishing reproducible before/after evaluation artifacts (task set, baseline, rubric, and result files) alongside these quality reports.
+
+### Trust + Privacy Story
+
+R.A.I.N. Lab is designed local-first with secure defaults:
+
+- local/private workflow paths and local model routing options
+- gateway defaults to localhost with pairing enabled and public bind disabled
+- deny-by-default allowlist posture for channel access
+- encrypted-at-rest secret handling for high-value keys
+
+Current-behavior security docs:
+
+- [docs/security/README.md](docs/security/README.md)
+- [docs/reference/api/config-reference.md](docs/reference/api/config-reference.md)
+
+---
+
 ## Requirements
 
 - **Python 3.10+**

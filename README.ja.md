@@ -73,3 +73,30 @@ scale, this remains speculation.
 ```
 
 研究ミーティングに参加し、意見の相違を探り、リンクだけでなく次のステップを持ち帰りましょう。
+
+---
+
+## 成果品質と信頼性
+
+### 成果品質（ベンチマーク済み）
+
+R.A.I.N. Lab は CI でエンジニアリング品質を継続的に追跡し、指標の定義・ベースライン・目標（例: panic 件数、unwrap 件数、テストのフレーク率、重要経路のカバレッジ）を公開しています。
+
+- 品質メトリクス契約: [`docs/project/quality-metrics.md`](docs/project/quality-metrics.md)
+- 品質レポート生成: [`scripts/ci/quality_metrics_report.py`](scripts/ci/quality_metrics_report.py)
+
+研究成果の評価では、再現可能な before/after の評価成果物（タスクセット、ベースライン、ルーブリック、結果ファイル）を、これらの品質レポートと合わせて公開することを推奨します。
+
+### 信頼 + プライバシー
+
+R.A.I.N. Lab はローカルファーストで設計され、セキュアなデフォルトを採用しています。
+
+- ローカル/プライベートなワークフロー経路とローカルモデルのルーティングを提供
+- ゲートウェイはデフォルトで localhost にバインドし、ペアリングを有効化、公開バインドは無効化
+- チャネルアクセスは deny-by-default の allowlist 方針
+- 重要な鍵は encrypted-at-rest で保護
+
+現在の挙動に関するセキュリティ文書:
+
+- [`docs/security/README.md`](docs/security/README.md)
+- [`docs/reference/api/config-reference.md`](docs/reference/api/config-reference.md)

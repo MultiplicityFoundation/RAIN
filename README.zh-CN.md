@@ -73,3 +73,30 @@ scale, this remains speculation.
 ```
 
 加入一场研究会议，探索分歧，带着下一步行动方案离开 — 而不仅仅是链接。
+
+---
+
+## 结果质量与可信性
+
+### 结果质量（基准化）
+
+R.A.I.N. Lab 在 CI 中持续跟踪工程质量，并公开指标定义、基线与目标（例如：panic 次数、unwrap 次数、测试波动率、关键路径覆盖率）。
+
+- 质量指标契约：[`docs/project/quality-metrics.md`](docs/project/quality-metrics.md)
+- 质量报告生成器：[`scripts/ci/quality_metrics_report.py`](scripts/ci/quality_metrics_report.py)
+
+对于研究结果评估，我们建议同时发布可复现的前后对比评测产物（任务集、基线、评分标准、结果文件），并与上述质量报告一起提供。
+
+### 可信 + 隐私说明
+
+R.A.I.N. Lab 采用本地优先设计，并默认启用安全设置：
+
+- 支持本地/私有工作流路径与本地模型路由选项
+- 网关默认绑定 localhost，开启配对机制，并禁用公网绑定
+- 渠道访问采用默认拒绝（deny-by-default）的 allowlist 策略
+- 高价值密钥采用静态加密存储（encrypted-at-rest）
+
+当前行为对应的安全文档：
+
+- [`docs/security/README.md`](docs/security/README.md)
+- [`docs/reference/api/config-reference.md`](docs/reference/api/config-reference.md)

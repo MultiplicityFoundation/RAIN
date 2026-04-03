@@ -73,3 +73,30 @@ scale, this remains speculation.
 ```
 
 Tham gia một cuộc họp nghiên cứu, khám phá các bất đồng và ra về với các bước tiếp theo — không chỉ là liên kết.
+
+---
+
+## Chất lượng đầu ra và mức độ tin cậy
+
+### Chất lượng đầu ra (đã benchmark)
+
+R.A.I.N. Lab theo dõi chất lượng kỹ thuật trong CI và công bố rõ định nghĩa chỉ số, baseline, cùng mục tiêu (ví dụ: số lần panic, số lần unwrap, tỷ lệ test flaky và độ bao phủ critical path).
+
+- Hợp đồng chỉ số chất lượng: [`docs/project/quality-metrics.md`](docs/project/quality-metrics.md)
+- Bộ tạo báo cáo chất lượng: [`scripts/ci/quality_metrics_report.py`](scripts/ci/quality_metrics_report.py)
+
+Với benchmark đầu ra nghiên cứu, chúng tôi khuyến nghị công bố bộ hiện vật đánh giá before/after có thể tái lập (task set, baseline, rubric, file kết quả) cùng với các báo cáo chất lượng này.
+
+### Câu chuyện tin cậy + quyền riêng tư
+
+R.A.I.N. Lab được thiết kế local-first với mặc định an toàn:
+
+- hỗ trợ luồng làm việc local/private và tùy chọn định tuyến model cục bộ
+- gateway mặc định bind vào localhost, bật pairing và tắt public bind
+- tư thế allowlist theo nguyên tắc deny-by-default cho truy cập kênh
+- xử lý secret quan trọng bằng mã hóa at-rest
+
+Tài liệu bảo mật theo hành vi hiện tại:
+
+- [`docs/security/README.md`](docs/security/README.md)
+- [`docs/reference/api/config-reference.md`](docs/reference/api/config-reference.md)

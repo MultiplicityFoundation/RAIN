@@ -73,3 +73,30 @@ scale, this remains speculation.
 ```
 
 Rejoignez une réunion de recherche, explorez les désaccords et repartez avec des prochaines étapes — pas seulement des liens.
+
+---
+
+## Qualité des résultats et confiance
+
+### Qualité des résultats (benchmarkée)
+
+R.A.I.N. Lab suit la qualité d’ingénierie en CI et publie des définitions explicites des métriques, des lignes de base et des cibles (par exemple : nombre de panic, nombre de unwrap, taux de tests instables et couverture du chemin critique).
+
+- Contrat des métriques de qualité : [`docs/project/quality-metrics.md`](docs/project/quality-metrics.md)
+- Générateur de rapport qualité : [`scripts/ci/quality_metrics_report.py`](scripts/ci/quality_metrics_report.py)
+
+Pour l’évaluation des résultats de recherche, nous recommandons de publier des artefacts reproductibles avant/après (jeu de tâches, baseline, grille d’évaluation, fichiers de résultats) avec ces rapports qualité.
+
+### Confiance + confidentialité
+
+R.A.I.N. Lab est conçu en local-first avec des paramètres sécurisés par défaut :
+
+- chemins de workflow local/privé et options de routage vers des modèles locaux
+- gateway lié à localhost par défaut, appairage activé et bind public désactivé
+- posture allowlist en deny-by-default pour l’accès aux canaux
+- gestion des secrets chiffrés au repos pour les clés sensibles
+
+Documentation sécurité (comportement actuel) :
+
+- [`docs/security/README.md`](docs/security/README.md)
+- [`docs/reference/api/config-reference.md`](docs/reference/api/config-reference.md)
