@@ -11,6 +11,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::fs;
+use url::Url;
 
 /// Telegram's maximum message length for text messages
 const TELEGRAM_MAX_MESSAGE_LENGTH: usize = 4096;
@@ -487,7 +488,22 @@ impl TelegramChannel {
     }
 
     fn http_client(&self) -> reqwest::Client {
+        if self.api_base_targets_loopback() {
+            if let Ok(client) = reqwest::Client::builder().no_proxy().build() {
+                return client;
+            }
+        }
         crate::config::build_channel_proxy_client("channel.telegram", self.proxy_url.as_deref())
+    }
+
+    fn api_base_targets_loopback(&self) -> bool {
+        let Ok(url) = Url::parse(&self.api_base) else {
+            return false;
+        };
+        let Some(host) = url.host_str() else {
+            return false;
+        };
+        matches!(host, "localhost" | "127.0.0.1" | "::1")
     }
 
     fn normalize_identity(value: &str) -> String {
@@ -649,7 +665,7 @@ impl TelegramChannel {
         };
 
         let delete_resp = self
-            .client
+            .http_client()
             .post(self.api_url("deleteMessage"))
             .json(&serde_json::json!({
                 "chat_id": chat_id,
@@ -2336,7 +2352,7 @@ impl Channel for TelegramChannel {
         }
 
         let resp = self
-            .client
+            .http_client()
             .post(self.api_url("sendMessage"))
             .json(&body)
             .send()
@@ -2410,7 +2426,7 @@ impl Channel for TelegramChannel {
         });
 
         let resp = self
-            .client
+            .http_client()
             .post(self.api_url("editMessageText"))
             .json(&body)
             .send()
@@ -2508,7 +2524,7 @@ impl Channel for TelegramChannel {
         });
 
         let resp = self
-            .client
+            .http_client()
             .post(self.api_url("editMessageText"))
             .json(&body)
             .send()
@@ -2532,7 +2548,7 @@ impl Channel for TelegramChannel {
         });
 
         let resp = self
-            .client
+            .http_client()
             .post(self.api_url("editMessageText"))
             .json(&plain_body)
             .send()
@@ -2572,7 +2588,7 @@ impl Channel for TelegramChannel {
         };
 
         let response = self
-            .client
+            .http_client()
             .post(self.api_url("deleteMessage"))
             .json(&serde_json::json!({
                 "chat_id": chat_id,
@@ -2962,6 +2978,20 @@ mod tests {
     fn telegram_channel_name() {
         let ch = TelegramChannel::new("fake-token".into(), vec!["*".into()], false);
         assert_eq!(ch.name(), "telegram");
+    }
+
+    #[test]
+    fn api_base_targets_loopback_true_for_localhost() {
+        let ch = TelegramChannel::new("fake-token".into(), vec!["*".into()], false)
+            .with_api_base("http://localhost:3000".into());
+        assert!(ch.api_base_targets_loopback());
+    }
+
+    #[test]
+    fn api_base_targets_loopback_false_for_public_host() {
+        let ch = TelegramChannel::new("fake-token".into(), vec!["*".into()], false)
+            .with_api_base("https://api.telegram.org".into());
+        assert!(!ch.api_base_targets_loopback());
     }
 
     #[test]
