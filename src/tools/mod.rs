@@ -85,6 +85,7 @@ pub mod tool_discovery;
 pub mod tool_search;
 pub mod toolbox_manager;
 pub mod traits;
+pub mod tribev2;
 pub mod verifiable_intent;
 pub mod weather_tool;
 pub mod web_fetch;
@@ -163,6 +164,7 @@ pub use toolbox_manager::{
     ToolboxManager,
 };
 pub use traits::Tool;
+pub use tribev2::TribeV2Tool;
 #[allow(unused_imports)]
 pub use traits::{ToolResult, ToolSpec};
 pub use verifiable_intent::VerifiableIntentTool;
@@ -676,6 +678,14 @@ pub fn all_tools_with_runtime(
         tool_arcs.push(Arc::new(ClaudeCodeTool::new(
             security.clone(),
             root_config.claude_code.clone(),
+        )));
+    }
+
+    // TRIBE v2 brain-encoding model (requires external sidecar)
+    if root_config.tribev2.enabled {
+        tool_arcs.push(Arc::new(TribeV2Tool::new(
+            root_config.tribev2.endpoint.clone(),
+            root_config.tribev2.timeout_secs,
         )));
     }
 

@@ -489,6 +489,7 @@ async fn config_toml_roundtrip() {
         locale: None,
         verifiable_intent: VerifiableIntentConfig::default(),
         claude_code: ClaudeCodeConfig::default(),
+        tribev2: TribeV2Config::default(),
     };
 
     let toml_str = toml::to_string_pretty(&config).unwrap();
@@ -867,6 +868,7 @@ async fn config_save_and_load_tmpdir() {
         locale: None,
         verifiable_intent: VerifiableIntentConfig::default(),
         claude_code: ClaudeCodeConfig::default(),
+        tribev2: TribeV2Config::default(),
     };
 
     config.save().await.unwrap();

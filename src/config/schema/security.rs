@@ -565,3 +565,50 @@ impl Default for JiraConfig {
         }
     }
 }
+
+/// TRIBE v2 brain-encoding model integration configuration (`[tribev2]`).
+///
+/// When `enabled = true`, registers the `tribev2_predict` tool which sends
+/// multimedia inputs (video, audio, text) to a TRIBE v2 sidecar HTTP service
+/// and returns predicted fMRI brain activation maps on the fsaverage5 cortical mesh.
+///
+/// ## Prerequisites
+/// A running TRIBE v2 sidecar service (see `tools/tribev2_sidecar/`).
+///
+/// ## Defaults
+/// - `enabled`: `false`
+/// - `endpoint`: `"http://127.0.0.1:8100"`
+/// - `timeout_secs`: `120`
+///
+/// ## License
+/// TRIBE v2 is licensed under CC-BY-NC 4.0 (non-commercial use only).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TribeV2Config {
+    /// Enable the `tribev2_predict` tool. Default: `false`.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Base URL of the TRIBE v2 sidecar HTTP service.
+    #[serde(default = "default_tribev2_endpoint")]
+    pub endpoint: String,
+    /// Request timeout in seconds. Default: `120`.
+    #[serde(default = "default_tribev2_timeout_secs")]
+    pub timeout_secs: u64,
+}
+
+fn default_tribev2_endpoint() -> String {
+    "http://127.0.0.1:8100".into()
+}
+
+fn default_tribev2_timeout_secs() -> u64 {
+    120
+}
+
+impl Default for TribeV2Config {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            endpoint: default_tribev2_endpoint(),
+            timeout_secs: default_tribev2_timeout_secs(),
+        }
+    }
+}
