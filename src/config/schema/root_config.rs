@@ -321,6 +321,10 @@ pub struct Config {
     /// Claude Code tool configuration (`[claude_code]`).
     #[serde(default)]
     pub claude_code: ClaudeCodeConfig,
+
+    /// TRIBE v2 brain-encoding model sidecar configuration (`[tribev2]`).
+    #[serde(default)]
+    pub tribev2: TribeV2Config,
 }
 
 /// Multi-client workspace isolation configuration.
@@ -604,6 +608,7 @@ impl Default for Config {
             locale: None,
             verifiable_intent: VerifiableIntentConfig::default(),
             claude_code: ClaudeCodeConfig::default(),
+            tribev2: TribeV2Config::default(),
         }
     }
 }
