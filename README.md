@@ -1,8 +1,14 @@
 # R.A.I.N. Lab
 
-**A research meeting in a box — four specialists who debate your question, challenge your assumptions, and tell you what to read next.**
+**A private-by-default expert panel in a box for researchers, independent thinkers, and R&D teams.**
 
-R.A.I.N. Lab assembles James (lead scientist), Jasmine (hardware architect), Luca (geometer), and Elena (logician) around your research question. They don't all agree. That's the point.
+Ask a raw research question. The R.A.I.N. Lab assembles multiple expert
+perspectives, grounds strong claims in papers or explicit evidence, and returns
+the strongest explanations, disagreements, and next moves.
+
+Most tools help you find papers. R.A.I.N. Lab helps you think with a room full of experts.
+
+James is the assistant inside the R.A.I.N. Lab.
 
 <p align="center">
   <img src="assets/rain_lab.png" alt="R.A.I.N. Lab" width="600">
@@ -25,7 +31,101 @@ Most tools find papers. R.A.I.N. Lab finds disagreements.
 
 ---
 
-## See It In Action
+## Try It Now
+
+**Live demo:** [rainlabteam.vercel.app](https://rainlabteam.vercel.app/) — no setup required
+
+**On your machine:**
+
+```bash
+python rain_lab.py
+```
+
+Press Enter for demo mode, or connect to LM Studio / Ollama for full local operation.
+
+On Windows: double-click `INSTALL_RAIN.cmd` to create shortcuts.
+On macOS/Linux: run `./install.sh`.
+
+---
+
+## Who It Is For
+
+R.A.I.N. Lab is built for people who need answers that hold up under scrutiny, not just answers that sound good.
+
+| Role | What you can do with R.A.I.N. Lab |
+|------|-----------------------------------|
+| Researchers and analysts | Compare competing hypotheses, preserve disagreement, and keep auditable reasoning trails |
+| Founders and product leads | Stress-test strategic decisions through structured debate before committing roadmap or budget |
+| Operators and technical teams | Turn messy discussions into verifiable outputs that can be reviewed, shared, and replayed |
+
+---
+
+## What You Can Do
+
+| You want to... | R.A.I.N. Lab does this |
+|----------------|------------------------|
+| Pressure-test a claim | Four experts poke holes from different angles |
+| Understand a new field | Get the landscape — agreements, open questions, what nobody agrees on |
+| Decide what to read next | Leaves with specific paper recommendations and why they matter |
+| Stress-test a research direction | Surfaces the strongest counter-argument before you invest months |
+| Validate a stimulus against brain science | Run TRIBE v2 fMRI predictions on video, audio, or text |
+| Keep your research private | Runs locally on your own models |
+
+---
+
+## Why It Is Different
+
+| Typical research tool | R.A.I.N. Lab |
+|-----------------------|---------------|
+| Returns a list of papers | Returns a debate |
+| Treats the first plausible answer as correct | Preserves disagreement until evidence resolves it |
+| One perspective, one model | Four voices with different expertise and constraints |
+| Cloud-first | Runs entirely local if you want |
+| Says "here's what I found" | Says "here's what might be wrong with it" |
+
+---
+
+## Local and Private Workflow
+
+R.A.I.N. Lab runs entirely on your hardware when you want it to. Connect a local model via [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/) and nothing leaves your machine — no cloud calls, no telemetry, no data sharing.
+
+---
+
+## Features
+
+### Meet the Agents
+
+Each agent has a distinct voice, expertise, and set of constraints they bring to every question.
+
+| Agent | Role | How They Think |
+|-------|------|----------------|
+| **James** | Lead Scientist | Draws from your research papers directly. Cites metrics. Says when data is missing. |
+| **Jasmine** | Hardware Architect | Reality-checks everything against real material constraints. If it can't be built, she knows why. |
+| **Luca** | Field Tomographer | Sees geometric patterns others miss. Makes intuitive leaps, then looks for the math to ground them. |
+| **Elena** | Quantum Information Theorist | Demands formal rigor. Runs logical verification. Catches errors everyone else misses. |
+
+Each agent's full personality, reasoning principles, and conversation style are defined in their **SOUL** file:
+
+- [JAMES_SOUL.md](JAMES_SOUL.md) — Lead Scientist
+- [JASMINE_SOUL.md](JASMINE_SOUL.md) — Hardware Architect
+- [LUCA_SOUL.md](LUCA_SOUL.md) — Field Tomographer
+- [ELENA_SOUL.md](ELENA_SOUL.md) — Quantum Information Theorist
+
+The SOUL files are part of the product. They're what make the agents feel like colleagues, not search results.
+
+### TRIBE v2 Brain Encoding
+
+R.A.I.N. Lab includes a **TRIBE v2 integration** that predicts fMRI brain activation patterns from video, audio, or text. Feed a stimulus to the model and James returns predicted cortical response maps — run basic neuroscience experiments from inside a research meeting.
+
+- **Input:** video file, audio file, or raw text
+- **Output:** predicted fMRI activation patterns across 20,484 cortical vertices
+- **Use case:** validate whether a stimulus (image, sound, phrase) actually engages the brain regions your hypothesis claims
+
+This is a real sidecar service (`tools/tribev2_sidecar/`) wrapping Facebook Research's TRIBE v2 model. Setup guide and API reference are in the sidecar README.
+
+> **License: CC-BY-NC 4.0** — non-commercial use only.
+
+### See It In Action
 
 > **TOPIC: Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?**
 
@@ -68,76 +168,12 @@ Most tools find papers. R.A.I.N. Lab finds disagreements.
 
 ---
 
-## Meet the Agents
-
-Each agent has a distinct voice, expertise, and set of constraints they bring to every question.
-
-| Agent | Role | How They Think |
-|-------|------|----------------|
-| **James** | Lead Scientist | Draws from your research papers directly. Cites metrics. Says when data is missing. |
-| **Jasmine** | Hardware Architect | Reality-checks everything against real material constraints. If it can't be built, she knows why. |
-| **Luca** | Field Tomographer | Sees geometric patterns others miss. Makes intuitive leaps, then looks for the math to ground them. |
-| **Elena** | Quantum Information Theorist | Demands formal rigor. Runs logical verification. Catches errors everyone else misses. |
-
-Each agent's full personality, reasoning principles, and conversation style are defined in their **SOUL** file:
-
-- [JAMES_SOUL.md](JAMES_SOUL.md) — Lead Scientist
-- [JASMINE_SOUL.md](JASMINE_SOUL.md) — Hardware Architect
-- [LUCA_SOUL.md](LUCA_SOUL.md) — Field Tomographer
-- [ELENA_SOUL.md](ELENA_SOUL.md) — Quantum Information Theorist
-
-The SOUL files are part of the product. They're what make the agents feel like colleagues, not search results.
-
----
-
-## What You Can Do
-
-| You want to... | R.A.I.N. Lab does this |
-|----------------|------------------------|
-| Pressure-test a claim | Four experts poke holes from different angles |
-| Understand a new field | Get the landscape — agreements, open questions, what nobody agrees on |
-| Decide what to read next | Leaves with specific paper recommendations and why they matter |
-| Stress-test a research direction | Surfaces the strongest counter-argument before you invest months |
-| Validate a stimulus against brain science | Run TRIBE v2 fMRI predictions on video, audio, or text |
-| Keep your research private | Runs locally on your own models |
-
----
-
-## Why It Works
-
-| Typical research tool | R.A.I.N. Lab |
-|-----------------------|---------------|
-| Returns a list of papers | Returns a debate |
-| Treats the first plausible answer as correct | Preserves disagreement until evidence resolves it |
-| One perspective, one model | Four voices with different expertise and constraints |
-| Cloud-first | Runs entirely local if you want |
-| Says "here's what I found" | Says "here's what might be wrong with it" |
-
----
-
-## Try It
-
-**Live demo:** [rainlabteam.vercel.app](https://rainlabteam.vercel.app/) — no setup required
-
-### Prerequisites
+## Requirements
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - Rust toolchain (optional, for the ZeroClaw runtime layer)
 - A local model via [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/) (optional — demo mode works without one)
-
-### Install & Run
-
-**macOS / Linux:**
-```bash
-./install.sh
-python rain_lab.py
-```
-
-**Windows:**
-```
-Double-click INSTALL_RAIN.cmd
-```
 
 **From source (macOS / Linux):**
 ```bash
@@ -159,26 +195,22 @@ uv pip sync --python .venv\Scripts\python.exe requirements-dev-pinned.txt
 uv run --python .venv\Scripts\python.exe rain_lab.py --mode first-run
 ```
 
-Press Enter for demo mode, or connect to LM Studio / Ollama for full local operation.
+---
+
+## Documentation
+
+| | |
+|---|---|
+| **Docs** | [Start Here](START_HERE.md) -- [Beginner Guide](docs/getting-started/README.md) -- [One-Click Install](docs/one-click-bootstrap.md) -- [Troubleshooting](docs/troubleshooting.md) |
+| **Papers** | [Research Archive](https://topherchris420.github.io/research/) |
+| **Language** | [简体中文](README.zh-CN.md) -- [日本語](README.ja.md) -- [Русский](README.ru.md) -- [Français](README.fr.md) -- [Tiếng Việt](README.vi.md) |
 
 ---
 
-## Think With Your Brain — Literally
-
-R.A.I.N. Lab includes a **TRIBE v2 integration** that predicts fMRI brain activation patterns from video, audio, or text. Feed a stimulus to the model and James returns predicted cortical response maps — run basic neuroscience experiments from inside a research meeting.
-
-- **Input:** video file, audio file, or raw text
-- **Output:** predicted fMRI activation patterns across 20,484 cortical vertices
-- **Use case:** validate whether a stimulus (image, sound, phrase) actually engages the brain regions your hypothesis claims
-
-This is a real sidecar service (`tools/tribev2_sidecar/`) wrapping Facebook Research's TRIBE v2 model. Setup guide and API reference are in the sidecar README.
-
-> **License: CC-BY-NC 4.0** — non-commercial use only.
-
----
+## For Developers
 
 <details>
-<summary><b>For developers — architecture, extension points, contribution</b></summary>
+<summary><b>Architecture, extension points, contribution</b></summary>
 
 ### Architecture
 
@@ -214,16 +246,6 @@ cargo test
 The codebase follows KISS, YAGNI, DRY (rule of three), SRP/ISP, fail-fast, secure-by-default, and reversible changes. See [ARCHITECTURE.md](ARCHITECTURE.md) and [CLAUDE.md](CLAUDE.md) for the full contract.
 
 </details>
-
----
-
-## Resources
-
-| | |
-|---|---|
-| **Docs** | [Start Here](START_HERE.md) -- [Beginner Guide](docs/getting-started/README.md) -- [One-Click Install](docs/one-click-bootstrap.md) -- [Troubleshooting](docs/troubleshooting.md) |
-| **Papers** | [Research Archive](https://topherchris420.github.io/research/) |
-| **Language** | [简体中文](README.zh-CN.md) -- [日本語](README.ja.md) -- [Русский](README.ru.md) -- [Français](README.fr.md) -- [Tiếng Việt](README.vi.md) |
 
 ---
 
