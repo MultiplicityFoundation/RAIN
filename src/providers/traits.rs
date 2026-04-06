@@ -1027,4 +1027,24 @@ mod tests {
 
         assert!(message.contains("non-prompt-guided"));
     }
+
+    #[test]
+    fn stream_event_from_chunk_preserves_final_payload() {
+        let event = StreamEvent::from_chunk(StreamChunk::error("streaming unsupported"));
+
+        match event {
+            StreamEvent::TextDelta(chunk) => {
+                assert!(chunk.is_final);
+                assert_eq!(chunk.delta, "streaming unsupported");
+            }
+            StreamEvent::Final => panic!("final payload was dropped"),
+            _ => panic!("unexpected event variant"),
+        }
+    }
+
+    #[test]
+    fn stream_event_from_chunk_maps_empty_final_chunk_to_final_event() {
+        let event = StreamEvent::from_chunk(StreamChunk::final_chunk());
+        assert!(matches!(event, StreamEvent::Final));
+    }
 }
