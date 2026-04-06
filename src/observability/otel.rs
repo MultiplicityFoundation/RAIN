@@ -474,8 +474,7 @@ impl Observer for OtelObserver {
                     ],
                 );
             }
-            ObserverMetric::DeploymentLeadTime(_)
-            | ObserverMetric::RecoveryTime(_) => {}
+            ObserverMetric::DeploymentLeadTime(_) | ObserverMetric::RecoveryTime(_) => {}
         }
     }
 
