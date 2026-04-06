@@ -4,6 +4,8 @@
 
 R.A.I.N. Lab assembles James (lead scientist), Jasmine (hardware architect), Luca (geometer), and Elena (logician) around your research question. They don't all agree. That's the point.
 
+![R.A.I.N. Lab — four agents debating your research question](docs/assets/rain-lab-banner.png)
+
 ---
 
 ## What It Does
@@ -20,6 +22,19 @@ Most tools find papers. R.A.I.N. Lab finds disagreements.
 ## See It In Action
 
 > **TOPIC: Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?**
+
+**James:** The frequency comb geometry you're describing — those spectral spacings match what I saw in the DRR paper. If the phononic field creates a standing wave at the right wavelength, you could theoretically anchor molecular complexes at node points. But that's a big "theoretically."
+
+**Jasmine:** I love the ambition, but let's reality-check. Piezo actuators hit degradation limits around 100 kHz under continuous load. And thermal drift at sub-micron precision? Where's the energy budget?
+
+**Luca:** The coherence depth function C_α(u) describes how deep pattern information persists in an oscillatory field. If the field is structured well enough, you don't need continuous high-frequency drive. The shape encodes the instructions.
+
+**Elena:** Elegance doesn't satisfy Landauer's bound. The energy density required for your coherence depth at that spatial resolution is roughly 10⁴⁵ joules — a dozen orders of magnitude beyond what you're describing. verify_logic() on the combined constraints returns satisfiable, but satisfiable isn't plausible.
+
+**James:** Next step is a targeted literature search on low-energy coherent phonon generation. Jasmine, pull real actuator specs and run the thermal numbers against Luca's geometry. I want a paper that either validates or kills this at the 10 µm scale.
+
+<details>
+<summary><b>Read the full exchange</b></summary>
 
 **James:** Luca, the frequency comb geometry you're describing — those spectral spacings match what I saw in the DRR paper. If the phononic field creates a standing wave at the right wavelength, you could theoretically anchor molecular complexes at node points. But that's a big "theoretically."
 
@@ -43,6 +58,8 @@ Most tools find papers. R.A.I.N. Lab finds disagreements.
 
 **Luca:** Will do.
 
+</details>
+
 ---
 
 ## Meet the Agents
@@ -65,18 +82,6 @@ Each agent's full personality, reasoning principles, and conversation style are 
 
 The SOUL files are part of the product. They're what make the agents feel like colleagues, not search results.
 
-## Think With Your Brain — Literally
-
-R.A.I.N. Lab includes a **TRIBE v2 integration** that predicts fMRI brain activation patterns from video, audio, or text. Feed a stimulus to the model and James returns predicted cortical response maps — run basic neuroscience experiments from inside a research meeting.
-
-- Input: video file, audio file, or raw text
-- Output: predicted fMRI activation patterns across 20,484 cortical vertices
-- Use case: validate whether a stimulus (image, sound, phrase) actually engages the brain regions your hypothesis claims
-
-This is a real sidecar service (`tools/tribev2_sidecar/`) wrapping Facebook Research's TRIBE v2 model. Setup guide and API reference are in the sidecar README.
-
-> **License: CC-BY-NC 4.0** — non-commercial use only.
-
 ---
 
 ## What You Can Do
@@ -92,23 +97,6 @@ This is a real sidecar service (`tools/tribev2_sidecar/`) wrapping Facebook Rese
 
 ---
 
-## Try It
-
-**Live demo:** [rainlabteam.vercel.app](https://rainlabteam.vercel.app/) — no setup required
-
-**On your machine:**
-
-```bash
-python rain_lab.py
-```
-
-Press Enter for demo mode, or connect to LM Studio / Ollama for full local operation.
-
-On Windows: double-click `INSTALL_RAIN.cmd` to create shortcuts.
-On macOS/Linux: run `./install.sh`.
-
----
-
 ## Why It Works
 
 | Typical research tool | R.A.I.N. Lab |
@@ -121,7 +109,57 @@ On macOS/Linux: run `./install.sh`.
 
 ---
 
-## What's Under the Hood
+## Try It
+
+**Live demo:** [rainlabteam.vercel.app](https://rainlabteam.vercel.app/) — no setup required
+
+### Prerequisites
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- Rust toolchain (optional, for the ZeroClaw runtime layer)
+- A local model via [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/) (optional — demo mode works without one)
+
+### Install & Run
+
+**macOS / Linux:**
+```bash
+./install.sh
+python rain_lab.py
+```
+
+**Windows:**
+```
+Double-click INSTALL_RAIN.cmd
+```
+
+**From source (all platforms):**
+```bash
+git clone https://github.com/topherchris420/james_library.git
+cd james_library
+uv python install 3.12
+uv venv .venv --python 3.12
+uv pip sync --python .venv/bin/python requirements-dev-pinned.txt
+uv run --python .venv/bin/python rain_lab.py --mode first-run
+```
+
+Press Enter for demo mode, or connect to LM Studio / Ollama for full local operation.
+
+---
+
+## Think With Your Brain — Literally
+
+R.A.I.N. Lab includes a **TRIBE v2 integration** that predicts fMRI brain activation patterns from video, audio, or text. Feed a stimulus to the model and James returns predicted cortical response maps — run basic neuroscience experiments from inside a research meeting.
+
+- **Input:** video file, audio file, or raw text
+- **Output:** predicted fMRI activation patterns across 20,484 cortical vertices
+- **Use case:** validate whether a stimulus (image, sound, phrase) actually engages the brain regions your hypothesis claims
+
+This is a real sidecar service (`tools/tribev2_sidecar/`) wrapping Facebook Research's TRIBE v2 model. Setup guide and API reference are in the sidecar README.
+
+> **License: CC-BY-NC 4.0** — non-commercial use only.
+
+---
 
 <details>
 <summary><b>For developers — architecture, extension points, contribution</b></summary>
@@ -145,24 +183,6 @@ Extend by implementing traits and registering in factory modules:
 - `src/memory/traits.rs` — Add a memory backend
 - `src/peripherals/traits.rs` — Add hardware board support
 
-### Developer Setup
-
-```bash
-git clone https://github.com/topherchris420/james_library.git
-cd james_library
-
-# Python
-uv python install 3.12
-uv venv .venv --python 3.12
-uv pip sync --python .venv/bin/python requirements-dev-pinned.txt
-
-# Rust (optional, for fast runtime layer)
-cargo build --release --locked
-
-# Run
-uv run --python .venv/bin/python rain_lab.py --mode first-run
-```
-
 ### Quality Checks
 
 ```bash
@@ -185,8 +205,16 @@ The codebase follows KISS, YAGNI, DRY (rule of three), SRP/ISP, fail-fast, secur
 
 | | |
 |---|---|
-| **Docs** | [Start Here](START_HERE.md) · [Beginner Guide](docs/getting-started/README.md) · [One-Click Install](docs/one-click-bootstrap.md) · [Troubleshooting](docs/troubleshooting.md) |
+| **Docs** | [Start Here](START_HERE.md) -- [Beginner Guide](docs/getting-started/README.md) -- [One-Click Install](docs/one-click-bootstrap.md) -- [Troubleshooting](docs/troubleshooting.md) |
 | **Papers** | [Research Archive](https://topherchris420.github.io/research/) |
-| **Language** | [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Русский](README.ru.md) · [Français](README.fr.md) · [Tiếng Việt](README.vi.md) |
+| **Language** | [简体中文](README.zh-CN.md) -- [日本語](README.ja.md) -- [Русский](README.ru.md) -- [Français](README.fr.md) -- [Tiếng Việt](README.vi.md) |
 
-**License:** MIT · [Vers3Dynamics](https://vers3dynamics.com/)
+---
+
+## Acknowledgments
+
+Special thanks to the **ZeroClaw** team for the Rust runtime engine that powers R.A.I.N. Lab under the hood. The performance, stability, and extensibility of the agent runtime wouldn't be possible without their foundational work. See the `crates/` directory for ZeroClaw runtime components.
+
+---
+
+**License:** MIT -- [Vers3Dynamics](https://vers3dynamics.com/)
