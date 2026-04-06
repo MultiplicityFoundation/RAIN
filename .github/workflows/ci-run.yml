@@ -180,7 +180,7 @@ jobs:
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
 
       - name: Install system dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y libudev-dev
+        run: sudo apt-get update -qq && sudo apt-get install -y libudev-dev libasound2-dev
 
       - name: Ensure web/dist placeholder exists
         run: mkdir -p web/dist && touch web/dist/.gitkeep
