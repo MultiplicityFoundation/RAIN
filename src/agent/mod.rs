@@ -11,6 +11,7 @@ pub(crate) mod runtime_support;
 pub(crate) mod tool_call_parser;
 pub(crate) mod tool_execution;
 pub(crate) mod tool_filter;
+pub(crate) mod tool_resolution;
 
 #[cfg(test)]
 mod tests;

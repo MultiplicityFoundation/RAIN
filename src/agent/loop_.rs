@@ -17,6 +17,7 @@ use crate::agent::tool_call_parser::{
     tool_call_signature,
 };
 use crate::agent::tool_filter::{compute_excluded_mcp_tools, filter_by_allowed_tools};
+use crate::agent::tool_resolution::mcp_tool_enabled;
 
 // Imports used only in `#[cfg(test)]` modules — kept behind cfg to avoid warnings.
 #[cfg(test)]
@@ -71,61 +72,6 @@ const DEFAULT_MAX_TOOL_ITERATIONS: usize = 10;
 /// Minimum user-message length (in chars) for auto-save to memory.
 /// Matches the channel-side constant in `channels/mod.rs`.
 const AUTOSAVE_MIN_MESSAGE_CHARS: usize = 20;
-
-fn glob_match_ci(pattern: &str, name: &str) -> bool {
-    match pattern.find('*') {
-        None => pattern.eq_ignore_ascii_case(name),
-        Some(star) => {
-            let prefix = &pattern[..star];
-            let suffix = &pattern[star + 1..];
-            name.len() >= prefix.len() + suffix.len()
-                && name[..prefix.len()].eq_ignore_ascii_case(prefix)
-                && name[name.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
-        }
-    }
-}
-
-fn mcp_aliases(prefixed_name: &str) -> Vec<String> {
-    let mut out = vec![prefixed_name.to_string()];
-    if let Some((namespace, tool)) = prefixed_name.split_once("__") {
-        out.push(format!("mcp:{namespace}/{tool}"));
-        out.push(format!("mcp:{namespace}/*"));
-        out.push("mcp:*".to_string());
-    }
-    out
-}
-
-fn mcp_selector_match(selector: &str, prefixed_name: &str) -> bool {
-    let selector = selector.trim();
-    !selector.is_empty()
-        && mcp_aliases(prefixed_name)
-            .iter()
-            .any(|alias| glob_match_ci(selector, alias))
-}
-
-fn mcp_tool_enabled(prefixed_name: &str, cfg: &crate::config::AgentConfig) -> bool {
-    let mut allow = crate::tools::expand_profiles(&cfg.tool_profiles);
-    allow.extend(
-        cfg.tool_allowlist
-            .iter()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty()),
-    );
-    let deny: Vec<&str> = cfg
-        .tool_denylist
-        .iter()
-        .map(String::as_str)
-        .filter(|v| !v.trim().is_empty())
-        .collect();
-
-    if cfg.strict_tool_allowlist && allow.is_empty() {
-        return false;
-    }
-
-    let allowed = allow.is_empty() || allow.iter().any(|s| mcp_selector_match(s, prefixed_name));
-    let denied = deny.iter().any(|s| mcp_selector_match(s, prefixed_name));
-    allowed && !denied
-}
 
 /// Per-runtime model switch request state shared by the tool registry and agent loop.
 #[derive(Clone, Default)]
