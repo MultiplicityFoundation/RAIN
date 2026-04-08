@@ -56,6 +56,7 @@ pub(crate) mod processor;
 pub(crate) use processor::process_channel_message;
 
 pub(crate) mod prompt;
+#[allow(unused_imports)]
 pub use prompt::{
     build_system_prompt, build_system_prompt_with_mode, build_system_prompt_with_mode_and_autonomy,
 };
@@ -131,7 +132,7 @@ use anyhow::{Context, Result};
 use portable_atomic::{AtomicU64, Ordering};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
+
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::AtomicBool;
@@ -145,8 +146,8 @@ use self::factory::build_channel_by_id;
 use self::factory::send_channel_message;
 use self::health::{ChannelHealthState, classify_health_result};
 use self::runtime_state::{
-    RuntimeConfigState, config_file_stamp, interruption_scope_key, resolved_default_model, resolved_default_provider,
-    runtime_config_store, runtime_defaults_from_config,
+    RuntimeConfigState, config_file_stamp, interruption_scope_key, resolved_default_model,
+    resolved_default_provider, runtime_config_store, runtime_defaults_from_config,
 };
 use self::sanitize::strip_tool_call_tags;
 

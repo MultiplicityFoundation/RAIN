@@ -1,44 +1,42 @@
 //! Message processing pipeline and context building.
 
 use anyhow::Result;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
-use crate::observability::{Observer, runtime_trace};
-use crate::security::AutonomyLevel;
+use crate::channels::traits;
 use crate::memory;
 use crate::memory::Memory;
-use crate::providers;
 use crate::observability::traits::ObserverEvent;
-use crate::channels::traits;
+use crate::observability::{Observer, runtime_trace};
+use crate::providers;
+use crate::security::AutonomyLevel;
 
+use crate::channels::prompt::build_channel_system_prompt;
 use crate::channels::{
-    AUTOSAVE_MIN_MESSAGE_CHARS, CHANNEL_MESSAGE_TIMEOUT_SCALE_CAP,
-    ChannelNotifyObserver, channel_message_timeout_budget_secs_with_cap,
-    log_worker_join_result, normalize_cached_channel_turns, spawn_scoped_typing_task,
-    strip_tool_result_content, ChannelRuntimeContext, CHANNEL_HOOK_MAX_OUTBOUND_CHARS, PROACTIVE_CONTEXT_BUDGET_CHARS,
-    MEMORY_CONTEXT_MAX_CHARS, MEMORY_CONTEXT_MAX_ENTRIES,
-    MEMORY_CONTEXT_ENTRY_MAX_CHARS,
-    traits::{Channel, SendMessage},
+    AUTOSAVE_MIN_MESSAGE_CHARS, CHANNEL_HOOK_MAX_OUTBOUND_CHARS, CHANNEL_MESSAGE_TIMEOUT_SCALE_CAP,
+    ChannelNotifyObserver, ChannelRouteSelection, ChannelRuntimeCommand, ChannelRuntimeContext,
+    ChatMessage, MEMORY_CONTEXT_ENTRY_MAX_CHARS, MEMORY_CONTEXT_MAX_CHARS,
+    MEMORY_CONTEXT_MAX_ENTRIES, PROACTIVE_CONTEXT_BUDGET_CHARS, RuntimeSystemPromptContext,
+    channel_message_timeout_budget_secs_with_cap,
     history::{
         append_sender_turn, compact_sender_history, proactive_trim_turns, rollback_orphan_user_turn,
     },
+    is_model_switch_requested, log_worker_join_result, normalize_cached_channel_turns, provider,
+    render_runtime_system_prompt,
     runtime_state::{
         clear_sender_history, conversation_history_key, conversation_memory_key,
-        followup_thread_id, get_route_selection,
-        mark_sender_for_new_session, maybe_apply_runtime_config_update, parse_runtime_command,
-        resolve_provider_alias, set_route_selection, take_pending_new_session,
-        runtime_defaults_snapshot,
+        followup_thread_id, get_route_selection, mark_sender_for_new_session,
+        maybe_apply_runtime_config_update, parse_runtime_command, resolve_provider_alias,
+        runtime_defaults_snapshot, set_route_selection, take_pending_new_session,
     },
     sanitize::sanitize_channel_response,
-    provider,
-    ChatMessage, ChannelRouteSelection, ChannelRuntimeCommand, Provider,
-    is_model_switch_requested, render_runtime_system_prompt, scrub_credentials,
-    RuntimeSystemPromptContext, truncate_with_ellipsis,
+    scrub_credentials, spawn_scoped_typing_task, strip_tool_result_content,
+    traits::{Channel, SendMessage},
+    truncate_with_ellipsis,
 };
-use crate::channels::prompt::{build_channel_system_prompt};
 use std::fmt::Write as _;
 
 pub(crate) fn should_skip_memory_context_entry(key: &str, content: &str) -> bool {
@@ -110,7 +108,11 @@ async fn handle_runtime_command_if_needed(
         ChannelRuntimeCommand::SetProvider(raw_provider) => {
             match resolve_provider_alias(&raw_provider) {
                 Some(provider_name) => {
-                    match ctx.provider_manager().get_or_create_with_key(&provider_name, None).await {
+                    match ctx
+                        .provider_manager()
+                        .get_or_create_with_key(&provider_name, None)
+                        .await
+                    {
                         Ok(_) => {
                             if provider_name != current.provider {
                                 current.provider = provider_name.clone();
@@ -135,9 +137,11 @@ async fn handle_runtime_command_if_needed(
                 ),
             }
         }
-        ChannelRuntimeCommand::ShowModel => {
-            provider::build_models_help_response(&current, ctx.workspace_dir.as_path(), &ctx.model_routes)
-        }
+        ChannelRuntimeCommand::ShowModel => provider::build_models_help_response(
+            &current,
+            ctx.workspace_dir.as_path(),
+            &ctx.model_routes,
+        ),
         ChannelRuntimeCommand::SetModel(raw_model) => {
             let model = raw_model.trim().trim_matches('`').to_string();
             if model.is_empty() {
@@ -333,7 +337,6 @@ pub(crate) fn extract_tool_context_summary(history: &[ChatMessage], start_index:
     format!("[Used tools: {}]", tool_names.join(", "))
 }
 
-
 pub(crate) async fn process_channel_message(
     ctx: Arc<ChannelRuntimeContext>,
     msg: traits::ChannelMessage,
@@ -424,11 +427,11 @@ pub(crate) async fn process_channel_message(
     }
 
     let runtime_defaults = runtime_defaults_snapshot(ctx.as_ref());
-    let mut active_provider = match ctx.as_ref().provider_manager().get_or_create_with_key(
-        &route.provider,
-        route.api_key.as_deref(),
-    )
-    .await
+    let mut active_provider = match ctx
+        .as_ref()
+        .provider_manager()
+        .get_or_create_with_key(&route.provider, route.api_key.as_deref())
+        .await
     {
         Ok(provider) => provider,
         Err(err) => {
@@ -1252,4 +1255,3 @@ pub(crate) async fn process_channel_message(
         }
     }
 }
-

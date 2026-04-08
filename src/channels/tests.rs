@@ -1,11 +1,16 @@
 use super::*;
 
-use crate::channels::runtime_state::{conversation_memory_key, followup_thread_id};
-use crate::channels::history::{compact_sender_history, proactive_trim_turns, append_sender_turn, rollback_orphan_user_turn};
+use crate::channels::history::{
+    append_sender_turn, compact_sender_history, proactive_trim_turns, rollback_orphan_user_turn,
+};
 use crate::channels::prompt::refreshed_new_session_system_prompt;
+use crate::channels::runtime_state::{conversation_memory_key, followup_thread_id};
 use std::time::Instant;
 
-use crate::channels::processor::{is_context_window_overflow_error, should_skip_memory_context_entry, build_memory_context, extract_tool_context_summary};
+use crate::channels::processor::{
+    build_memory_context, extract_tool_context_summary, is_context_window_overflow_error,
+    should_skip_memory_context_entry,
+};
 
 use crate::channels::runtime_state::ChannelRuntimeDefaults;
 use crate::memory::{Memory, MemoryCategory, SqliteMemory};
@@ -13,8 +18,8 @@ use crate::observability::NoopObserver;
 use crate::providers::{ChatMessage, Provider};
 use crate::tools::{Tool, ToolResult};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
 fn make_workspace() -> TempDir {
@@ -103,11 +108,7 @@ fn pacing_message_timeout_scale_max_overrides_default_cap() {
     );
     // Default cap produces the standard behavior
     assert_eq!(
-        channel_message_timeout_budget_secs_with_cap(
-            300,
-            10,
-            CHANNEL_MESSAGE_TIMEOUT_SCALE_CAP
-        ),
+        channel_message_timeout_budget_secs_with_cap(300, 10, CHANNEL_MESSAGE_TIMEOUT_SCALE_CAP),
         300 * CHANNEL_MESSAGE_TIMEOUT_SCALE_CAP
     );
 }
@@ -119,8 +120,7 @@ fn context_window_overflow_error_detector_matches_known_messages() {
     );
     assert!(is_context_window_overflow_error(&overflow_err));
 
-    let other_err =
-        anyhow::anyhow!("OpenAI Codex API error (502 Bad Gateway): error code: 502");
+    let other_err = anyhow::anyhow!("OpenAI Codex API error (502 Bad Gateway): error code: 502");
     assert!(!is_context_window_overflow_error(&other_err));
 }
 
@@ -334,8 +334,7 @@ fn compact_sender_history_keeps_recent_truncated_messages() {
     assert!(kept.iter().all(|turn| {
         let len = turn.content.chars().count();
         len <= CHANNEL_HISTORY_COMPACT_CONTENT_CHARS
-            || (len <= CHANNEL_HISTORY_COMPACT_CONTENT_CHARS + 3
-                && turn.content.ends_with("..."))
+            || (len <= CHANNEL_HISTORY_COMPACT_CONTENT_CHARS + 3 && turn.content.ends_with("..."))
     }));
 }
 
@@ -2984,9 +2983,7 @@ fn prompt_skills_include_instructions_and_tools() {
     assert!(prompt.contains("SKILL.md</location>"));
     assert!(prompt.contains("<instructions>"));
     assert!(
-        prompt.contains(
-            "<instruction>Always run cargo test before final response.</instruction>"
-        )
+        prompt.contains("<instruction>Always run cargo test before final response.</instruction>")
     );
     assert!(prompt.contains("<tools>"));
     assert!(prompt.contains("<name>lint</name>"));
@@ -3032,9 +3029,7 @@ fn prompt_skills_compact_mode_omits_instructions_but_keeps_tools() {
     assert!(prompt.contains("loaded on demand"));
     assert!(!prompt.contains("<instructions>"));
     assert!(
-        !prompt.contains(
-            "<instruction>Always run cargo test before final response.</instruction>"
-        )
+        !prompt.contains("<instruction>Always run cargo test before final response.</instruction>")
     );
     // Compact mode should still include tools so the LLM knows about them
     assert!(prompt.contains("<tools>"));
@@ -3796,9 +3791,9 @@ async fn process_channel_message_refreshes_available_skills_after_new_session() 
 
     let sent_messages = channel_impl.sent_messages.lock().await;
     assert!(
-        sent_messages.iter().any(|message| {
-            message.contains("Conversation history cleared. Starting fresh.")
-        })
+        sent_messages
+            .iter()
+            .any(|message| { message.contains("Conversation history cleared. Starting fresh.") })
     );
 }
 
@@ -4369,19 +4364,17 @@ async fn supervised_listener_refreshes_health_while_running() {
     );
 
     tokio::time::sleep(Duration::from_millis(35)).await;
-    let first_last_ok =
-        crate::health::snapshot_json()["components"][&component_name]["last_ok"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+    let first_last_ok = crate::health::snapshot_json()["components"][&component_name]["last_ok"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     assert!(!first_last_ok.is_empty());
 
     tokio::time::sleep(Duration::from_millis(70)).await;
-    let second_last_ok =
-        crate::health::snapshot_json()["components"][&component_name]["last_ok"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+    let second_last_ok = crate::health::snapshot_json()["components"][&component_name]["last_ok"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     let first = chrono::DateTime::parse_from_rfc3339(&first_last_ok)
         .expect("last_ok should be valid RFC3339");
     let second = chrono::DateTime::parse_from_rfc3339(&second_last_ok)

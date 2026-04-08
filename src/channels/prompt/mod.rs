@@ -1,12 +1,11 @@
 //! System prompt construction and identity management.
 
-use crate::channels::{ChannelRuntimeContext, BOOTSTRAP_MAX_CHARS};
+use crate::channels::maybe_restart_managed_daemon_service;
+use crate::channels::{BOOTSTRAP_MAX_CHARS, ChannelRuntimeContext};
 use crate::config::Config;
 use crate::identity;
 use crate::security::AutonomyLevel;
 use anyhow::Result;
-use crate::channels::maybe_restart_managed_daemon_service;
-use std::fmt::Write as _;
 
 pub(crate) fn channel_delivery_instructions(channel_name: &str) -> Option<&'static str> {
     match channel_name {
@@ -92,8 +91,10 @@ pub(crate) fn build_channel_system_prompt(
     prompt
 }
 
-
-pub(crate) fn replace_available_skills_section(base_prompt: &str, refreshed_skills: &str) -> String {
+pub(crate) fn replace_available_skills_section(
+    base_prompt: &str,
+    refreshed_skills: &str,
+) -> String {
     const SKILLS_HEADER: &str = "## Available Skills\n\n";
     const SKILLS_END: &str = "</available_skills>";
     const WORKSPACE_HEADER: &str = "## Workspace\n\n";
@@ -147,7 +148,6 @@ pub(crate) fn refreshed_new_session_system_prompt(ctx: &ChannelRuntimeContext) -
     );
     replace_available_skills_section(ctx.system_prompt.as_str(), &refreshed_skills)
 }
-
 
 pub(crate) fn load_openclaw_bootstrap_files(
     prompt: &mut String,
@@ -554,4 +554,3 @@ pub(crate) async fn bind_telegram_identity(config: &Config, identity: &str) -> R
     }
     Ok(())
 }
-
