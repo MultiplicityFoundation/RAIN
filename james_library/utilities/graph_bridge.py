@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import networkx as nx
+import networkx as nx  # type: ignore[import-untyped]
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -50,7 +50,7 @@ class HypergraphManager:
         Graph-R1 detection is intentionally lightweight and does not yet enable full usage.
         """
         try:
-            import graph_r1  # noqa: F401
+            import graph_r1  # type: ignore[import-not-found]  # noqa: F401
 
             return "graph-r1"
         except ImportError:

@@ -206,7 +206,7 @@ class HypothesisTree:
             if node.parent_id is not None:
                 # Simple depth estimation
                 depth = 0
-                pid = node.parent_id
+                pid: int | None = node.parent_id
                 while pid is not None and depth < 10:
                     depth += 1
                     pid = self._nodes[pid].parent_id if pid in self._nodes else None

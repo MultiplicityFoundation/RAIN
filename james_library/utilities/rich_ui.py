@@ -117,7 +117,7 @@ def progress_bar(current: int, total: int, width: int = 40, prefix: str = "Progr
     return f"{prefix}: [{bar}] {percent}%"
 
 
-def table(headers: list, rows: list, align: list = None) -> str:
+def table(headers: list, rows: list, align: list | None = None) -> str:
     """Create a simple ASCII table.
 
     Args:
@@ -218,7 +218,7 @@ def status_indicator(status: str) -> str:
     return ind[0]
 
 
-def agent_banner(name: str, role: str = None) -> str:
+def agent_banner(name: str, role: str | None = None) -> str:
     """Create agent banner with color.
 
     Args:
@@ -260,7 +260,7 @@ def highlight_keywords(text: str, keywords: list, color: str = "yellow") -> str:
     return result
 
 
-def meeting_header(topic: str, turn: int = None, max_turns: int = None) -> str:
+def meeting_header(topic: str, turn: int | None = None, max_turns: int | None = None) -> str:
     """Create meeting header.
 
     Args:
@@ -329,7 +329,7 @@ def print_panel(title: str, content: str):
     print(panel(title, content))
 
 
-def print_table(headers: list, rows: list, align: list = None):
+def print_table(headers: list, rows: list, align: list | None = None):
     """Print a table."""
     print(table(headers, rows, align))
 

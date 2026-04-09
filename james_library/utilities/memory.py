@@ -65,7 +65,7 @@ class ResearchMemory:
             return f"{name} ({e['type']}): {e['description']}"
         return f"No memory found for: {name}"
 
-    def list_entities(self, entity_type: str = None) -> str:
+    def list_entities(self, entity_type: str | None = None) -> str:
         """List all remembered entities."""
         mem = self._load()
         entities = mem.get("entities", {})
@@ -158,7 +158,7 @@ def recall_entity(name: str) -> str:
     return _get_memory().recall(name)
 
 
-def list_entities(entity_type: str = None) -> str:
+def list_entities(entity_type: str | None = None) -> str:
     """RLM wrapper for list_entities."""
     return _get_memory().list_entities(entity_type)
 
