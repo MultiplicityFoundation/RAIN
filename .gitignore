@@ -74,3 +74,11 @@ target/
 # Jupyter
 .ipynb_checkpoints/
 .gstack/
+
+# Local shadow Python package trees occasionally generated at repo root.
+# Canonical package code lives under james_library/.
+/__init__.py
+/bootstrap/
+/launcher/
+/services/
+/utilities/
