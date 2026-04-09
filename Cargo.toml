@@ -137,6 +137,10 @@ async-trait = "0.1"
 # HMAC-SHA256 (Zhipu/GLM JWT auth)
 ring = "0.17"
 
+# Unify features for rumqttc's native-tls backend so cross-target CI can build
+# without relying on a target-specific OpenSSL installation.
+native-tls = { version = "0.2.18", features = ["vendored"] }
+
 # Protobuf encode/decode (Lark WS frame codec, WhatsApp storage)
 prost = { version = "0.14", default-features = false, features = ["derive"], optional = true }
 
