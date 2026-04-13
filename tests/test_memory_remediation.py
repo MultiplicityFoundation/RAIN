@@ -225,7 +225,7 @@ def test_execute_remediation_queue_requires_claim_overlap_from_papers(tmp_path: 
     )
 
     assert review_queue["items"][0]["status"] == "pending_review"
-    assert remediation_queue["tasks"][0]["evidence"][0]["source"] == "papers\\paper.md"
+    assert remediation_queue["tasks"][0]["evidence"][0]["source"] == "papers/paper.md"
 
 
 def test_execute_remediation_queue_rejects_generic_term_overlap_without_phrase_support(tmp_path: Path) -> None:

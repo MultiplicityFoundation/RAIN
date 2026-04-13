@@ -177,7 +177,7 @@ def _gather_local_evidence(task: dict[str, Any], library_path: Path, max_hits: i
     hits.sort(key=lambda item: (-item[0], len(item[2])))
     return [
         {
-            "source": str(path.relative_to(library_path)),
+            "source": path.relative_to(library_path).as_posix(),
             "quote": snippet,
             "support_score": round(score, 2),
         }
