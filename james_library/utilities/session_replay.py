@@ -129,9 +129,21 @@ def run_replay(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Replay gold prompt cases, collect session artifacts, and score them.")
-    parser.add_argument("--gold", type=str, default="benchmark_data/session_eval_gold.json", help="Gold prompt set JSON.")
-    parser.add_argument("--artifact-dir", type=str, default=None, help="Directory where session artifacts are expected.")
+    parser = argparse.ArgumentParser(
+        description="Replay gold prompt cases, collect session artifacts, and score them."
+    )
+    parser.add_argument(
+        "--gold",
+        type=str,
+        default="benchmark_data/session_eval_gold.json",
+        help="Gold prompt set JSON.",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        type=str,
+        default=None,
+        help="Directory where session artifacts are expected.",
+    )
     parser.add_argument("--report-dir", type=str, default=None, help="Directory for replay reports.")
     parser.add_argument(
         "--command-template",
@@ -144,8 +156,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     library_path = Path(args.library).resolve()
-    artifact_dir = Path(args.artifact_dir).resolve() if args.artifact_dir else _default_artifact_dir(library_path)
-    report_dir = Path(args.report_dir).resolve() if args.report_dir else _default_report_dir(library_path)
+    artifact_dir = (
+        Path(args.artifact_dir).resolve()
+        if args.artifact_dir
+        else _default_artifact_dir(library_path)
+    )
+    report_dir = (
+        Path(args.report_dir).resolve()
+        if args.report_dir
+        else _default_report_dir(library_path)
+    )
 
     report = run_replay(
         gold_path=args.gold,
@@ -162,7 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     print("R.A.I.N. Session Replay")
     print(f"Cases run: {report['summary']['cases_run']}")
     print(f"Artifacts captured: {report['summary']['artifacts_captured']}")
-    print(f"Passing cases: {report['eval']['summary']['passing_cases']} / {report['eval']['summary']['matched_cases']}")
+    print(
+        f"Passing cases: {report['eval']['summary']['passing_cases']} / "
+        f"{report['eval']['summary']['matched_cases']}"
+    )
     print(f"Report: {report['report_path']}")
     return 0
 

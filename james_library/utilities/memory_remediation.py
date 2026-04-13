@@ -269,7 +269,12 @@ def execute_remediation_queue(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Create an evidence-gathering remediation queue from governed-memory review items.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Create an evidence-gathering remediation queue from governed-memory "
+            "review items."
+        )
+    )
     parser.add_argument(
         "--review-queue",
         type=str,
@@ -282,10 +287,29 @@ def main(argv: list[str] | None = None) -> int:
         default="state/memory_remediation_queue.json",
         help="Output remediation queue path.",
     )
-    parser.add_argument("--top-n", type=int, default=5, help="Maximum number of new remediation tasks to create.")
-    parser.add_argument("--execute", action="store_true", help="Execute pending remediation tasks instead of only generating them.")
-    parser.add_argument("--library", type=str, default=".", help="Library/repo root for local evidence search.")
-    parser.add_argument("--max-tasks", type=int, default=5, help="Maximum number of pending remediation tasks to execute.")
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=5,
+        help="Maximum number of new remediation tasks to create.",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Execute pending remediation tasks instead of only generating them.",
+    )
+    parser.add_argument(
+        "--library",
+        type=str,
+        default=".",
+        help="Library/repo root for local evidence search.",
+    )
+    parser.add_argument(
+        "--max-tasks",
+        type=int,
+        default=5,
+        help="Maximum number of pending remediation tasks to execute.",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args(argv)
 
@@ -313,7 +337,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print("R.A.I.N. Memory Remediation")
     if args.execute:
-        print(f"Tasks executed: {len([t for t in output['remediation_queue']['tasks'] if t.get('status') != 'pending'])}")
+        executed = len(
+            [
+                task
+                for task in output["remediation_queue"]["tasks"]
+                if task.get("status") != "pending"
+            ]
+        )
+        print(f"Tasks executed: {executed}")
     else:
         print(f"Tasks: {len(output['tasks'])}")
     print(f"Queue path: {Path(args.remediation_queue).resolve()}")

@@ -6,13 +6,16 @@ from james_library.utilities.memory_governance import (
     update_review_queue,
 )
 
+TOPIC = "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?"
+CLAIM = "I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible."
+
 
 def _write_artifact(path: Path) -> Path:
     payload = {
         "schema_version": "rain-session-artifact/v1",
         "session_id": "sess-governed",
         "status": "completed",
-        "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+        "topic": TOPIC,
         "model": "test-model",
         "recursive_depth": 1,
         "started_at": "2026-04-13T00:00:00Z",
@@ -28,10 +31,10 @@ def _write_artifact(path: Path) -> Path:
                 "index": 1,
                 "timestamp": "2026-04-13T00:00:01Z",
                 "agent": "James",
-                "content": "I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible.",
+                "content": CLAIM,
                 "metadata": {"verified_count": 1, "unverified_count": 0, "citation_rate": 1.0},
                 "grounded_response": {
-                    "answer": "I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible.",
+                    "answer": CLAIM,
                     "confidence": 0.82,
                     "provenance": ["paper.md"],
                     "evidence": [{"source": "paper.md", "quote": "quoted evidence"}],
@@ -141,7 +144,15 @@ def test_extract_review_candidates_filters_low_signal_turns(tmp_path: Path) -> N
                 "agent": "James",
                 "content": "Meeting adjourned. Great discussion everyone!",
                 "metadata": {"verified_count": 0, "unverified_count": 1, "citation_rate": 0.0},
-                "grounded_response": {"answer": "", "confidence": 0.2, "provenance": [], "evidence": [], "repro_steps": [], "grounded": False, "red_badge": True},
+                    "grounded_response": {
+                        "answer": "",
+                        "confidence": 0.2,
+                        "provenance": [],
+                        "evidence": [],
+                        "repro_steps": [],
+                        "grounded": False,
+                        "red_badge": True,
+                    },
             },
             {
                 "index": 2,
@@ -149,7 +160,15 @@ def test_extract_review_candidates_filters_low_signal_turns(tmp_path: Path) -> N
                 "agent": "Jasmine",
                 "content": "[Jasmine is processing... Let me gather my thoughts on this topic.]",
                 "metadata": {"verified_count": 0, "unverified_count": 1, "citation_rate": 0.0},
-                "grounded_response": {"answer": "", "confidence": 0.2, "provenance": [], "evidence": [], "repro_steps": [], "grounded": False, "red_badge": True},
+                    "grounded_response": {
+                        "answer": "",
+                        "confidence": 0.2,
+                        "provenance": [],
+                        "evidence": [],
+                        "repro_steps": [],
+                        "grounded": False,
+                        "red_badge": True,
+                    },
             },
             {
                 "index": 3,
@@ -157,7 +176,15 @@ def test_extract_review_candidates_filters_low_signal_turns(tmp_path: Path) -> N
                 "agent": "Elena",
                 "content": "The key unresolved issue is whether the bound closes under realistic noise.",
                 "metadata": {"verified_count": 0, "unverified_count": 1, "citation_rate": 0.0},
-                "grounded_response": {"answer": "", "confidence": 0.2, "provenance": [], "evidence": [], "repro_steps": [], "grounded": False, "red_badge": True},
+                    "grounded_response": {
+                        "answer": "",
+                        "confidence": 0.2,
+                        "provenance": [],
+                        "evidence": [],
+                        "repro_steps": [],
+                        "grounded": False,
+                        "red_badge": True,
+                    },
             },
         ],
     }
@@ -175,7 +202,7 @@ def test_update_review_queue_prioritizes_failed_replay_cases(tmp_path: Path) -> 
     replay_report = {
         "cases": [
             {
-                "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+                "topic": TOPIC,
                 "failures": [
                     "grounded_turn_ratio below threshold",
                     "actionability_score below threshold",
@@ -201,11 +228,11 @@ def test_update_review_queue_reads_failures_from_eval_cases_shape(tmp_path: Path
     artifact_path = _write_artifact(tmp_path / "artifact.json")
     queue_path = tmp_path / "memory_review_queue.json"
     replay_report = {
-        "cases": [{"topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?"}],
+        "cases": [{"topic": TOPIC}],
         "eval": {
             "cases": [
                 {
-                    "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+                    "topic": TOPIC,
                     "failures": ["grounded_turn_ratio below threshold"],
                 }
             ]

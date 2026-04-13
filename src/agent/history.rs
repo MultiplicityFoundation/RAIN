@@ -1,5 +1,5 @@
-use crate::memory::{self, Memory};
 use crate::memory::MemoryEntry;
+use crate::memory::{self, Memory};
 use crate::providers::{ChatMessage, Provider};
 use crate::security::{ModelInputSource, sanitize_for_model_input};
 use crate::util::truncate_with_ellipsis;
@@ -210,7 +210,8 @@ pub(crate) async fn build_context(
 ) -> String {
     let mut context = String::new();
 
-    if let Ok(relevant) = recall_relevant_entries(mem, user_msg, min_relevance_score, session_id).await
+    if let Ok(relevant) =
+        recall_relevant_entries(mem, user_msg, min_relevance_score, session_id).await
     {
         if !relevant.is_empty() {
             context.push_str("[Memory context]\n");

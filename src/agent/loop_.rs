@@ -2568,10 +2568,14 @@ pub async fn process_message(
         session_id,
     )
     .await;
-    let artifact_evidence =
-        recall_relevant_entries(mem.as_ref(), message, config.memory.min_relevance_score, session_id)
-            .await
-            .unwrap_or_default();
+    let artifact_evidence = recall_relevant_entries(
+        mem.as_ref(),
+        message,
+        config.memory.min_relevance_score,
+        session_id,
+    )
+    .await
+    .unwrap_or_default();
     let rag_limit = if config.agent.compact_context { 2 } else { 5 };
     let hw_context = hardware_rag
         .as_ref()
@@ -2616,7 +2620,11 @@ pub async fn process_message(
     })
     .await;
 
-    let status = if result.is_ok() { "completed" } else { "failed" };
+    let status = if result.is_ok() {
+        "completed"
+    } else {
+        "failed"
+    };
     let artifact_response = match &result {
         Ok(response) => response.clone(),
         Err(err) => err.to_string(),

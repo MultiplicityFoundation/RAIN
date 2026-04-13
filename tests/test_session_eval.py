@@ -7,6 +7,31 @@ from james_library.utilities.session_eval import (
     load_gold_cases,
 )
 
+TOPIC = "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?"
+
+
+def _turn_payload(*, index: int, agent: str, content: str, grounded: bool) -> dict[str, object]:
+    return {
+        "index": index,
+        "timestamp": f"2026-04-13T00:00:0{index}Z",
+        "agent": agent,
+        "content": content,
+        "metadata": {
+            "verified_count": 1 if grounded else 0,
+            "unverified_count": 0 if grounded else 1,
+            "citation_rate": 1.0 if grounded else 0.0,
+        },
+        "grounded_response": {
+            "answer": content,
+            "confidence": 0.8 if grounded else 0.2,
+            "provenance": ["paper.md"] if grounded else [],
+            "evidence": [{"source": "paper.md", "quote": "quoted evidence"}] if grounded else [],
+            "repro_steps": ["inspect artifact"],
+            "grounded": grounded,
+            "red_badge": not grounded,
+        },
+    }
+
 
 def _write_artifact(path: Path, topic: str, grounded: bool, disagreement_text: str, next_step_text: str) -> Path:
     payload = {
@@ -25,38 +50,8 @@ def _write_artifact(path: Path, topic: str, grounded: bool, disagreement_text: s
         "metrics": {"citation_accuracy": 0.8},
         "summary": next_step_text,
         "turns": [
-            {
-                "index": 1,
-                "timestamp": "2026-04-13T00:00:01Z",
-                "agent": "James",
-                "content": disagreement_text,
-                "metadata": {"verified_count": 1 if grounded else 0, "unverified_count": 0 if grounded else 1, "citation_rate": 1.0 if grounded else 0.0},
-                "grounded_response": {
-                    "answer": disagreement_text,
-                    "confidence": 0.8 if grounded else 0.2,
-                    "provenance": ["paper.md"] if grounded else [],
-                    "evidence": [{"source": "paper.md", "quote": "quoted evidence"}] if grounded else [],
-                    "repro_steps": ["inspect artifact"],
-                    "grounded": grounded,
-                    "red_badge": not grounded,
-                },
-            },
-            {
-                "index": 2,
-                "timestamp": "2026-04-13T00:00:02Z",
-                "agent": "Elena",
-                "content": next_step_text,
-                "metadata": {"verified_count": 1 if grounded else 0, "unverified_count": 0 if grounded else 1, "citation_rate": 1.0 if grounded else 0.0},
-                "grounded_response": {
-                    "answer": next_step_text,
-                    "confidence": 0.8 if grounded else 0.2,
-                    "provenance": ["paper.md"] if grounded else [],
-                    "evidence": [{"source": "paper.md", "quote": "quoted evidence"}] if grounded else [],
-                    "repro_steps": ["inspect artifact"],
-                    "grounded": grounded,
-                    "red_badge": not grounded,
-                },
-            },
+            _turn_payload(index=1, agent="James", content=disagreement_text, grounded=grounded),
+            _turn_payload(index=2, agent="Elena", content=next_step_text, grounded=grounded),
         ],
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
@@ -66,10 +61,16 @@ def _write_artifact(path: Path, topic: str, grounded: bool, disagreement_text: s
 def test_evaluate_artifact_scores_grounding_disagreement_and_actionability(tmp_path: Path) -> None:
     artifact_path = _write_artifact(
         tmp_path / "artifact.json",
-        topic="Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+        topic=TOPIC,
         grounded=True,
-        disagreement_text="I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible.",
-        next_step_text="Next step: run the thermal numbers and measure whether the 10 µm target survives.",
+        disagreement_text=(
+            "I disagree with the optimistic framing, but the cited paper keeps "
+            "the mechanism plausible."
+        ),
+        next_step_text=(
+            "Next step: run the thermal numbers and measure whether the 10 Âµm "
+            "target survives."
+        ),
     )
 
     result = evaluate_artifact(artifact_path)
@@ -84,7 +85,7 @@ def test_evaluate_artifact_scores_grounding_disagreement_and_actionability(tmp_p
 def test_evaluate_artifacts_against_gold_flags_failures(tmp_path: Path) -> None:
     artifact_path = _write_artifact(
         tmp_path / "artifact.json",
-        topic="Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+        topic=TOPIC,
         grounded=False,
         disagreement_text="This sounds fine.",
         next_step_text="Interesting discussion.",
@@ -95,7 +96,7 @@ def test_evaluate_artifacts_against_gold_flags_failures(tmp_path: Path) -> None:
             [
                 {
                     "id": "phononic-assembly",
-                    "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
+                    "topic": TOPIC,
                     "min_grounded_turn_ratio": 0.5,
                     "require_disagreement": True,
                     "min_actionability_score": 0.5,

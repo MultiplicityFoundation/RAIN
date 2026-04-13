@@ -2129,7 +2129,10 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
             " validate (check system), models (list AI models), status (show status),"
             " onboard (first-time"
             " setup), rlm (tool-exec), godot (chat + visual), hello-os"
-            " (executable), compile (build knowledge), eval (score session artifacts), replay (run gold cases + score artifacts), memory-review (build governed memory queue), memory-remediate (create evidence-gathering tasks), preflight (env checks),"
+            " (executable), compile (build knowledge), eval (score session artifacts),"
+            " replay (run gold cases + score artifacts), memory-review (build governed"
+            " memory queue), memory-remediate (create evidence-gathering tasks),"
+            " preflight (env checks),"
             " backup (snapshot), first-run (onboarding)"
         ),
     )

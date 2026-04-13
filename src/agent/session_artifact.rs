@@ -98,7 +98,10 @@ fn build_grounded_response(
         provenance,
         evidence,
         repro_steps: vec![
-            format!("Inspect runtime traces under {}", workspace_dir.join("state").display()),
+            format!(
+                "Inspect runtime traces under {}",
+                workspace_dir.join("state").display()
+            ),
             "Review this artifact for the exact request and response pair".to_string(),
         ],
         grounded,

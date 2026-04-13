@@ -25,10 +25,10 @@
 //!  20. Idempotent system prompt insertion
 
 use crate::agent::agent::{Agent, ToolDispatchMode};
+use crate::agent::loop_::build_tool_instructions_from_specs;
 use crate::agent::session_artifact::{
     write_single_message_artifact, write_single_message_artifact_with_memory,
 };
-use crate::agent::loop_::build_tool_instructions_from_specs;
 use crate::agent::tool_call_parser::{parse_tool_call_value, parse_tool_calls};
 use crate::config::{AgentConfig, MemoryConfig};
 use crate::memory::{self, Memory};
@@ -1212,7 +1212,8 @@ fn single_message_artifact_uses_python_compatible_schema() {
     )
     .unwrap();
 
-    let payload: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let payload: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
 
     assert_eq!(payload["schema_version"], "rain-session-artifact/v1");
     assert_eq!(payload["session_id"], "sess-rust");
@@ -1256,7 +1257,8 @@ fn single_message_artifact_includes_memory_evidence_when_available() {
     )
     .unwrap();
 
-    let payload: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let payload: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let grounded = &payload["turns"][1]["grounded_response"];
 
     assert_eq!(grounded["grounded"], serde_json::Value::Bool(true));

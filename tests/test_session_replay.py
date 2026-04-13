@@ -2,8 +2,67 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from james_library.utilities.session_replay import run_replay
 import james_library.utilities.session_replay as replay_module
+from james_library.utilities.session_replay import run_replay
+
+TOPIC = "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?"
+
+
+def _gold_case() -> dict[str, object]:
+    return {
+        "id": "case-1",
+        "topic": TOPIC,
+        "min_grounded_turn_ratio": 0.5,
+        "require_disagreement": True,
+        "min_actionability_score": 0.5,
+    }
+
+
+def _artifact_payload() -> dict[str, object]:
+    return {
+        "schema_version": "rain-session-artifact/v1",
+        "session_id": "case-1",
+        "status": "completed",
+        "topic": TOPIC,
+        "model": "fake-model",
+        "recursive_depth": 1,
+        "started_at": "2026-04-13T00:00:00Z",
+        "completed_at": "2026-04-13T00:01:00Z",
+        "library_path": ".",
+        "log_path": "./meeting.log",
+        "loaded_papers_count": 1,
+        "loaded_papers": ["paper.md"],
+        "metrics": {"citation_accuracy": 0.9},
+        "summary": "Next step: run the thermal numbers and compare against the 10 Âµm target.",
+        "turns": [
+            {
+                "index": 1,
+                "timestamp": "2026-04-13T00:00:01Z",
+                "agent": "James",
+                "content": (
+                    "I disagree with the optimistic framing, but the cited paper "
+                    "keeps the mechanism plausible."
+                ),
+                "metadata": {
+                    "verified_count": 1,
+                    "unverified_count": 0,
+                    "citation_rate": 1.0,
+                },
+                "grounded_response": {
+                    "answer": (
+                        "I disagree with the optimistic framing, but the cited "
+                        "paper keeps the mechanism plausible."
+                    ),
+                    "confidence": 0.8,
+                    "provenance": ["paper.md"],
+                    "evidence": [{"source": "paper.md", "quote": "quoted evidence"}],
+                    "repro_steps": ["inspect artifact"],
+                    "grounded": True,
+                    "red_badge": False,
+                },
+            }
+        ],
+    }
 
 
 def test_run_replay_executes_cases_collects_artifacts_and_writes_report(tmp_path: Path) -> None:
@@ -12,20 +71,7 @@ def test_run_replay_executes_cases_collects_artifacts_and_writes_report(tmp_path
     gold_path = tmp_path / "gold.json"
     emitter_path = tmp_path / "emit_artifact.py"
 
-    gold_path.write_text(
-        json.dumps(
-            [
-                {
-                    "id": "case-1",
-                    "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
-                    "min_grounded_turn_ratio": 0.5,
-                    "require_disagreement": True,
-                    "min_actionability_score": 0.5,
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
+    gold_path.write_text(json.dumps([_gold_case()]), encoding="utf-8")
 
     emitter_path.write_text(
         "\n".join(
@@ -39,38 +85,9 @@ def test_run_replay_executes_cases_collects_artifacts_and_writes_report(tmp_path
                 "args = parser.parse_args()",
                 "artifact_dir = Path(args.artifact_dir)",
                 "artifact_dir.mkdir(parents=True, exist_ok=True)",
-                "payload = {",
-                "  'schema_version': 'rain-session-artifact/v1',",
-                "  'session_id': args.case_id,",
-                "  'status': 'completed',",
-                "  'topic': args.topic,",
-                "  'model': 'fake-model',",
-                "  'recursive_depth': 1,",
-                "  'started_at': '2026-04-13T00:00:00Z',",
-                "  'completed_at': '2026-04-13T00:01:00Z',",
-                "  'library_path': '.',",
-                "  'log_path': './meeting.log',",
-                "  'loaded_papers_count': 1,",
-                "  'loaded_papers': ['paper.md'],",
-                "  'metrics': {'citation_accuracy': 0.9},",
-                "  'summary': 'Next step: run the thermal numbers and compare against the 10 µm target.',",
-                "  'turns': [",
-                "    {",
-                "      'index': 1, 'timestamp': '2026-04-13T00:00:01Z', 'agent': 'James',",
-                "      'content': 'I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible.',",
-                "      'metadata': {'verified_count': 1, 'unverified_count': 0, 'citation_rate': 1.0},",
-                "      'grounded_response': {",
-                "        'answer': 'I disagree with the optimistic framing, but the cited paper keeps the mechanism plausible.',",
-                "        'confidence': 0.8,",
-                "        'provenance': ['paper.md'],",
-                "        'evidence': [{'source': 'paper.md', 'quote': 'quoted evidence'}],",
-                "        'repro_steps': ['inspect artifact'],",
-                "        'grounded': True,",
-                "        'red_badge': False,",
-                "      },",
-                "    }",
-                "  ]",
-                "}",
+                "payload = " + repr(_artifact_payload()),
+                "payload['session_id'] = args.case_id",
+                "payload['topic'] = args.topic",
                 "path = artifact_dir / f'session_{args.case_id}.json'",
                 "path.write_text(json.dumps(payload), encoding='utf-8')",
             ]
@@ -78,11 +95,15 @@ def test_run_replay_executes_cases_collects_artifacts_and_writes_report(tmp_path
         encoding="utf-8",
     )
 
+    command_template = (
+        f'python "{emitter_path}" --artifact-dir "{{artifact_dir}}" '
+        f'--case-id "{{case_id}}" --topic "{{topic}}"'
+    )
     result = run_replay(
         gold_path=gold_path,
         artifact_dir=artifact_dir,
         report_dir=report_dir,
-        command_template=f'python "{emitter_path}" --artifact-dir "{{artifact_dir}}" --case-id "{{case_id}}" --topic "{{topic}}"',
+        command_template=command_template,
         library_path=tmp_path,
     )
 
@@ -97,60 +118,12 @@ def test_run_replay_tolerates_missing_decoded_stdout(tmp_path: Path, monkeypatch
     report_dir = tmp_path / "reports"
     gold_path = tmp_path / "gold.json"
 
-    gold_path.write_text(
-        json.dumps(
-            [
-                {
-                    "id": "case-1",
-                    "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
-                    "min_grounded_turn_ratio": 0.5,
-                    "require_disagreement": True,
-                    "min_actionability_score": 0.5,
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
+    gold_path.write_text(json.dumps([_gold_case()]), encoding="utf-8")
 
     def _fake_run(*args, **kwargs):
         artifact_dir.mkdir(parents=True, exist_ok=True)
         (artifact_dir / "session_case-1.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "rain-session-artifact/v1",
-                    "session_id": "case-1",
-                    "status": "completed",
-                    "topic": "Could acoustic interference patterns guide molecular assembly the way DNA guides cell growth?",
-                    "model": "fake-model",
-                    "recursive_depth": 1,
-                    "started_at": "2026-04-13T00:00:00Z",
-                    "completed_at": "2026-04-13T00:01:00Z",
-                    "library_path": ".",
-                    "log_path": "./meeting.log",
-                    "loaded_papers_count": 1,
-                    "loaded_papers": ["paper.md"],
-                    "metrics": {"citation_accuracy": 0.9},
-                    "summary": "Next step: run the thermal numbers.",
-                    "turns": [
-                        {
-                            "index": 1,
-                            "timestamp": "2026-04-13T00:00:01Z",
-                            "agent": "James",
-                            "content": "I disagree with the optimistic framing.",
-                            "metadata": {"verified_count": 1, "unverified_count": 0, "citation_rate": 1.0},
-                            "grounded_response": {
-                                "answer": "I disagree with the optimistic framing.",
-                                "confidence": 0.8,
-                                "provenance": ["paper.md"],
-                                "evidence": [{"source": "paper.md", "quote": "quoted evidence"}],
-                                "repro_steps": ["inspect artifact"],
-                                "grounded": True,
-                                "red_badge": False,
-                            },
-                        }
-                    ],
-                }
-            ),
+            json.dumps(_artifact_payload()),
             encoding="utf-8",
         )
         return SimpleNamespace(returncode=0, stdout=None, stderr=None)
