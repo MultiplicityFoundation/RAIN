@@ -26,23 +26,56 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Resolve changed workflow files
+              id: changed
+              shell: bash
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+              run: |
+                  set -euo pipefail
+                  base="$BASE_SHA"
+                  if [[ "$EVENT_NAME" != "pull_request" && "$base" =~ ^0+$ ]]; then
+                    base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+                  fi
+
+                  if [[ -n "$base" ]]; then
+                    files="$(git diff --name-only "$base" HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/*.yml' '.github/*.yaml' || true)"
+                  else
+                    files="$(git diff-tree --no-commit-id --name-only -r HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/*.yml' '.github/*.yaml' || true)"
+                  fi
+
+                  {
+                    if [[ -n "$files" ]]; then
+                      echo "count=$(printf '%s\n' "$files" | sed '/^$/d' | wc -l | tr -d ' ')"
+                    else
+                      echo "count=0"
+                    fi
+                    echo "files<<'EOF'"
+                    printf '%s\n' "$files"
+                    echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
 
             - name: Fail on tabs in workflow files
+              if: steps.changed.outputs.count != '0'
               shell: bash
+              env:
+                  CHANGED_FILES: ${{ steps.changed.outputs.files }}
               run: |
                   set -euo pipefail
                   python - <<'PY'
                   from __future__ import annotations
 
+                  import os
                   import pathlib
                   import sys
 
-                  root = pathlib.Path(".github/workflows")
+                  files = [pathlib.Path(line) for line in os.environ["CHANGED_FILES"].splitlines() if line.strip()]
                   bad: list[str] = []
-                  for path in sorted(root.rglob("*.yml")):
-                    if b"\t" in path.read_bytes():
-                      bad.append(str(path))
-                  for path in sorted(root.rglob("*.yaml")):
+                  for path in files:
                     if b"\t" in path.read_bytes():
                       bad.append(str(path))
 
@@ -59,6 +92,50 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+              with:
+                  fetch-depth: 0
 
-            - name: Lint GitHub workflows
-              uses: rhysd/actionlint@393031adb9afb225ee52ae2ccd7a5af5525e03e8 # v1.7.11
+            - name: Resolve changed workflow files
+              id: changed
+              shell: bash
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+              run: |
+                  set -euo pipefail
+                  base="$BASE_SHA"
+                  if [[ "$EVENT_NAME" != "pull_request" && "$base" =~ ^0+$ ]]; then
+                    base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+                  fi
+
+                  if [[ -n "$base" ]]; then
+                    files="$(git diff --name-only "$base" HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/*.yml' '.github/*.yaml' || true)"
+                  else
+                    files="$(git diff-tree --no-commit-id --name-only -r HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml' '.github/*.yml' '.github/*.yaml' || true)"
+                  fi
+
+                  {
+                    if [[ -n "$files" ]]; then
+                      echo "count=$(printf '%s\n' "$files" | sed '/^$/d' | wc -l | tr -d ' ')"
+                    else
+                      echo "count=0"
+                    fi
+                    echo "files<<'EOF'"
+                    printf '%s\n' "$files"
+                    echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Install actionlint
+              if: steps.changed.outputs.count != '0'
+              shell: bash
+              run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+            - name: Lint changed GitHub workflows
+              if: steps.changed.outputs.count != '0'
+              shell: bash
+              env:
+                  CHANGED_FILES: ${{ steps.changed.outputs.files }}
+              run: |
+                  set -euo pipefail
+                  mapfile -t files <<< "${CHANGED_FILES}"
+                  "$HOME/go/bin/actionlint" "${files[@]}"
